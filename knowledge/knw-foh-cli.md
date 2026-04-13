@@ -1,16 +1,40 @@
-# Knowledge: Flint Orbh CLI Reference
+# Knowledge: Flint OrbH CLI Reference
 
 Complete reference for `flint orbh` commands. These are the commands you use to communicate with the outside world during a headless orbh session.
+
+## Profiles
+
+Profiles are pre-configured runtime targets with model and reasoning effort settings. Use `flint orbh profiles` to see all available profiles. Always launch with a profile rather than a bare runtime.
+
+```bash
+flint orbh profiles                                     # List all profiles
+flint orbh launch claude/opus-max "<prompt>"             # Launch with a specific profile
+flint orbh request claude/opus-max "<prompt>"            # Request with a specific profile
+```
+
+### Recommended Profiles
+
+| Task Type | Profile | Why |
+|-----------|---------|-----|
+| **Default / general** | `claude/opus-max` | Best reasoning for Flint tasks, research, planning |
+| **Coding tasks** | `codex/high` | Optimized for code generation and file editing |
+| **Fast / simple** | `claude/sonnet` | Lower cost for lightweight tasks |
+| **Parallel batch** | `codex/medium` | Good throughput for many concurrent tasks |
+
+When dispatching subagents as an orchestrator, pick the profile based on the task:
+- Research, design, review, Mesh artifacts → `claude/opus-max`
+- Implement code, refactor, write tests → `codex/high`
+- Quick lookups, simple edits → `claude/sonnet` or `codex/medium`
 
 ## Launch Commands (called by humans)
 
 ```bash
-flint orbh launch claude "<prompt>"                     # Launch a headless Claude Code session
-flint orbh launch codex "<prompt>"                      # Launch a headless Codex session
-flint orbh launch claude "<prompt>" --continues <id>    # Launch as continuation (new session, linked)
-flint orbh launch claude "<prompt>" --max-turns <n>     # Limit agent turns
-flint orbh launch claude "<prompt>" --model <model>     # Model override
-flint orbh resume <id> [prompt]                         # Resume existing session (adds new run)
+flint orbh launch claude/opus-max "<prompt>"             # Launch with profile (preferred)
+flint orbh launch codex/high "<prompt>"                  # Launch Codex with profile
+flint orbh launch claude "<prompt>"                      # Launch with default model
+flint orbh launch claude "<prompt>" --continues <id>     # Launch as continuation (new session, linked)
+flint orbh launch claude "<prompt>" --max-turns <n>      # Limit agent turns
+flint orbh resume <id> [prompt]                          # Resume existing session (adds new run)
 ```
 
 ## Session Management (called by humans)
@@ -38,6 +62,7 @@ flint orbh register <id> "<title>" "<description>"       # Register with a title
 flint orbh status <id> <enum>                           # Set lifecycle status
 flint orbh return <id> "<result markdown>"              # Store final result and finish session
 flint orbh artifact <id> "<artifact path>"              # Track an artifact you produced
+flint orbh result <id>                                  # Get raw result payload of a finished session (stdout only)
 ```
 
 ### The `return` Command
@@ -60,6 +85,59 @@ The human reads this result via `flint orbh inspect <id>`. Do NOT rely on termin
 | `failed` | Error occurred | On unrecoverable error |
 | `cancelled` | Session was killed | Set by `flint orbh kill` |
 
+## Orchestrator Commands (called by manager agents)
+
+These commands enable an interactive agent session to dispatch, continue, and collect results from subagent sessions.
+
+```bash
+flint orbh request -q claude/opus-max "<prompt>"         # Quiet dispatch — raw result only (use from agent sessions)
+flint orbh request -q codex/high "<prompt>"              # Quiet dispatch for coding tasks
+flint orbh request -q -c <id> "<prompt>"                 # Quiet continue — resume and get raw result
+flint orbh request claude/opus-max "<prompt>"            # Interactive dispatch (spinner + result box)
+flint orbh request claude/opus-max "<prompt>" --stream   # Stream live transcript while waiting
+flint orbh result <id>                                   # Get raw result payload (stdout, no formatting)
+flint orbh wait <id1> [id2...]                           # Block until all sessions finish, print results in order
+flint orbh wait <id1> <id2> --timeout 600                # Wait with timeout
+```
+
+### `request` — Synchronous Subagent Dispatch
+
+`request` is the primary orchestration primitive. It launches (or resumes) a subagent and blocks the calling process until the subagent finishes. The subagent's `return` output comes back on stdout.
+
+**Quiet mode (`-q` / `--quiet`):**
+When calling `request` from an agent session (bash tool), **always use `-q`**. Without it, the command outputs spinners and formatted result boxes that pollute your context. With `-q`, you get only the raw result on stdout — same as calling `result` after the session finishes.
+
+**Launch mode** — `flint orbh request [-q] <runtime> "prompt"`:
+- Creates a new session, spawns the harness, waits for completion
+- Supports `--continues <id>` to link as a continuation (new session, linked to old one)
+- Supports `--max-turns`, `--budget`, `--model`, `--title`, `--description`
+
+**Continue mode** — `flint orbh request [-q] -c <id> "prompt"`:
+- Resumes an existing session — the subagent keeps its full context from the previous run
+- Appends a new run to the session (same as `resume` but with blocking wait)
+- Use this for iterative work: dispatch → review result → continue with follow-up
+
+### `result` — Raw Result Collection
+
+Returns just the `return` payload of a finished session to stdout. No session metadata, no formatting. Exits non-zero if the session isn't finished or has no result.
+
+Use this to read subagent outputs into variables:
+```bash
+output=$(flint orbh result <id>)
+```
+
+### `wait` — Parallel Result Collection
+
+Blocks until all specified sessions reach a terminal status, then prints each result labeled by session ID. Results appear in the order the IDs were specified, not completion order.
+
+Use this after launching multiple requests in parallel:
+```bash
+flint orbh launch codex/high "implement feature A" &  # launches, returns immediately
+flint orbh launch codex/high "implement feature B" &
+# ... then collect results:
+flint orbh wait <id-A> <id-B>
+```
+
 ## Interface Commands (called by agents)
 
 ```bash
@@ -67,7 +145,7 @@ flint orbh set <id> <key> <value>                       # Write a key-value pair
 flint orbh get <id> <key>                               # Read a key value (stdout)
 flint orbh ask <id> "<question>"                        # Block until human responds
 flint orbh ask <id> "<question>" --timeout 7200         # Custom timeout (default: 3600s)
-flint orbh request <id> "<question>"                    # Post question, exit immediately
+flint orbh request <id> "<question>"                    # Post deferred question, exit immediately
 ```
 
 ### The `ask` Command
@@ -106,7 +184,7 @@ You can write any key you want. Some commonly useful ones:
 
 ## Session File
 
-All session data is stored in `.orbh/sessions/<id>.json`. The structure:
+All session data is stored in `.flint/sessions/<id>.json`. The structure:
 
 ```json
 {
@@ -159,20 +237,3 @@ All session data is stored in `.orbh/sessions/<id>.json`. The structure:
 - **`interface`** — Free-form key-value pairs you control entirely.
 - **`status`** — Session lifecycle: `queued`, `in-progress`, `blocked`, `deferred`, `finished`, `failed`, `cancelled`.
 
-## Differences from `flint agent`
-
-If you see references to `flint agent session` commands, use the equivalent `flint orbh` command instead:
-
-| Old (`flint agent`) | New (`flint orbh`) |
-|---------------------|-------------------|
-| `flint agent session <id> register --description "..."` | `flint orbh register <id> "<title>" "<description>"` |
-| `flint agent session <id> status <s>` | `flint orbh status <id> <s>` |
-| `flint agent session <id> return "..."` | `flint orbh return <id> "..."` |
-| `flint agent session <id> artifact "..."` | `flint orbh artifact <id> "..."` |
-| `flint agent interface --session <id> set <k> <v>` | `flint orbh set <id> <k> <v>` |
-| `flint agent interface --session <id> get <k>` | `flint orbh get <id> <k>` |
-| `flint agent interface --session <id> ask "..."` | `flint orbh ask <id> "..."` |
-| `flint agent interface --session <id> request "..."` | `flint orbh request <id> "..."` |
-| `flint agent list` | `flint orbh list` |
-| `flint agent session <id>` | `flint orbh inspect <id>` |
-| `flint agent session <id> kill` | `flint orbh kill <id>` |
