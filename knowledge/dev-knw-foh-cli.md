@@ -58,11 +58,14 @@ flint orbh respond <id> "<text>"                        # Respond to a blocked s
 ## Session Commands (called by agents)
 
 ```bash
-flint orbh register <id> "<title>" "<description>"       # Register with a title and description
-flint orbh status <id> <enum>                           # Set lifecycle status
-flint orbh return <id> "<result markdown>"              # Store final result and finish session
-flint orbh artifact <id> "<artifact path>"              # Track an artifact you produced
-flint orbh result <id>                                  # Get raw result payload of a finished session (stdout only)
+flint orbh session <id> register "<title>" "<description>"  # Register with a title and description
+flint orbh session <id> status <enum>                       # Set lifecycle status
+flint orbh session <id> return "<result markdown>"          # Store final result and finish session
+flint orbh session <id> set <key> <value>                   # Write a key-value pair
+flint orbh session <id> get <key>                           # Read a key value (stdout)
+flint orbh session <id> ask "<question>"                    # Block until human responds
+flint orbh result <id>                                      # Get raw result payload of a finished session (stdout only)
+flint orbh artifact <id> "<artifact path>"                  # Flint-only artifact tracking helper
 ```
 
 ### The `return` Command
@@ -71,7 +74,7 @@ flint orbh result <id>                                  # Get raw result payload
 1. Stores the result on the **current run** (`currentRun.result`)
 2. Sets the run status to `completed` and session status to `finished`
 
-The human reads this result via `flint orbh inspect <id>`. Do NOT rely on terminal output — always use `return`.
+The human reads this result via `flint orbh inspect <id>`. Do NOT rely on terminal output — always use `session return`.
 
 ### Status Enum Values
 
@@ -79,9 +82,9 @@ The human reads this result via `flint orbh inspect <id>`. Do NOT rely on termin
 |--------|---------|-------------|
 | `queued` | Session created, not started | Set by launcher |
 | `in-progress` | Actively working | After registering, while working |
-| `blocked` | Needs human input (blocking) | When using `ask` (agent stays alive) |
-| `deferred` | Needs human input (deferred) | When using `request` or `return` with pending deferred question |
-| `finished` | Work complete | Set automatically by `return` command |
+| `blocked` | Needs human input (blocking) | When using `session ask` (agent stays alive) |
+| `deferred` | Needs human input (deferred) | When using `request` or `session return` with pending deferred question |
+| `finished` | Work complete | Set automatically by `session return` command |
 | `failed` | Error occurred | On unrecoverable error |
 | `cancelled` | Session was killed | Set by `flint orbh kill` |
 
@@ -141,10 +144,10 @@ flint orbh wait <id-A> <id-B>
 ## Interface Commands (called by agents)
 
 ```bash
-flint orbh set <id> <key> <value>                       # Write a key-value pair
-flint orbh get <id> <key>                               # Read a key value (stdout)
-flint orbh ask <id> "<question>"                        # Block until human responds
-flint orbh ask <id> "<question>" --timeout 7200         # Custom timeout (default: 3600s)
+flint orbh session <id> set <key> <value>               # Write a key-value pair
+flint orbh session <id> get <key>                       # Read a key value (stdout)
+flint orbh session <id> ask "<question>"                # Block until human responds
+flint orbh session <id> ask "<question>" --timeout 7200 # Custom timeout (default: 3600s)
 flint orbh request <id> "<question>"                    # Post deferred question, exit immediately
 ```
 
@@ -161,7 +164,7 @@ flint orbh request <id> "<question>"                    # Post deferred question
 Use `ask` when you genuinely need human input to proceed:
 
 ```bash
-response=$(flint orbh ask <id> "Found 3 issues. Fix all or just criticals?")
+response=$(flint orbh session <id> ask "Found 3 issues. Fix all or just criticals?")
 echo "Human said: $response"
 ```
 
@@ -236,4 +239,3 @@ All session data is stored in `.flint/sessions/<id>.json`. The structure:
 - **`runs[].continuesRunId`** — Links a resume run to the run it continues.
 - **`interface`** — Free-form key-value pairs you control entirely.
 - **`status`** — Session lifecycle: `queued`, `in-progress`, `blocked`, `deferred`, `finished`, `failed`, `cancelled`.
-
