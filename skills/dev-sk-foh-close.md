@@ -12,7 +12,7 @@ Wrap up the current orbh session: write a per-session summary markdown file to t
 
 # Actions
 
-1. Immediately change the session title to "Closing: (current title)"
+1. Immediately change the session title to "[Closing] (current title)"
 
 2. **Resolve the machine name.** Default to the device's friendly name; fall back to hostname.
 

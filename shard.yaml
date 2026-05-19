@@ -1,5 +1,5 @@
 shard-spec: "0.1.0"
-version: "0.2.2"
+version: "0.2.3"
 name: Orbh
 shorthand: foh
 description: Headless agent identity and operating rules for orbh-launched sessions using flint orbh commands
