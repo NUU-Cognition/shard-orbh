@@ -23,7 +23,7 @@ authors:
 template: "[[dev-tmp-foh-close-v0.1]]"
 ---
 
-# [Session title — same as the title frontmatter field]
+# [Session title — excluding the closing tag]
 
 ## Summary
 
@@ -41,4 +41,9 @@ template: "[[dev-tmp-foh-close-v0.1]]"
 
 - [One-line decision and the reason behind it]
 - (continue)
+
+## Headspace
+
+- Any other thoughts and context and a place to express yourself (and your feelings if you want, you've done well over this session take a break <3)
+
 ```
