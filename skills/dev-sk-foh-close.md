@@ -2,6 +2,8 @@
 description: "Write a session summary to Mesh/Agents/ and close the Obsidian terminal tab"
 ---
 
+> [!important] THIS FILE IS AN INSTRUCTION. WHEN REFERENCED IT IS MEANT TO BE TAKEN AS AN ACTION.
+
 # Skill: Orbh Close
 
 Wrap up the current orbh session: write a per-session summary markdown file to the Mesh, then close the Obsidian terminal tab. The close call kills the harness, so this skill's last action is `flint orbh close <id>` — nothing runs after it.
@@ -30,7 +32,7 @@ Wrap up the current orbh session: write a per-session summary markdown file to t
 
 5. **Write the summary file** at `Mesh/Agents/<Runtime>/<session-id>.md`. Use [[dev-tmp-foh-close-v0.1]] for the structure. The machine field is required and must be the value resolved in step 1.
 
-6. **Close the tab.** This kills the harness — do nothing after. (`flint orbh close` advances the session to `finished` automatically before tearing down the PTY.)
+6. **Close the tab.** This kills the harness — do nothing after. (`flint orbh close` flips the `[Closing]` title prefix to `[Closed]`, advances the session to `finished`, then tears down the PTY.)
 
    ```bash
    flint orbh close <session-id>
