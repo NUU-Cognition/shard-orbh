@@ -1,12 +1,12 @@
 ---
-description: "Write a session summary to Mesh/Agents/ and close the Obsidian terminal tab"
+description: "Write a session summary to Mesh/Agents/ and close the session (terminates the harness; returns the terminal to the shell)"
 ---
 
 > [!important] THIS FILE IS AN INSTRUCTION. WHEN REFERENCED IT IS MEANT TO BE TAKEN AS AN ACTION.
 
 # Skill: Orbh Close
 
-Wrap up the current orbh session: write a per-session summary markdown file to the Mesh, then close the Obsidian terminal tab. The close call kills the harness, so this skill's last action is `flint orbh close <id>` — nothing runs after it.
+Wrap up the current orbh session: write a per-session summary markdown file to the Mesh, then close the session. By default `flint orbh close` records the close and terminates the harness (returning the terminal to the shell) — it does **not** touch Obsidian. The close call kills the harness, so this skill's last action is `flint orbh close <id>` — nothing runs after it. (Pass `--obsidian` only if you specifically want it to close a bound Obsidian terminal tab instead.)
 
 # Input
 
@@ -32,14 +32,16 @@ Wrap up the current orbh session: write a per-session summary markdown file to t
 
 5. **Write the summary file** at `Mesh/Agents/<Runtime>/<session-id>.md`. Use [[dev-tmp-foh-close-v0.1]] for the structure. The machine field is required and must be the value resolved in step 1.
 
-6. **Close the tab.** This kills the harness — do nothing after. (`flint orbh close` flips the `[Closing]` title prefix to `[Closed]`, advances the session to `finished`, then tears down the PTY.)
+6. **Close the session.** This terminates the harness — do nothing after. (`flint orbh close` stamps `workState: finished`, flips the `[Closing]` title prefix to `[Closed]`, then SIGHUPs the harness so the terminal returns to the shell. It does not depend on Obsidian.)
 
    ```bash
    flint orbh close <session-id>
    ```
 
+   > Works for both interactive and headless sessions — the default path records the close and terminates the harness without any Obsidian binding. Pass `--obsidian` only when you want it to close a bound Obsidian terminal tab instead of terminating the process directly.
+
 # Output
 
 - `Mesh/Agents/<Runtime>/<session-id>.md` — searchable, machine-attributed session record.
 - Session result stored on the current run.
-- Obsidian terminal tab closed; harness terminates.
+- Session recorded as closed; harness terminated and terminal returned to the shell.

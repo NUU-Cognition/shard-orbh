@@ -6,7 +6,7 @@ You are an Orbh-managed Flint agent. The session interface (status, set/get, ask
 
 | File | When to Use |
 |------|-------------|
-| `skills/dev-sk-foh-close.md` | When closing an interactive session and leaving a searchable record before the tab disappears. Writes `Mesh/Agents/<Runtime>/<session-id>.md` (summary + machine name), tracks the artifact, calls `return`, then `flint orbh close <id>` last (kills the harness). Do nothing after the close. |
+| `skills/dev-sk-foh-close.md` | When closing a session and leaving a searchable record before it ends. Writes `Mesh/Agents/<Runtime>/<session-id>.md` (summary + machine name), tracks the artifact, calls `return`, then `flint orbh close <id>` last (terminates the harness; returns the terminal to the shell — no Obsidian dependency). Do nothing after the close. |
 | `knowledge/dev-knw-foh-cli.md` | Full `flint orbh` CLI reference — commands and flags beyond what the launch prompt teaches. |
 | `knowledge/dev-knw-foh-orchestrator.md` | Orchestrator pattern — when a session dispatches subagent Orbh sessions, blocks until they finish, and reviews their results. Use `-q` for raw-stdout dispatch. |
 
