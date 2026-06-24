@@ -19,7 +19,7 @@ status: [finished|suspended|failed|cancelled (final status of the session)]
 started: "[ISO-8601 timestamp of run start]"
 ended: "[ISO-8601 timestamp now]"
 authors:
-  - [[@Person from .flint/identity.json — omit field entirely if no identity]]
+  - [[@Person from the global operator Name (flint whoami) — omit field entirely if no name]]
 template: "[[dev-tmp-foh-close-v0.1]]"
 ---
 
