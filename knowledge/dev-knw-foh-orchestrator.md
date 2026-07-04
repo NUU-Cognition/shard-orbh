@@ -1,44 +1,80 @@
 ---
-description: Orchestrator pattern — dispatching subagent Orbh sessions from a managing session, with raw-result piping and parallel waits
+description: Orchestrator pattern — delegating to subagent Orbh sessions with a background-run blocking request, raw-result piping, parallel waits, and the park-until-join barrier
 ---
 
 # Knowledge: Orbh Orchestrator Pattern
 
-An Orbh session can act as a **manager** that dispatches subagent sessions, blocks until they finish, reviews their results, and continues them with follow-up prompts. This pattern works for both interactive and headless sessions.
+An Orbh session can act as a **manager** that delegates work to **subagent** sessions, collects their results, reviews them, and (if needed) continues them with follow-up prompts. This works for both interactive and headless sessions.
 
-## Spawning Other Agents
+## The Default: a Blocking Request, Run in the Background
 
-Always launch via a profile rather than a bare runtime so model + extra-arg defaults are applied consistently:
-
-```bash
-flint orbh launch codex/high "implement the auth fix described in (Task) 205"
-```
-
-This starts a new headless session and returns the session ID. Use `flint orbh profiles` to see available profiles.
-
-## Dispatching with `--quiet`
-
-**Always use `--quiet` (`-q`) when dispatching from an agent session.** The default `request` output includes spinners and formatted result boxes designed for human terminals. When you're calling `request` from a Bash tool, use `-q` to get only the raw result on stdout — no spinner, no formatting, no noise in your context.
+The dispatch primitive is **`flint orbh request`** — it launches a subagent session, blocks until that subagent calls `return`, and prints the returned result:
 
 ```bash
-# Dispatch a subagent and get the raw result (always use -q from agent sessions)
-result=$(flint orbh request -q claude/opus-max "research the auth flow and summarize findings")
-result=$(flint orbh request -q codex/high "implement the auth fix described in (Task) 205")
-
-# Continue a previous session with a follow-up
-result=$(flint orbh request -q -c <session-id> "now also handle the edge case for expired tokens")
-
-# Read just the raw result of a finished session
-output=$(flint orbh result <session-id>)
-
-# Dispatch multiple subagents in parallel and collect results
-flint orbh launch codex/high "implement feature A" &
-flint orbh launch codex/high "implement feature B" &
-flint orbh wait <id-A> <id-B>
+flint orbh request -q codex/55xh "<a complete, self-contained prompt>"
 ```
 
-## Do Not Set Timeouts
+- **`-q` / `--quiet` is mandatory from an agent session.** Without it, `request` prints spinners and a formatted result box meant for human terminals, which pollutes your context. `-q` prints only the raw returned result on stdout.
+- **Never launch detached for delegation.** Bare `launch` is fire-and-forget — it loses the collect step. Dispatch is always a `request` that somebody is collecting.
+- **Run the request with your harness's native background execution.** Subagent sessions run for minutes to an hour, and your harness's shell tool kills long-running foreground commands (and, interactively, would hold the terminal hostage). Every current harness can run a shell command in the background — Claude Code's Bash tool takes `run_in_background: true`, and other harnesses have their own facility (see `prompts/harness/<runtime>.md` in the orbh package). Start the blocking request there, keep working or conversing, and collect the output when it lands.
+- **Do not set timeouts on blocking calls.** `request` and `wait` block indefinitely by design until the subagent finishes. Do not pass `--timeout`, and do not put a shell/tool timeout on the call — the background run is what makes the long block safe.
 
-**Do not set timeouts on orchestrator calls.** `flint orbh request` and `flint orbh wait` are designed to block indefinitely until the subagent finishes. Do not pass `--timeout` and do not set a timeout on the Bash tool call itself. The whole point is that the manager waits for real work to complete — subagent sessions can take minutes. Let them run.
+## Default Subagent: `codex/55xh`
 
-See [[dev-knw-foh-cli]] for the full orchestrator command reference.
+**Default to `codex/55xh`** when delegating implementation/code work. It is the standard subagent target for this workspace. (Profile names are exact short codes — `codex/55xh` resolves; slugs like `codex/high` or `claude/opus-max` do **not** and will error. Run `flint orbh profiles` to confirm the live set, and see [[dev-knw-foh-cli]] → Profiles for picking a different target when the task warrants it, e.g. `claude/o48mx` for research/design/review.)
+
+## Be Specific With the Prompt
+
+A subagent starts with **no shared context** — it does not see your conversation, your working memory, or what you already discovered. The prompt is the only channel. A vague prompt produces vague work. Every delegation prompt should carry:
+
+- **The goal** — what "done" means, concretely.
+- **Exact targets** — file paths, function/symbol names, artifact titles, commands to run. Don't make the subagent re-discover what you already know.
+- **Relevant context** — the constraints, decisions, and gotchas it needs (quote them; don't assume).
+- **The expected output** — what to `return` and in what shape (e.g. "return the diff", "return a bullet summary of findings with file:line refs").
+- **Boundaries** — what NOT to touch, and to return early rather than guess if blocked.
+
+```bash
+# Bad — subagent has to guess everything:
+flint orbh request -q codex/55xh "fix the auth bug"
+
+# Good — self-contained:
+flint orbh request -q codex/55xh "In Repos/flint/packages/orbh/src/session/lifecycle.ts, \
+deriveSessionWorkState() returns 'finished' for runs that exited zero without a return. \
+Per the 4-value model it must return 'abandoned' in that case. Fix it, keep the \
+returned->finished path, run 'pnpm -C Repos/flint test session' and return the diff plus test output."
+```
+
+## Continue, Collect, Parallelize
+
+All of these block, so all of them ride in background runs the same way:
+
+```bash
+# Continue a previous subagent with a follow-up (blocks again until it returns)
+flint orbh request -q -c <session-id> "now also handle the expired-token edge case"
+
+# Read the raw result of an already-finished session
+flint orbh result <session-id>
+
+# Parallel fan-out: start several background requests at once and collect each as it lands;
+# or launch non-blocking and join on all of them with a single background `wait`:
+flint orbh launch codex/55xh "<full prompt A>"     # returns a session id immediately
+flint orbh launch codex/55xh "<full prompt B>"
+flint orbh wait <id-A> <id-B>                       # blocks until all finish; run in the background
+```
+
+The simplest parallel shape is several background `request -q` runs side by side — each completion arrives on its own. Use `launch … wait` when you want the ids up front (e.g. to `watch` one of them) and a single join point.
+
+## Alternative: Detached Jobs + Park-Until-Join
+
+For wide fan-outs where you'd rather hold **no context at all** while waiting — or when your environment offers no native background execution — register each dispatch as an Orbh-side **agent job** in a group and park on the barrier. Parking terminates your harness (no tokens burned); the orchestrator auto-resumes your session when the **last** job in the group reaches a terminal state:
+
+```bash
+flint orbh job run --agent codex/55xh "<full prompt A>" --group fan
+flint orbh job run --agent codex/55xh "<full prompt B>" --group fan
+flint orbh job run "pnpm -C Repos/flint test" --group fan --timeout 1800   # commands mix in freely
+flint orbh park --until-group fan
+```
+
+On resume, the injected prompt lists every job's status and output tail; read full outputs with `flint orbh job result <job-id>`. The barrier is all-terminal, not all-success: failures resolve it too and are surfaced first, and retrying is your explicit decision (groups never auto-retry). Per-job `--timeout` and park `--barrier-timeout <s>` are reaper-enforced safety bounds — unlike blocking `request`, use them freely here. To stay live and join a single job inline, `flint orbh job wait <job-id>`. Full command surface: [[dev-knw-foh-cli]] → Background Jobs.
+
+See [[dev-knw-foh-cli]] for the full command and profile reference.

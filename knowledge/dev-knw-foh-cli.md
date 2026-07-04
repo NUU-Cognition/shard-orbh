@@ -1,3 +1,8 @@
+---
+orbh-sessions:
+  - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
+---
+
 # Knowledge: Flint OrbH CLI Reference
 
 Complete reference for `flint orbh` commands — the commands you use to register, communicate, and deliver work during a headless orbh session, and the commands an orchestrating agent uses to dispatch and collect subagents.
@@ -7,7 +12,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group helps (`flint orbh
 ## Quick Orientation
 
 - A **session** is an Orb spool (event-sourced; not a JSON file — see "Data Model" below).
-- The lifecycle field is **`workState`** (8 values). The old `status` enum is a derived back-compat projection.
+- The lifecycle field is **`workState`** (4 values: `working | needs-input | finished | abandoned`).
 - You **register**, do work, set interface keys, then **`return`** your result. `return` records a clean completion.
 - An **operator** (human or manager) ends a session's life with `close` / `park` / `discard` / `end`.
 - An **orchestrator agent** dispatches subagents with `request` / `launch` and collects with `result` / `wait`.
@@ -60,58 +65,56 @@ There is **no** `.flint/sessions/<id>.json` file store. A session **is** an Orb 
   spaces/<spaceId>/spools/
     <spoolId>.jsonl          # CONTROL PLANE: append-only CloudEvents log of orbh.session.*, orbh.run.*,
                              #   orbh.request.*, orbh.message.*, plus orb.spool.* / orb.run.*. The source of truth.
-    <spoolId>.json           # SPOOL SNAPSHOT: reduced AgentSession projection (status, metadata, orbhInterface).
-                             #   Note: stores the DERIVED `status` only — workState lives in events, not the snapshot.
+    <spoolId>.json           # SPOOL SNAPSHOT: the LIVE AgentSession projection — carries `ext.orbh.workState`
+                             #   (live work-state), metadata, orbhInterface. Co-written with the .jsonl on EVERY
+                             #   mutation (dual-write contract): fold(.jsonl) === .json always. Authoritative for
+                             #   reads; re-fold (`rebuild-from-log`) is a repair/audit path, not the read path.
     <spoolId>/<threadId>.jsonl  # CONTENT PLANE: orb.thread.* / orb.message.* (the transcript). No control events here.
     <spoolId>/<threadId>.json   # thread snapshot
     <spoolId>/attachments/      # per-spool attachments
   indexes/orbh-sessions.json # DISPOSABLE session index — a cache rebuilt from control events; invalidated on every
-                             #   mutation. Never authoritative. Regenerate with `rebuild-session-index`.
+                             #   mutation. Never authoritative.
 ~/.orb/blobs/sha256/...      # native-transcript bundle blobs (content-addressed)
 ```
 
 Key consequences for agents:
 
 - **Event-sourced.** Every fact (`register`, `set`, `return`, `ask`, lifecycle change) appends a control event. Nothing is edited in place.
-- **`status` is derived.** Do not reason about a stored `status` field as the truth; the canonical lifecycle is `workState`, recomputed from run facts + operator/agent intent.
-- **The index is disposable.** If `list` looks stale or wrong, `flint orbh rebuild-session-index` regenerates it. `verify-sessions` audits index health.
+- **`workState` is live on the snapshot.** The canonical lifecycle field is `workState`, carried on the `.json` snapshot's `ext.orbh` and co-written with the control log on every mutation (so it equals folding the log). Read the snapshot directly; a dead session reconciles to `abandoned` and never freezes at `working`.
+- **The index is disposable.** It is a cache, rebuilt from control events — never treat it as truth. `verify-sessions` audits index health.
 
-### Lifecycle: `workState` (first-class) vs `status` (derived)
+### Lifecycle: `workState`, run status, retention
 
-`workState` has **8 values** and is the real lifecycle field. The legacy 7-value `status` is computed from it for back-compat (Obsidian, older readers):
+`workState` has **4 values** and is the real lifecycle field:
 
-| `workState` | Meaning | Derived `status` |
-|-------------|---------|------------------|
-| `queued` | Created, not yet running | `queued` |
-| `working` | A run is active | `in-progress` |
-| `needs-input` | A request is pending | `blocked` (or `deferred` if the pending request is deferred) |
-| `dormant` | **Clean exit with NO completion fact — resumable.** (process exited / tab closed / PID lost without a `return`) | `deferred` |
-| `finished` | **Explicit completion** via `return` (or `end`) | `finished` |
-| `failed` | Unrecoverable error | `failed` |
-| `cancelled` | Killed (`kill`) | `cancelled` |
-| `abandoned` | Discarded (tombstoned via `discard`) | `cancelled` |
+| `workState` | Meaning |
+|-------------|---------|
+| `working` | Active; also the default for a just-created session with no run yet. |
+| `needs-input` | A request is pending; open requests pin this regardless of run status. |
+| `finished` | Explicit completion via agent `return`/`end` or operator `close`/`park`. |
+| `abandoned` | Latest run ended without a completion fact; revivable by resume. |
 
-> **`dormant` vs `finished` is load-bearing.** A clean process exit *without* a `return` lands in **`dormant`** (resumable, no deliverable recorded) — it is **not** `finished`. Only an explicit `return` (or `end`) records `finished`. If you exit a run intending it to be "done", call `return` first or the work shows as `dormant`.
+> **Return discipline:** a clean process exit *without* a `return` lands in **`abandoned`** with no deliverable — it is **not** `finished`. If you mean "done", call `return`.
 
-The agent-facing `session <id> status <enum>` verb is a **legacy front-end that sets `workState`**: `in-progress` → `working`, `blocked` → `needs-input`, `deferred` → `dormant`. Prefer the direct verbs (`register`, `set`, `return`) over `status` in new work.
+> **Interactive override (observed-over-declared):** for an **interactive** session with a live run, every view surface (`orbh list`, picker, summaries, Orbit) renders the *effective* workState derived from the observed run `activity`: spinner running → **`working`**, sitting idle at the prompt → **`needs-input`**. The declared workState is still the stored lifecycle fact; the override is read-side only (`effectiveSessionWorkState`). So for interactive sessions, `needs-input` means "waiting on the operator" — whether from an explicit `ask` or an observed idle prompt.
+
+Retention is separate: `active | parked | closed`. `park` sets `finished + parked`; `close`/`end` set `finished + closed`; resume clears retention back to `active`. Titles stay raw; display titles are composed from mode (`(I)/(H)/(S)`), retention (`[Parked]/[Closed]`), and raw title.
 
 ### Runs and `endReason`
 
-Each harness invocation (`launch`, `resume`) appends a **run**. A run records `machineId`, `orbRunId` (defaults to the run `id`), `nativeSessionId`, `nativeTranscriptPath`, and an `activity` axis. `inputSocket` is **legacy and always null** since Mission 004 — ignore it.
+Each harness invocation (`launch`, `resume`) appends a **run**. A run records `machineId`, `orbRunId` (defaults to the run `id`), `nativeSessionId`, `nativeTranscriptPath`, and an interactive `activity` axis (`busy | idle`).
 
-A run's terminal `endReason` drives `workState`:
+A run has `status: running | suspended | completed | failed`. `suspended` is live: the run is deliberately yielded on a blocking `ask`, and returns to `running` on answer. Terminal mapping:
 
-| `endReason` | Resulting `workState` |
-|-------------|------------------------|
-| `returned` | `finished` |
-| `exit-zero` (clean exit, no `return`) | **`dormant`** (resumable — NOT finished) |
-| `exit-nonzero` | `failed` |
-| `signal` / `hangup` / `lost` | `dormant` or `failed` per context |
-| `cancelled` | `cancelled` |
-| `spawn-failed` | `failed` |
-| `unknown` | derived defensively |
+| Event | Run status | Resulting `workState` |
+|-------|------------|------------------------|
+| `returned` / agent `return` | `completed` | `finished` |
+| `exit-zero` + pending deferred request | `completed` | `needs-input` |
+| `close` / `park` | `completed` | `finished` + retention |
+| `exit-zero` with no return/request | `failed` | `abandoned` |
+| `exit-nonzero` / `signal` / `hangup` / `spawn-failed` / `lost` / `unknown` | `failed` | `abandoned` |
 
-`endReason` is observable-only (you read it; you don't set it). The takeaway is the same as above: **exit cleanly without `return` → `dormant`, not `finished`.**
+`endReason` is observable-only (you read it; you don't set it). The takeaway is the same as above: **exit cleanly without `return` → `abandoned`, not `finished`.**
 
 ## Launch & Resume (called by humans / launchers)
 
@@ -192,7 +195,7 @@ When your work is done, call `return` with your full result as markdown. This:
 
 The human/orchestrator reads it via `flint orbh inspect <id> -r` or `flint orbh result <id>`. **Do not rely on terminal stdout** for your deliverable — always `return`.
 
-> **Return discipline:** a clean exit *without* `return` lands the session in **`dormant`** (resumable, no deliverable), not `finished`. If you mean "done", `return`.
+> **Return discipline:** a clean exit *without* `return` lands the session in **`abandoned`** (revivable by resume, but with no deliverable), not `finished`. If you mean "done", `return`.
 
 ### The `ask` Command — blocking human input
 
@@ -227,13 +230,87 @@ Default timeout is 3600s; override with `--timeout <seconds>`. Use `ask` only wh
 | `confidence` | `high` | Confidence in work quality |
 | `context-pressure` | `high` | Context window getting full |
 
+## The Page (called by agents and operators)
+
+Your session's on-demand introspection surface — see `(Spec) The Page`. A render runs the registered functions (core + installed shards' `page-functions:`) against the session store and concatenates their string output. Nothing is ever pushed into your mid-generation context; you read the Page at seams you judge useful: **first action of any resumed run**, **before ending a long turn**, **after a subagent batch**, and at workflow stage boundaries. Act on any `⚠` line. Interactive sessions additionally keep a pager **armed** (below) so Page-worthy events reach you as a push at turn boundaries.
+
+```bash
+flint orbh page                          # Render your own Page (self-targets; records the read)
+flint orbh page <id>                     # Operator view of another session — read-only by default
+flint orbh page --raw                    # Label each function's output by id (debugging)
+flint orbh page --no-mutate              # Force read-only even on a self read
+flint orbh page run <source>/<name> [args…]   # Invoke one function on demand (e.g. core/header, pgex/pin-set)
+flint orbh page arm [--max-wait <s>]     # Agent-facing long-poll pager — run it IN THE BACKGROUND (see below)
+```
+
+### Arm the Pager (`page arm`)
+
+`page arm` is a hanging command: it long-polls your own session (SSE against the orbh server when running, snapshot polling otherwise) and exits only when something needs your attention — an inter-session message arrives, one of your background jobs reaches a terminal state, request activity occurs, or `--max-wait` (default 1800s) elapses as a heartbeat. On wake it prints a full **mutating** Page render (inbox drains exactly like a normal self read) plus a fixed re-arm footer.
+
+If the session ends while armed (`workState: finished|abandoned`) or is parked, the pager exits 0 with only `session ended — pager exiting`; it does not render the Page and does not print the re-arm footer. Run-end and retention finalization paths clear any `core:page-arm` lease, and resume/run-start clears stale leases before new work begins, so an old waiter cannot leave a false armed state behind.
+
+Arm is not just an idle-wake: because the harness appends a completed background task's notification at your next tool-call seam **even mid-run**, an armed session receives messages as a **soft interrupt** — delivery within seconds, nothing killed, nothing lost. Verified for claude in both interactive and headless loops. Arm at session start regardless of mode; parked sessions don't need it (`--wake` covers them), and the delivery ladder is always softest-first: soft interrupt (armed) → wake (parked) → pull seams (unarmed) → hard `interrupt` (explicit escalation).
+
+Run it with your harness's **native background execution** as part of session start, and **re-arm immediately every time it returns** — the harness's background-task completion notification is what turns the exit into a push into your next turn. Discipline is lease-guarded: arming writes a `core:page-arm` lease, a newer arm supersedes an older one harmlessly (the superseded waiter exits quietly without rendering), and the Page warns `⚠ paging not armed` whenever an active interactive/headless/subagent session's lease is missing or its process is dead. Parked and terminal sessions do not nag. Treat that warning as "re-arm now".
+
+- **Self vs observer:** a render mutates (bumps the read counter, drains the inbox) only when `ORBH_SESSION_ID` matches the target. Observer reads never perturb the session's hygiene state.
+- **Failure isolation:** a broken/slow shard function is skipped with a `⚠ <id> failed:` line; `page run` by contrast exits non-zero on failure.
+- Page state lives in reserved `core:*` interface keys (`core:page`, `core:workflow`, `core:job:*`) — treat them as the Page's; use your own keys for `set`/`get`.
+
+### Workflow State (`workflow`)
+
+Records stateful workflow progress the Page renders (`core/workflow`, `core/workflow-idle`) — "where am I / what's next" survives context loss:
+
+```bash
+flint orbh workflow start <workflow-id> [--stages N] [--title T] [--next A] [--exit E] [--checklist "a;b;c"]
+flint orbh workflow advance [--title T] [--next A] [--checklist "…"]   # stage +1 (or --stage N)
+flint orbh workflow check <text>          # Tick a checklist item (substring match)
+flint orbh workflow close [--outcome finished|abandoned]   # Clears the slice; records a closed marker
+flint orbh workflow show                  # Dump the active slice as JSON
+```
+
+Closing with `finished` writes a `core:workflow:closed` marker; if you then never `return`, `core/return-discipline` nags on your next Page read. One active workflow per session.
+
+### Background Jobs (`job`)
+
+```bash
+flint orbh job run "<command>" [--group <g>] [--timeout <s>]        # Detached background command; inherits your terminal env + ORBH_SESSION_ID
+flint orbh job run --agent <runtime/profile> "<prompt>" [--group <g>] [--timeout <s>]
+                                               # Dispatch a SUBAGENT as a job (wraps `request -q`; the subagent's return payload is the job output)
+flint orbh job list                            # This session's jobs (also reaps dead-wrapper / timed-out jobs)
+flint orbh job result <id>                     # Print a job's FULL retained output (works while running — output streams into the file)
+flint orbh job wait <id> [--poll <ms>]         # Block until the job is terminal, then print its full output (exit 0 done, 1 failed)
+flint orbh job clear [--all]                   # Remove terminal (or all) jobs from the Page + delete their retained outputs
+```
+
+Jobs self-report completion; `core/jobs` renders running/done/failed (failures first, group badges throughout). The Page shows an ~800-byte tail; the full output is retained **inside the launching scope** (`<orbRoot>/jobs/`, e.g. the Flint's `.orb/jobs/`) until `job clear`, and served by `job result <id>`. `job wait <id>` is the inline join for a single job when you want to stay live — it reaps while polling, so it can never hang on a job that will never report; for multi-job waits without holding a harness, use the park barrier below.
+
+**Reaper.** No job can sit `running` forever: a job whose wrapper process died is marked `failed (wrapper died before reporting)`, and a job past its `--timeout` is marked `failed (timeout)` with its process group SIGTERMed. The reaper runs on every `job list` and continuously in the per-machine orchestrator.
+
+**Park-until-join (the point of groups).** Register N jobs — commands and/or subagents — into one `--group`, then park on the barrier:
+
+```bash
+flint orbh job run --agent codex/55xh "review module A" --group fan
+flint orbh job run --agent codex/55xh "review module B" --group fan
+flint orbh job run "pnpm test" --group fan --timeout 1800
+flint orbh park --until-group fan [--barrier-timeout <s>]
+```
+
+Parking terminates your harness — you hold no context and burn no tokens while waiting (strictly cheaper than N blocking `request -q` calls holding a live harness). The orchestrator monitors the group and auto-resumes your session when the **last** job reaches a terminal state. The barrier is **all-terminal, not all-success**: failures resolve it too and are surfaced first in the resume prompt, which carries every job's status + output tail (read full outputs with `job result <id>`). `--barrier-timeout` force-resolves a stuck barrier (running group jobs → `failed (barrier timeout)`) so you can never be stranded. Groups never auto-retry — retry is your explicit decision on resume. A plain `park` clears any leftover barrier directive.
+
+### Cross-Session Writes
+
+`workflow` and `job` accept `--session <id>` and will mutate **another** session's slices — this is deliberate (the store permits explicit-id coordination, exactly like `message send <id>` / `session set <id>`), and every mutation is an attributed, append-only event. The Page *render* path is the only surface with an observer read-only default. Mutate another session's workflow/jobs only as an orchestrator that owns that session.
+
 ## Operator End-of-Life Verbs
 
 These finalize a session's life. They self-target via `ORBH_SESSION_ID` (id optional inside a harness).
 
 ```bash
 flint orbh close [id]                  # Finish, title → [Closed], terminate the harness (terminal returns to the shell)
-flint orbh park [id]                   # Finish, title → [Parked], pin to top of `orbh c` (resume auto-unparks), terminate the harness
+flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>]
+                                       # Finish, title → [Parked], pin to top of `orbh c` (resume auto-unparks), terminate the harness.
+                                       # --until-group: the orchestrator auto-resumes this session when every job in the group is terminal (see Background Jobs)
 flint orbh discard [id]                # Tombstone the session (no confirmation) → workState abandoned, terminate the harness
 flint orbh end [id]                    # (alias: x) Finish + PROMOTE the spool to the synced space + close/kill the harness
 ```
@@ -266,7 +343,6 @@ flint orbh move-spool <spoolId> --to <spaceId> [--from <spaceId>]   # Move an ar
 
 - `end` **promotes by default** (use `end --no-promote` to skip).
 - `promote` and `move-spool` overlap; `promote` resolves the synced target automatically, `move-spool` takes explicit `--from`/`--to` (default `--from local`).
-- After `promote`, the disposable index can drift until `rebuild-session-index`.
 
 ### Portable Bundles: `save` / `restore`
 
@@ -285,7 +361,6 @@ flint orbh restore <bundleDir> --force        # Overwrite existing native files
 ```bash
 flint orbh heal                         # Repair sessions stuck non-terminal (stale PIDs / orphaned runs)
 flint orbh heal --dry-run               # Preview without writing
-flint orbh rebuild-session-index        # Regenerate the disposable session index (cache only)
 flint orbh verify-sessions              # Audit ALL canonical sessions + index health + promotion readiness
 flint orbh verify-session <id>          # Audit ONE session (see caveat)
 flint orbh rebuild --yes                # DESTRUCTIVE: wipe derived orb.* content, rebuild from native transcripts; keeps orbh.* control
@@ -370,10 +445,26 @@ flint orbh wait <id-A> <id-B>
 
 ```bash
 flint orbh message send <targetId> "<text>"     # Append a message to another session (records orbh.message.received on the target)
+flint orbh message send <targetId> "<text>" --wake   # Additionally wake a PARKED target: resume it with the message digest as the prompt
 flint orbh message list <id>                    # List a session's message history
 ```
 
-Messages are delivered lazily and persist on the target session's control log. Use them for asynchronous coordination between sessions.
+Messages are delivered lazily by default and persist on the target session's control log. Use them for asynchronous coordination between sessions. Delivery reaches the target at its next turn boundary through three channels: the target's own `page` / `page arm` reads, piggyback on the target's next `session` verb, and — with `--wake` — an immediate resume when the target is **parked** (send-time fast path, retried by the orchestrator's message-wake sweep if the resume fails). `--wake` on a non-parked target is a no-op beyond normal queueing: working sessions are never interrupted by message delivery.
+
+After queueing, `message send` prints a delivery-state notice:
+
+- `Message queued — note: session <id> has ended (<workState>); it will only see this if resumed`
+- `Message queued — target is parked; add --wake to deliver now` (or `wake requested` when `--wake` was passed)
+- `Message queued — target is armed; delivery within seconds`
+- `Message queued — target is working and unarmed; delivery waits for the target's next pull/arm`
+
+### Interrupting a Working Headless Session
+
+```bash
+flint orbh interrupt <targetId> "<text>"   # Terminate the target's live run, then resume it with your message as an interrupt digest
+```
+
+The explicit escalation for "stop, requirements changed" — when waiting for the target's next turn boundary is wrong. Headless/subagent targets only (interactive sessions are interrupted from their own terminal). The message is recorded on the spool first, the live run is terminated through the same machinery as `kill`, and the session is resumed with a digest stating it was interrupted mid-run, that its transcript is preserved, and that in-flight changes may be half-applied. Degrades state-awarely: a parked target behaves exactly like `--wake`, an idle target resumes without a kill, a finished/abandoned target just queues the message with `queued (terminal; session has ended and will only see this if resumed)` (no silent resurrection). Nothing automates this verb — the orchestrator never interrupts. Use it sparingly: the target loses its in-flight tool call, and its interrupted work may be half-applied.
 
 ## Responding to a Blocked Session (called by humans / managers)
 
@@ -393,5 +484,5 @@ flint orbh kill [id]                    # SIGTERM a running session (records run
 
 - **`session await`** appears in `session --help` for SSE event subscription, but at HEAD the action dispatcher rejects it (valid actions: `register, status, return, set, get, ask, note`). Treat `await` as not currently usable from the `session` verb; use `watch` to follow a transcript.
 - **`verify-session <id>`** (single) is broken — use `verify-sessions` (all).
-- **`close`/`park`/`discard`** silently no-op on headless (no-tab) sessions — use `end` (see Operator End-of-Life Verbs).
+- **`close`/`park`/`discard`** record their lifecycle state durably even on headless (no-tab) sessions — the old "silent no-op on headless" behavior is fixed. `end` remains the verb when you also need spool promotion.
 - `--path <dir>` is accepted on most commands to override flint auto-detection.

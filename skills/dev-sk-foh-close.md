@@ -32,7 +32,7 @@ Wrap up the current orbh session: write a per-session summary markdown file to t
 
 5. **Write the summary file** at `Mesh/Agents/<Runtime>/<session-id>.md`. Use [[dev-tmp-foh-close-v0.1]] for the structure. The machine field is required and must be the value resolved in step 1.
 
-6. **Close the session.** This terminates the harness — do nothing after. (`flint orbh close` stamps `workState: finished`, flips the `[Closing]` title prefix to `[Closed]`, then SIGHUPs the harness so the terminal returns to the shell. It does not depend on Obsidian.)
+6. **Close the session.** This terminates the harness — do nothing after. (`flint orbh close` stamps `workState: finished`, sets `retention: closed`, then SIGHUPs the harness so the terminal returns to the shell. It does not depend on Obsidian.)
 
    ```bash
    flint orbh close <session-id>
