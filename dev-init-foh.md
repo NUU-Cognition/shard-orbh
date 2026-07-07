@@ -4,9 +4,9 @@ You are an Orbh-managed Flint agent. Your launch prompt already oriented you —
 
 ## The Page
 
-`flint orbh page` renders your session's introspection Page — active workflow, unread inter-session messages, background jobs, and ⚠ hygiene warnings (unnamed session, stale description, missing `return`). It is pull-only: read it at meaningful seams (first action on resume, before ending a long turn, after a subagent batch) and act on what it flags. The full command family (`page`, `page run`, `workflow`, `job`) is documented in `knowledge/dev-knw-foh-cli.md`.
+`flint orbh page` renders your session's introspection Page — active workflow, unread inter-session messages, background jobs, and ⚠ hygiene warnings (unnamed session, stale description, missing `return`). It is pull-only: read it at meaningful seams (first action on resume, before ending a long turn, after a subagent batch) and act on what it flags. The full command family (`page`, `page run`, `workflow`, `job`) is documented in `knowledge/dev-knw-foh-page.md`.
 
-**Push delivery — arm your pager.** `flint orbh page arm`, run in the background via your harness's background execution, long-polls your session and exits with a Page render the moment something needs you (message, finished job, request activity, or a max-wait heartbeat) — the background-task completion notification carries it into your run within seconds, even mid-turn. Re-arm every time it fires; the render's footer reminds you. The Page warns `⚠ paging not armed` when your session has active work and no live waiter. See [[(Spec) Session Wake Delivery]] and `dev-knw-foh-cli.md` for the full delivery ladder (`--wake` for parked targets, the `interrupt` escalation verb).
+**Push delivery — arm your pager.** `flint orbh page arm`, run in the background via your harness's background execution, long-polls your session and exits with a Page render the moment something needs you (message, finished job, request activity, or a max-wait heartbeat) — the background-task completion notification carries it into your run within seconds, even mid-turn. The pager is one-shot: after every firing, your mandatory first action is to re-arm it before reading, replying, planning, or doing any other work. If you miss that re-arm, the session goes deaf: all inter-session communication queues invisibly, and the session is effectively over/unreachable from the rest of the system even though it still looks alive. The Page warns `⚠ paging not armed` when your session has active work and no live waiter. See [[(Spec) Session Wake Delivery]], `dev-knw-foh-page.md` (arming), and `dev-knw-foh-coordination.md` (`--wake` for parked targets, the `interrupt` escalation verb) for the full delivery ladder.
 
 ## Session Interface Conventions
 
@@ -34,7 +34,11 @@ Two verbs, by how long you can afford to wait (headless sessions only — intera
 |------|-------------|
 | `skills/dev-sk-foh-close.md` | When ending a session and leaving a searchable record. Writes `Mesh/Agents/<Runtime>/<session-id>.md` (summary + machine name), tracks the artifact, calls `return`, then `flint orbh close <id>` last (terminates the harness; returns the terminal to the shell — no Obsidian dependency). Do nothing after the close. |
 | `skills/dev-sk-foh-discard.md` | When ending a session that should leave **no** record and drop out of `orbh list`. Tombstones the entry and terminates the harness. Do nothing after the discard. |
-| `knowledge/dev-knw-foh-cli.md` | Full `flint orbh` CLI reference — commands, flags, the 4-value `workState` lifecycle, profiles, jobs, spaces, and maintenance, beyond what the launch prompt teaches. |
+| `knowledge/dev-knw-foh-cli.md` | The core `flint orbh` CLI reference — your own session's verbs (`register`, `set`/`get`, `return`, `ask`, `note`), end-of-life, and the map to the deeper knowledge files. Start here for anything CLI. |
+| `knowledge/dev-knw-foh-profiles.md` | Picking a `runtime/profile` launch target — the live profile set per runtime and which profile to use for which kind of task. |
+| `knowledge/dev-knw-foh-coordination.md` | Operating on other sessions — launch/resume, listing & inspection, the `request`/`result`/`wait` dispatch surface, inter-session messages, `interrupt`, `respond`, `kill`. |
+| `knowledge/dev-knw-foh-page.md` | The Page family — `page`, the armed pager, `workflow` state, background `job`s, and the park-until-join barrier. |
+| `knowledge/dev-knw-foh-internals.md` | Session internals — the Orb spool data model, `workState`/run mechanics, spaces & spools, `save`/`restore` bundles, maintenance & repair. |
 | `knowledge/dev-knw-foh-orchestrator.md` | Delegating to subagents in depth — the background-run blocking `request -q` pattern, follow-ups, parallel fan-out, and the park-until-join barrier. Read this before spawning subagents. |
 
 ## Loading on Demand
