@@ -1,127 +1,132 @@
 ---
-description: "Core `flint orbh` reference — orientation, the verbs you use inside your own session (register, set/get, return, ask, note), end-of-life, and the map to the deeper knowledge files"
+description: "Core `flint orbh` reference — turn dispositions, awaiting, session verbs, operator lifecycle, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
+  - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
 
-The core reference for `flint orbh` — the verbs you call inside your own session, plus the map to the deeper references. Run `flint orbh --help`, `flint orbh <cmd> --help`, and group helps (`flint orbh space --help`, `flint orbh orchestrator --help`, `flint orbh session --help`) for the authoritative live surface. This doc mirrors the binary at HEAD.
+Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the authoritative surface of the **installed binary**. A source checkout may be newer than that binary until it is rebuilt, so when implementing or documenting unreleased source, verify the command registrations in `apps/orbh-cli/src` as well. This file covers the verbs used inside a session and maps to deeper references.
 
 ## Where the Depth Lives
 
-This file covers what every session needs. Load the deeper files on demand:
-
 | File | Load when you need |
 |------|--------------------|
-| [[dev-knw-foh-profiles]] | Picking a `runtime/profile` target — the live profile set and when to use which |
-| [[dev-knw-foh-coordination]] | Operating on **other** sessions — launch/resume, listing & inspection, `request`/`result`/`wait`, messages, `interrupt`, `respond`, `kill` |
-| [[dev-knw-foh-page]] | The Page family — `page`, `page arm`, `workflow` state, background `job`s, park-until-join barriers |
-| [[dev-knw-foh-internals]] | How it works underneath — the Orb spool data model, `workState`/run mechanics, spaces & spools, `save`/`restore`, maintenance & repair |
-| [[dev-knw-foh-orchestrator]] | Delegation **patterns** — read before spawning subagents |
+| [[dev-knw-foh-profiles]] | Exact `runtime/profile` selection |
+| [[dev-knw-foh-coordination]] | Peers, collected subagents, turn-correlated results, messages, rooms, and intervention |
+| [[dev-knw-foh-page]] | Page, persistent waiter/attach, workflow state, jobs, and group barriers |
+| [[dev-knw-foh-internals]] | Orb spool, lifecycle derivation, result streams, waiter lease, spaces, bundles, and repair |
+| [[dev-knw-foh-orchestrator]] | Delegation patterns, recursive managers, and infrastructure janitor behavior |
 
-## Quick Orientation
+## Lifecycle Orientation
 
-- A **session** is an Orb spool (event-sourced; not a JSON file — see [[dev-knw-foh-internals]]).
-- The lifecycle field is **`workState`** (4 values: `working | needs-input | finished | abandoned`).
-- You **register**, do work, set interface keys, then **`return`** your result. `return` records a clean completion.
-- An **operator** (human or manager) ends a session's life with `close` / `park` / `discard` / `end`.
-- An **orchestrator agent** dispatches subagents with `request` / `launch` and collects with `result` / `wait` (see [[dev-knw-foh-coordination]]).
+- A session is a durable event-sourced Orb spool; a headless/subagent run is one **turn**.
+- `workState` has five values: `working | needs-input | awaiting | finished | abandoned`.
+- Every headless/subagent turn ends with `session return --finish` or `--await`; finish is the default.
+- `awaiting` is dormant and wakeable, not terminal. Parked retention is how the compatibility layer shelves awaiting sessions; park and await are not different lifecycle meanings.
+- A session may return many turn-level results. Collectors correlate to initiated runs, not session terminality.
+- An exit without return is re-prompted at most twice; exhaustion becomes `failed-unreturned` and `awaiting`.
+- Abandonment is reserved for explicit operator verdicts such as discard/kill paths.
 
-## Session Commands (called by agents)
+## Session Commands
 
-These are the verbs you call from inside your own run. When `ORBH_SESSION_ID` is set, you may omit `<id>` for self-targeting actions (`register`, `status`, `return`, `set`, `get`, `ask`, `note`):
-
-```bash
-flint orbh session register "<title>" "<description>"      # Register: title + description
-flint orbh session set <key> <value>                       # Write an interface key/value
-flint orbh session get <key>                               # Read an interface key (stdout)
-flint orbh session return "<result markdown>"              # Deliver your result + record completion
-flint orbh session ask "<question>"                        # BLOCK until a human responds (stdout)
-flint orbh session note "<text>"                           # Append an operator/agent annotation (does NOT change lifecycle)
-flint orbh session status <enum>                           # Legacy: set workState via the status enum (prefer the direct verbs)
-flint orbh result <id>                                     # Read a finished session's raw result (orchestrator use)
-flint orbh artifact <id> "<path>"                          # Track a created artifact path in the interface
-```
-
-> Full form with explicit id: `flint orbh session <id> <action> [value...]`.
-
-### The `return` Command — how you deliver output
-
-When your work is done, call `return` with your full result as markdown. This:
-
-1. Stores the result on the **current run**.
-2. Records an explicit completion: run `endReason: returned` → **`workState: finished`**.
-
-The human/orchestrator reads it via `flint orbh inspect <id> -r` or `flint orbh result <id>`. **Do not rely on terminal stdout** for your deliverable — always `return`.
-
-> **Return discipline:** a clean exit *without* `return` lands the session in **`abandoned`** (revivable by resume, but with no deliverable), not `finished`. If you mean "done", `return`.
-
-### The `ask` Command — blocking human input
-
-`ask` blocks. When you call it:
-
-1. A request is recorded (`orbh.request.asked`); `workState` → `needs-input` (`status: blocked`).
-2. A macOS notification fires to the human.
-3. The command polls until a human runs `flint orbh respond <id> "<text>"`.
-4. The response is returned to stdout; you resume in-place.
+When `ORBH_SESSION_ID` is set, omit your own ID:
 
 ```bash
-response=$(flint orbh session ask "Found 3 issues. Fix all or just criticals?")
-echo "Human said: $response"
+flint orbh session register "<title>" "<description>"
+flint orbh session set <key> <value>
+flint orbh session get <key>
+flint orbh session return --finish "<result markdown>"
+flint orbh session return --await "<result markdown>"
+flint orbh session ask "<question>" [--timeout <seconds>]
+flint orbh session note "<text>"
+flint orbh artifact <id> "<path>"
 ```
 
-Default timeout is 3600s; override with `--timeout <seconds>`. Use `ask` only when you genuinely cannot proceed without input.
+Explicit form is `flint orbh session <id> <action> [value...]`. `--finish` and `--await` are mutually exclusive. Omitting both on `return` means finish.
 
-### The `note` Command — append-only annotation
+### Return Is the Turn Seam
 
-`note` appends an operator/agent annotation to the session's control log. It is purely additive and **never affects lifecycle** — use it to leave a breadcrumb without changing status.
+`return` stores the payload on the current run and records the disposition. The harness may still be alive for a moment, but the durable run already carries its result and `returned` end reason. On process exit:
 
-### Interface Key Conventions
+- finish self-shelves an unattended session as finished and tears down its waiter;
+- await self-shelves it as awaiting/parked and preserves the persistent waiter;
+- a pending deferred request remains `needs-input`;
+- no return enters the bounded re-prompt path.
 
-`set`/`get` write a free-form key/value interface you control entirely. Useful conventions:
-
-| Key | Example Value | Purpose |
-|-----|---------------|---------|
-| `phase` | `reading-code` | Current work phase |
-| `progress` | `3/7 files` | Progress indicator |
-| `artifacts` | `(Report) 012, (Task) 205` | Artifacts produced |
-| `blockers` | `need clarification on auth flow` | Current blockers |
-| `confidence` | `high` | Confidence in work quality |
-| `context-pressure` | `high` | Context window getting full |
-
-Page state lives in reserved `core:*` interface keys (`core:page`, `core:workflow`, `core:job:*`) — treat them as the Page's; use your own keys for `set`/`get`.
-
-## Operator End-of-Life Verbs
-
-These finalize a session's life. They self-target via `ORBH_SESSION_ID` (id optional inside a harness).
+Terminal stdout is not a deliverable. Consumers read with:
 
 ```bash
-flint orbh close [id]                  # Finish, title → [Closed], terminate the harness (terminal returns to the shell)
-flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>]
-                                       # Finish, title → [Parked], pin to top of `orbh c` (resume auto-unparks), terminate the harness.
-                                       # --until-group: the orchestrator auto-resumes this session when every job in the group is terminal
-                                       #   (see [[dev-knw-foh-page]] → Background Jobs)
-flint orbh discard [id]                # Tombstone the session (no confirmation) → workState abandoned, terminate the harness
-flint orbh end [id]                    # (alias: x) Finish + PROMOTE the spool to the synced space + close/kill the harness
+flint orbh result <id>                 # latest returned turn
+flint orbh result <id> --run <n>       # specific 1-based run
+flint orbh inspect <id> --results
 ```
 
-By default `close`, `park`, and `discard` are **Obsidian-independent**: they record their lifecycle state and then terminate the harness process (SIGHUP — the same signal a closing terminal tab delivers), which returns the terminal to the shell. Pass **`--obsidian`** to instead close the bound Obsidian terminal tab (the closing tab terminates the harness as a side effect). The `--obsidian` path is only meaningful for an interactive session with a discoverable tab binding.
+### Ask, Notes, and Interface Keys
 
-| Verb | Records | Default termination | `--obsidian` |
-|------|---------|---------------------|--------------|
-| `close` | `workState: finished` + `session.closed`, title `[Closed]` | SIGHUP the harness | closes the bound tab |
-| `park` | `finished` (parked) + pin, title `[Parked]` | SIGHUP the harness | closes the bound tab |
-| `discard` | `session.discarded` tombstone → `abandoned` (**no confirmation**) | SIGHUP the harness | closes the bound tab |
-| `end` / `x` | `run.ended` + `finished` + `session.closed` + promote | SIGTERM if no tab | closes the bound tab |
+`session ask` records a blocking request, suspends the live run, and returns the human response on stdout. Use it only when a headless root genuinely cannot proceed; subagents return blockers to their dispatcher. `note` appends an annotation without changing lifecycle.
 
-`end` flags: `--result <text>` (store a result on the run), `--to <spaceId>` (promotion target), `--no-promote`, `--require-promote` (fail rather than warn if promotion can't complete), `--no-close`, `--no-kill`. (`end` still defaults to closing a bound tab and falling back to a kill; it is unchanged.)
+Common free-form keys are `phase`, `progress`, `blockers`, `artifacts`, and `confidence`. Leave `core:*` slices to Orbh/Page internals.
 
-> **Headless note:** `close`, `park`, and `discard` record their state durably even with no live harness or tab, and never depend on Obsidian in the default path. `end` remains the verb when you also need spool promotion. Pattern: `return` ends the run with your deliverable; `end` finalizes + promotes.
+### Event Subscription (`session await`)
 
-## Notes & Caveats (current real behavior)
+This is unrelated to the `--await` turn disposition. It subscribes to server events:
 
-- **`session await`** appears in `session --help` for SSE event subscription, but at HEAD the action dispatcher rejects it (valid actions: `register, status, return, set, get, ask, note`). Treat `await` as not currently usable from the `session` verb; use `watch` to follow a transcript ([[dev-knw-foh-coordination]]).
-- `--path <dir>` is accepted on most commands to override flint auto-detection.
-- Maintenance/audit caveats (e.g. `verify-session <id>` being broken — use `verify-sessions`) live in [[dev-knw-foh-internals]].
+```bash
+flint orbh session await --list
+flint orbh session await <eventType> [--filter <key=value>] [--timeout <seconds>]
+```
+
+It requires the Orbh server. Use Page/waiter delivery for ordinary session coordination.
+
+## Results and Collection
+
+```bash
+flint orbh request -q <runtime/profile> "<prompt>"
+flint orbh request -q -c <id> "<follow-up>"
+flint orbh wait <id1> [id2...] [--timeout <seconds>]
+flint orbh result <id> [--run <n>]
+```
+
+`request` and `wait` block on turn-correlated outcomes. Await/park and rescue runs remain pending; kill derives abandonment, which resolves collection as `abandoned`. A command timeout stops waiting while the collector outcome remains `pending`. Use background execution. See [[dev-knw-foh-coordination]].
+
+## Operator Lifecycle Verbs
+
+These are operator/session-retention controls, not substitutes for a headless agent's normal return discipline:
+
+```bash
+flint orbh close [id] [--obsidian]
+flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--obsidian]
+flint orbh discard [id] [--obsidian]
+flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require-promote] [--no-close] [--no-kill]
+```
+
+| Verb | Meaning |
+|------|---------|
+| `close` | Terminal finished + closed retention; terminates harness and waiter. |
+| `park` | Legacy await spelling; awaiting/parked retention, persistent waiter survives. `--until-group` adds the all-terminal job-group condition to the standard wake set. |
+| `discard` | Tombstones the entry, records abandonment, terminates harness and waiter. |
+| `end` / `x` | Finishes, promotes by default, closes/terminates, and tears down terminal obligations. |
+
+The default close/park/discard path is Obsidian-independent; `--obsidian` selects a bound terminal-tab path.
+
+## Page, Waiter, and List Hygiene
+
+```bash
+flint orbh page
+flint orbh page arm [id] [--max-wait <seconds>]
+flint orbh list [--print] [--wide] [--subagents]
+flint orbh list --status awaiting
+```
+
+`page arm` is a one-shot attach to the persistent waiter for live-turn latency. `list` renders dispatch trees by default and gives awaiting sessions their own section with duration and last-woken provenance. `ORBH_AWAITING_DORMANCY_DAYS` defaults to 7. A missing/dead unattended waiter lease raises Page hygiene and is repaired by the orchestrator.
+
+The hidden internal command is `flint orbh waiter run <id>`. It is the persistent-waiter process entrypoint; agents/operators should not invoke it manually—use normal launch/return and `orchestrator ensure` for repair.
+
+## Notes
+
+- `--path <dir>` is accepted broadly to override Flint discovery.
+- Verify/repair commands and current caveats live in [[dev-knw-foh-internals]].
+- Bare `launch` creates a peer; `request` creates a collected subagent. Do not interchange them.

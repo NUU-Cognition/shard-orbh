@@ -1,216 +1,156 @@
 ---
-description: "Operating on other sessions — launch/resume, interactive sessions, listing & inspection, the request/result/wait dispatch surface, inter-session messages, interrupt, respond, kill, and the orchestrator singleton"
+description: "Operating on other sessions — peers, collector-backed subagents, turn-correlated results, trees/caps, messages, rooms, interrupt, respond, and kill"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[5d693555-8632-4235-b536-d366018f3a65]]"
+  - "[[1e7717cf-c6b0-4706-a149-ed479bd341cd]]"
+  - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
 ---
 
 # Knowledge: Orbh Session Coordination
 
-The command surface for operating on **other** sessions — launching them, watching them, dispatching and collecting subagents, and messaging between sessions. For the delegation *patterns* (background-run blocking requests, fan-out, park barriers), read [[dev-knw-foh-orchestrator]]. For picking a `runtime/profile` target, read [[dev-knw-foh-profiles]].
+Use this reference to operate on other sessions. For delegation patterns and recursive managers, read [[dev-knw-foh-orchestrator]]; for targets, read [[dev-knw-foh-profiles]].
 
-## Launch & Resume (called by humans / launchers)
+## Peers, Resume, and Interactive Sessions
 
-```bash
-flint orbh launch claude/o48mx "<prompt>"                 # New headless session (preferred: explicit profile)
-flint orbh launch codex/54xh "<prompt>"                   # New Codex session
-flint orbh launch claude "<prompt>"                       # Bare runtime (uses claude's default profile if set)
-flint orbh launch claude "<prompt>" --continues <id>      # New session, linked as a continuation of <id>
-flint orbh launch claude "<prompt>" --max-turns <n>       # Cap agent turns
-flint orbh launch claude "<prompt>" --title "<t>" --description "<d>"  # Pre-set (skips agent self-registration)
-flint orbh resume <id> [prompt]                           # Resume a session — adds a new run (default prompt: "Continue working")
-```
-
-`launch` also accepts `--budget <usd>` and `--model <model>`. `target` is a runtime or `runtime/profile`; bare runtimes seen at HEAD include `agy, claude, codex, droid, grok, opencode`.
-
-## Interactive Sessions (called by humans)
+Bare `launch` creates a **peer**: a headless standing actor with no collector, no parent edge, and the manager-flavored prompt. It defaults to awaiting while its duty remains live. Coordinate with it through messages or rooms.
 
 ```bash
-flint orbh i <target> [prompt]                  # Launch an interactive TUI (alias: interactive) with orbh tracking
-flint orbh i claude --detachable "<prompt>"     # Detachable daemon: survives terminal close; detach/reattach below
-flint orbh i claude -c <id>                      # Continue a previous orbh session interactively
-flint orbh attach <id>                           # Attach to a detachable session (single client)
-flint orbh attach <id> --steal                   # Take over a session attached elsewhere
-flint orbh detach [id]                            # Detach the active client (agent keeps running); self-targets via ORBH_SESSION_ID
-flint orbh continue [opts]                        # (alias: c) Pick a session interactively and continue it on its original profile
+flint orbh launch <runtime/profile> "<prompt>"
+flint orbh launch <runtime/profile> "<prompt>" --title "<t>" --description "<d>"
+flint orbh launch <runtime/profile> "<prompt>" --continues <id>
+flint orbh resume <id> [prompt]
 ```
 
-A **detachable interactive session** runs as a daemon you can detach from (Ctrl-\\ or `orbh detach <id>`) and reattach to (`orbh attach <id>`); it survives the terminal closing. `i` also accepts `--continues <id>` (new linked session), `--model`, `--dev-channels` (load dev MCP channels e.g. orbh), and `--close-after <seconds>` (bounded test runs). `continue|c` supports `-S/--status`, `-r/--runtime`, `-q/--search` pre-filters (the picker also has an in-menu `/` search); `--all` is deprecated/no-op.
+`launch` also accepts `--max-turns`, `--budget`, `--model`, `--account`, and `--force`. `--continues` links a new session; it does not continue the same session.
 
-## Listing & Inspection
+Interactive surfaces:
 
 ```bash
-flint orbh list                                 # List sessions (default: last 30)
-flint orbh list -a                              # (--all) Show every session
-flint orbh list -s                              # (--stats) Token usage + turn counts (reads transcripts)
-flint orbh list -i                              # (--interactive) Live-refresh the list
-flint orbh list -S in-progress                  # (--status) Filter by status
-flint orbh list -r codex                        # (--runtime) Filter by runtime
-flint orbh list -q "auth"                       # (--search) Search title/description/prompt (case-insensitive)
-flint orbh inspect <id>                         # Detailed session view (stats, runs, requests)
-flint orbh inspect <id> -r                      # (--results) Include run results
-flint orbh stats <id>                           # Transcript stats — turns, tokens, tools, files
-flint orbh stats <id> --files                   # Include full file paths
-flint orbh watch <id>                           # Stream the live transcript
-flint orbh watch <id> -v                        # (--verbose) Full thinking + tool output
-flint orbh requests <id>                        # List all request/response pairs for a session
-flint orbh requests <id> --pending              # Only unanswered requests
-flint orbh result <id>                          # Print the raw result of a finished session (stdout only)
-flint orbh runtimes                             # List discovered runtimes + resolved executables/versions
+flint orbh i <target> [prompt]                 # alias: interactive; detachable is the TTY default
+flint orbh i <target> -c <id>                  # continue a session interactively
+flint orbh attach <id> [--steal]
+flint orbh detach [id]
+flint orbh continue                            # alias: c; interactive picker
 ```
 
-`list` accepts partial IDs everywhere a `<id>` is taken. `result` prints only the `return` payload, no formatting — use it to read a subagent's output into a variable.
-
-## Orchestration
-
-There are **two** distinct things called "orchestration" — keep them apart:
-
-1. **The per-machine orchestrator singleton** (`orchestrator|orch`) — an OS-level supervisor process.
-2. **The manager-agent request/wait pattern** — how an *agent* dispatches and collects *subagents*.
-
-### 1. The Orchestrator Singleton (`orchestrator` / `orch`)
-
-A per-machine singleton (lock + pidfile + heartbeat) that **supervises interactive managers and reaps ungraceful deaths**. You rarely touch it directly; interactive launches auto-ensure it.
+## Listing and Inspection
 
 ```bash
-flint orbh orchestrator status            # Singleton state + supervised manager roster (--json)
-flint orbh orchestrator managers          # (alias: ls) List managers in the registry (live only by default)
-flint orbh orchestrator managers --all    # Include dead/stale entries
-flint orbh orchestrator managers -i       # Pick a live manager and attach / detach / kill (needs a TTY)
-flint orbh orchestrator reap              # Force-reap dead managers now (remove stale entries + signal orphaned groups)
-flint orbh orchestrator ensure            # (alias: start) Ensure the singleton is up (lazily spawns it)
-flint orbh orchestrator stop              # Stop the singleton (re-ensured on next interactive launch)
+flint orbh list [--all] [--stats] [--print] [--wide]
+flint orbh list --status awaiting
+flint orbh list --runtime codex --search "auth"
+flint orbh list --subagents                    # flatten instead of default dispatch trees
+flint orbh active                              # JSON inside an Orbh session; tree for humans
+flint orbh inspect <id> [--results]
+flint orbh stats <id> [--files]
+flint orbh watch <id> [--verbose] [--stream]
+flint orbh requests <id> [--pending]
 ```
 
-### 2. Manager-Agent Dispatch (`request` / `result` / `wait`)
+`list` renders collected subagents as dispatch trees and gives `awaiting` its own section with awaiting duration, last-woken source, and dormancy warnings. Bare peers remain roots because they have no parent collector edge. Partial IDs are accepted on ID-taking commands.
 
-This is the primitive an interactive or manager agent uses to dispatch subagents and collect their `return` output. **It is unrelated to the singleton above** — it just launches/resumes sessions and blocks on them.
+## Collector-Backed Dispatch
+
+`request` creates or continues a **subagent** and attaches a collector. In an agent shell use quiet mode and background execution:
 
 ```bash
-flint orbh request -q claude/o48mx "<prompt>"     # Quiet dispatch — raw result only (use from agent bash)
-flint orbh request -q codex/54xh "<prompt>"       # Quiet dispatch for coding tasks
-flint orbh request -q -c <id> "<prompt>"          # Quiet CONTINUE — resume a session and wait for its result
-flint orbh request claude/o48mx "<prompt>"        # Interactive dispatch (spinner + result box)
-flint orbh request claude/o48mx "<prompt>" --stream   # Stream the live transcript while waiting
-flint orbh result <id>                            # Read a finished session's raw result (stdout, no formatting)
-flint orbh wait <id1> [id2...]                    # Block until all finish; print each result, labeled, in argument order
+flint orbh request -q <runtime/profile> "<complete prompt>"
+flint orbh request -q -c <session-id> "<follow-up prompt>"
+flint orbh wait <id1> [id2...] [--timeout <seconds>]
+flint orbh result <id>
+flint orbh result <id> --run <n>               # 1-based historical run
 ```
 
-#### `request` — synchronous subagent dispatch
+### What a Collector Waits For
 
-`request` is the primary orchestration primitive. Its **`<target>` argument is overloaded** — it dispatches to one of three modes:
+A collector anchors to the run it initiated (or the current run when `wait` begins) and follows that turn's `continuesRunId` rescue chain. It waits for the first correlated result—not for `workState`, retention, a harness exit, or session terminality.
 
-- **Launch + wait** — `<target>` is a `runtime/profile` (e.g. `claude/o48mx`): creates a new session, spawns the harness, blocks until it finishes, prints the `return` output.
-- **Resume + wait** — `-c <id>` (`--continue`): resumes an existing session and waits for its result (iterative work — dispatch, review, continue).
-- **Deferred ask** — `<target>` is a session id and the text is a question: posts a deferred question to that session and **exits immediately** (no block). The session goes `needs-input`; a `respond` auto-resumes it.
+Consequences:
 
-> `--continue <id>` (resume + wait, same session) is different from `--continues <id>` (start a **new** session linked to `<id>`).
+- A child can await/park, crash and be return-reprompted, or pass through intermediate runs without falsely resolving the collector.
+- The collector outcome is exactly `result`, `failed-unreturned`, `abandoned`, or `pending`. A command timeout stops waiting but leaves the outcome pending.
+- `result <id>` reads the latest returned turn; `--run <n>` addresses a specific 1-based run.
+- `wait` prints labeled outcomes in argument order, regardless of completion order.
+- `request -q -c` against an awaiting session starts a follow-up turn and waits for that turn's result; the dispatch itself wakes the session.
 
-`request` also accepts `--max-turns`, `--budget`, `--model`, `--title`, `--description`, and `--timeout <seconds>`.
+`-q` changes output formatting only; it does not change correlation. Without `-q`, `request` uses a human spinner/result box. `--stream` streams the transcript while collecting. Avoid collector timeouts for normal delegation; use harness-native background execution.
 
-**Quiet mode (`-q` / `--quiet`):** when calling `request` from inside an agent (bash tool), **always pass `-q`** — without it you get spinners and formatted boxes that pollute your context. With `-q` you get only the raw result on stdout, identical to `result`.
+### Follow-ups and Result Streams
 
-> For the blocking dispatch/collect pattern, do **not** add `--timeout` — these calls block intentionally until the subagent finishes. Run them with your harness's native background execution ([[dev-knw-foh-orchestrator]]).
+A session may return many results across its life. `return --await` emits the current turn's result and leaves the session available; the current collector receives that result. A later `request -q -c` creates a new correlated collection. This is the clean continuation loop: dispatch → receive one turn result → review → follow up.
 
-#### `result` — raw result collection
+## Recursive Dispatch, Caps, and Trees
 
-Returns only the `return` payload of a finished session to stdout — no metadata, no formatting. Exits non-zero if the session isn't finished or has no result.
+Subagents may dispatch subagents. Orbh records ancestry as `{rootSessionId, depth}` and preserves immediate `parentSessionId` edges for tree rendering.
+
+- `ORBH_DISPATCH_DEPTH_CAP=5` by default.
+- `ORBH_DISPATCH_FANOUT_CAP=16` by default, measured from live collector stamps.
+- Cap failures report the chain and requested depth/fan-out.
+
+Use `request -q` for owned, collected work. Use bare `launch` only for a **peer** whose duty should outlive the caller or belongs to no one. A peer is not in the caller's dispatch tree; coordinate with it, do not treat it as a subagent.
+
+## The Orchestrator Singleton
+
+The per-machine orchestrator is infrastructure, distinct from a manager agent:
 
 ```bash
-output=$(flint orbh result <id>)
+flint orbh orchestrator status [--json]
+flint orbh orchestrator managers [--all] [--json]
+flint orbh orchestrator managers --interactive
+flint orbh orchestrator reap [--json]
+flint orbh orchestrator ensure
+flint orbh orchestrator stop
 ```
 
-#### `wait` — parallel result collection
-
-Blocks until all listed sessions reach a terminal state, then prints each result labeled by id, **in the order the ids were given** (not completion order).
-
-```bash
-flint orbh launch codex/54xh "implement feature A" &   # returns immediately
-flint orbh launch codex/54xh "implement feature B" &
-# ... then collect:
-flint orbh wait <id-A> <id-B>
-```
-
-## Discovering Active Sessions
-
-```bash
-flint orbh active                               # Active tree: humans browse; agents get JSON targets
-```
-
-`active` is the live session-tree discovery surface. Humans in a normal TTY get the interactive active-session tree: every tree with activity, subagents nested depth-first under parents, and the full per-session action set on any row.
-
-Inside an Orbh session (`ORBH_SESSION_ID` present), `active` automatically prints machine-readable JSON — no flag needed. Parse it, choose the target session by full `id`, then message it with `flint orbh message send <id> "<text>"`. The caller's own session is included and flagged `self: true`; it is not hidden. Write your `register` descriptions knowing other agents read them here.
-
-JSON shape: `{ self, generatedAt, sessions }`. `self` is the caller session id or `null`; `generatedAt` is ISO time; `sessions` is tree-order rows: active roots plus all nested subagents, including finished children of active roots as context (`active: false`). Row fields: `id` (full, message-target-ready), `shortId`, `parentSessionId`, `depth`, `mode`, `workState`, `active`, `runtime`, `title`, `description`, `phase`, `progress`, `started`, `updated`, `self`. Empty values are `null`.
-
-Overrides and filters: `--json` forces JSON for anyone; `--print` forces the static human tree; `--wide` prints the static tree full-width and implies `--print`; `-r/--runtime <runtime>` and `-q/--search <text>` filter every mode. Precedence: `--json` > `--print`/`--wide` > `ORBH_SESSION_ID` JSON > TTY interactive > static tree. (Task 186.)
+It supervises manager processes and acts as waiter janitor, retry net, un-returned-turn reaper, and designated survivor. See [[dev-knw-foh-orchestrator]].
 
 ## Inter-Session Messages
 
 ```bash
-flint orbh message send <targetId> "<text>"     # Append a message to another session (records orbh.message.received on the target)
-flint orbh message send <targetId> "<text>" --wake   # Additionally wake a PARKED target: resume it with the message digest as the prompt
-flint orbh message send <targetId> "<text>" --revive # Resume an ENDED (finished/abandoned, incl. closed) target with the message digest — explicit resurrection
-flint orbh message list <id>                    # List a session's message history (peer request/response pairs render as threads)
+flint orbh message send <targetId> "<text>"
+flint orbh message send <targetId> "<text>" --wake
+flint orbh message send <targetId> "<text>" --revive
+flint orbh message list <id>
 ```
 
-Messages are delivered lazily by default and persist on the target session's control log. Use them for asynchronous coordination between sessions. Delivery reaches the target at its next turn boundary through three channels: the target's own `page` / `page arm` reads ([[dev-knw-foh-page]]), piggyback on the target's next `session` verb, and — with `--wake` — an immediate resume when the target is **parked** (send-time fast path, retried by the orchestrator's message-wake sweep if the resume fails). `--wake` on a non-parked target is a no-op beyond normal queueing: working sessions are never interrupted by message delivery. `--revive` is the terminal-session analog: it explicitly resumes an *ended* session with the digest (never silently — without the flag the message just queues). Sender identity renders as the session's **title (short-id)** everywhere.
+Messages are durable Page-worthy events.
 
-After queueing, `message send` prints a delivery-state notice:
+- A headless/subagent target in `awaiting` wakes on **any** message. `--wake` is unnecessary and produces an informative no-op notice.
+- Interactive parked sessions retain the legacy `--wake` behavior.
+- Working targets receive through a live attach when present; otherwise the persistent waiter HOLDs delivery until a later attach or turn boundary.
+- `--revive` remains the explicit resurrection flag for ended sessions.
 
-- `Message queued — session <id> has ended (<workState>); add --revive to resume it with this message`
-- `Message queued — target is parked; add --wake to deliver now` (or `wake requested` when `--wake` was passed)
-- `Message queued — target is armed; delivery within seconds`
-- `Message queued — target is working and unarmed; delivery waits for the target's next pull/arm`
-
-## Peer Requests (blocking session-to-session ask)
+`message request` is the blocking peer-to-peer ask surface; run it in background execution:
 
 ```bash
-flint orbh message request <targetId> "<question>"   # Hangs until the target responds — run in your background execution
-flint orbh message request --cancel <requestId>      # Withdraw a pending request
-flint orbh message respond <requestId> "<answer>"    # Answer a pending peer request (self-targets as the responder)
+flint orbh message request <targetId> "<question>" [--timeout <s>]
+flint orbh message request --cancel <requestId>
+flint orbh message respond <requestId> "<answer>"
 ```
 
-The synchronous complement to `message send`: use it when you cannot proceed without the answer (file-boundary negotiation, "is your migration done?"). The request prints its `requestId` immediately, then waits store-side (no server, no default timeout; optional `--timeout <s>` exits non-zero leaving the request pending). The waiter exits early with a clear status if the target session **ends** unanswered; parked targets keep the wait alive. Pending requests render distinctly on the target's Page with the exact respond command and stay visible until answered or cancelled. Mutual pending requests (A↔B) are *warned* on both Pages, not prevented — one side responds or cancels. Run the request in your harness's background execution, same as `request -q` dispatch. (Task 177; see `(Spec) Orbh . Peer Requests`.)
-
-## Rooms (shared durable places)
+## Rooms
 
 ```bash
-flint orbh room create <name> [--topic "<t>"]        # Create a durable room (name unique, case-insensitive)
-flint orbh room list                                 # Rooms + your membership/unread columns
-flint orbh room read <room> [--no-advance]           # Render stream + context; subscribed self reads drain cursors (--no-advance peeks)
-flint orbh room join <room> [--notify all|mentions|mute]   # Subscribe THIS session (re-join updates policy, keeps cursors)
-flint orbh room leave <room>                         # Remove your subscription (room persists)
-flint orbh room post <room> "<text>"                 # Append to the stream (membership not required)
-flint orbh room context show <room>                  # Full context library body + rev
-flint orbh room context append <room> "<text>"       # Append to the context library (rev +1)
-flint orbh room context edit <room> --search "<old>" --replace "<new>"   # CAS edit: fails on not-found or ambiguous match
+flint orbh room create <name> [--topic "<t>"]
+flint orbh room list
+flint orbh room join <room> [--notify all|mentions|mute]
+flint orbh room leave <room>
+flint orbh room post <room> "<text>"
+flint orbh room read <room> [--no-advance]
+flint orbh room context show <room>
+flint orbh room context append <room> "<text>"
+flint orbh room context edit <room> --search "<old>" --replace "<new>"
 ```
 
-A **room** is a named spool owned by no session — it outlives every participant, so conversations and shared context survive session churn. It carries two planes: the append-only **message stream** (chat, sender titles resolved) and the **context library**, one mutable revisioned document for shared state (goals, file claims, links). Context edits are **search/replace with exactly-one-match required** — a stale view fails loudly (`not found` / `ambiguous`), and the repair is `room context show` then retry. Treat every edit as a compare-and-swap.
+Rooms outlive participants and carry a message stream plus revisioned context. Subscription policy controls whether room activity is Page-worthy: `all`, mentions only, or mute. A subscribed awaiting session wakes on qualifying room activity through the same waiter predicates. Own posts/edits do not wake the author.
 
-**Join ≠ read.** Reading is a look and mutates nothing (except a subscribed *self* read drains your cursors). Joining writes a subscription into *your* `core:rooms` slice — that is what routes the room onto your Page (`core/rooms` renders unread messages + change-only context deltas) and into your armed pager's wake conditions: `all` wakes on any new message or context rev, `mentions` only when a message `@`-mentions your id-prefix or exact title, `mute` never wakes (unread counts still render). Your **own** posts and context edits never wake you and never count as unread to you (author-filtered). Subscription changes take effect on a **live** waiter — joining, leaving, or changing notify policy mid-arm needs no re-arm. Room activity never wakes parked or terminal sessions — direct `message send --wake` stays the explicit path. (Task 182)
-
-**Dispatch convention:** when a subagent participates in shared work, name the room in its prompt — "join room `<name>` (--notify all), announce yourself in the stream, and read its context library before starting." The launch prompts teach the mechanic; naming the room is the manager's choice. (Task 177; see `(Spec) Orbh . Rooms`.)
-
-### Interrupting a Working Headless Session
+## Interrupt, Respond, and Kill
 
 ```bash
-flint orbh interrupt <targetId> "<text>"   # Terminate the target's live run, then resume it with your message as an interrupt digest
+flint orbh interrupt <targetId> "<text>"
+flint orbh respond <id> "<text>"
+flint orbh kill [id]
 ```
 
-The explicit escalation for "stop, requirements changed" — when waiting for the target's next turn boundary is wrong. Headless/subagent targets only (interactive sessions are interrupted from their own terminal). The message is recorded on the spool first, the live run is terminated through the same machinery as `kill`, and the session is resumed with a digest stating it was interrupted mid-run, that its transcript is preserved, and that in-flight changes may be half-applied. Degrades state-awarely: a parked target behaves exactly like `--wake`, an idle target resumes without a kill, a finished/abandoned target just queues the message with `queued (terminal; session has ended and will only see this if resumed)` (no silent resurrection). Nothing automates this verb — the orchestrator never interrupts. Use it sparingly: the target loses its in-flight tool call, and its interrupted work may be half-applied.
-
-## Responding to a Blocked Session (called by humans / managers)
-
-```bash
-flint orbh respond <id> "<text>"        # Answer a pending question on a session
-```
-
-If the pending request was a blocking `ask`, the asking agent's `ask` call returns the text and it resumes in-place. If it was a **deferred** request, `respond` **auto-resumes** the session with the answer.
-
-## Killing a Session
-
-```bash
-flint orbh kill [id]                    # SIGTERM a running session (records run.ended + cancelled first); self-targets via ORBH_SESSION_ID
-```
+`interrupt` is explicit escalation for a working headless/subagent: record the message, terminate the live run, and resume with an interrupt digest. Against an awaiting target it behaves as a wake; against a terminal target it only queues unless explicitly revived by the appropriate surface. `respond` returns blocking `ask` input in place or resumes a deferred requester. `kill` terminates the run and records session abandonment, so a collector resolves as `abandoned`; kill/interrupt paths do not trigger un-returned re-prompts.

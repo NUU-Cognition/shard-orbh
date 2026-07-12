@@ -1,112 +1,116 @@
 ---
-description: "Session internals — the Orb spool data model, the workState lifecycle, runs & endReason, spaces & spools, portable save/restore bundles, and maintenance/audit commands"
+description: "Session internals — Orb spools, five-state lifecycle, turns/results, collector correlation, persistent-waiter leases, spaces, bundles, and repair"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
+  - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
 ---
 
 # Knowledge: Orbh Session Internals
 
-How sessions work underneath — the event-sourced data model, the exact lifecycle mechanics, spool promotion across spaces, portable bundles, and the repair/audit surface. Load this when you need to reason about *why* a session is in a given state, move spools between machines/spaces, or repair a broken store. The everyday verbs live in [[dev-knw-foh-cli]].
+Load this when diagnosing lifecycle, result collection, waiter health, spool movement, or store repair. Everyday verbs live in [[dev-knw-foh-cli]].
 
 ## Data Model
 
-There is **no** `.flint/sessions/<id>.json` file store. A session **is** an Orb spool: an **append-only, event-sourced** control log plus derived projections, stored under the Flint's `.orb/`.
+A session is an event-sourced Orb spool, not a standalone session JSON file:
 
-```
+```text
 .orb/
   spaces/<spaceId>/spools/
-    <spoolId>.jsonl          # CONTROL PLANE: append-only CloudEvents log of orbh.session.*, orbh.run.*,
-                             #   orbh.request.*, orbh.message.*, plus orb.spool.* / orb.run.*. The source of truth.
-    <spoolId>.json           # SPOOL SNAPSHOT: the LIVE AgentSession projection — carries `ext.orbh.workState`
-                             #   (live work-state), metadata, orbhInterface. Co-written with the .jsonl on EVERY
-                             #   mutation (dual-write contract): fold(.jsonl) === .json always. Authoritative for
-                             #   reads; re-fold (`rebuild-from-log`) is a repair/audit path, not the read path.
-    <spoolId>/<threadId>.jsonl  # CONTENT PLANE: orb.thread.* / orb.message.* (the transcript). No control events here.
-    <spoolId>/<threadId>.json   # thread snapshot
-    <spoolId>/attachments/      # per-spool attachments
-  indexes/orbh-sessions.json # DISPOSABLE session index — a cache rebuilt from control events; invalidated on every
-                             #   mutation. Never authoritative.
-~/.orb/blobs/sha256/...      # native-transcript bundle blobs (content-addressed)
+    <spoolId>.jsonl              # append-only control/event log: source of truth
+    <spoolId>.json               # co-written live projection (ext.orbh)
+    <spoolId>/<threadId>.jsonl   # transcript/content events
+    <spoolId>/<threadId>.json    # thread projection
+    <spoolId>/attachments/
+  indexes/orbh-sessions.json     # disposable index/cache
+  jobs/                          # retained job output in the launching scope
 ```
 
-Key consequences for agents:
+Every mutation appends an event and updates the spool projection. Re-folding/rebuilding is repair, not the normal read path. The session index is disposable.
 
-- **Event-sourced.** Every fact (`register`, `set`, `return`, `ask`, lifecycle change) appends a control event. Nothing is edited in place.
-- **`workState` is live on the snapshot.** The canonical lifecycle field is `workState`, carried on the `.json` snapshot's `ext.orbh` and co-written with the control log on every mutation (so it equals folding the log). Read the snapshot directly; a dead session reconciles to `abandoned` and never freezes at `working`.
-- **The index is disposable.** It is a cache, rebuilt from control events — never treat it as truth. `verify-sessions` audits index health.
+## Lifecycle: Work State and Retention
 
-## Lifecycle: `workState`, run status, retention
+`workState` has five values:
 
-`workState` has **4 values** and is the real lifecycle field:
+| State | Meaning |
+|-------|---------|
+| `working` | A live or recoverable turn is active; un-returned exits remain here while the reaper decides. |
+| `needs-input` | A request is pending. |
+| `awaiting` | Non-terminal dormancy after await/park or `failed-unreturned`; waiter remains standing. |
+| `finished` | Explicit finish return or terminal close/end. |
+| `abandoned` | Explicit abandonment such as discard/operator verdict. |
 
-| `workState` | Meaning |
-|-------------|---------|
-| `working` | Active; also the default for a just-created session with no run yet. |
-| `needs-input` | A request is pending; open requests pin this regardless of run status. |
-| `finished` | Explicit completion via agent `return`/`end` or operator `close`/`park`. |
-| `abandoned` | Latest run ended without a completion fact; revivable by resume. |
+Retention is a separate shelf projection: `active | parked | closed | finished | error`. Await/legacy park derives awaiting + parked; unattended finish derives finished retention; resume returns retention to active. Park is therefore compatibility vocabulary, not a lifecycle distinct from await.
 
-> **Return discipline:** a clean process exit *without* a `return` lands in **`abandoned`** with no deliverable — it is **not** `finished`. If you mean "done", call `return`.
+Interactive views additionally derive observed activity: busy is working; idle is needs-input unless live dispatch stamps keep the manager working. This is read-side only.
 
-> **Interactive override (observed-over-declared):** for an **interactive** session with a live run, every view surface (`orbh list`, picker, summaries, Orbit) renders the *effective* workState derived from the observed run `activity`: spinner running → **`working`**, sitting idle at the prompt → **`needs-input`**. The declared workState is still the stored lifecycle fact; the override is read-side only (`effectiveSessionWorkState`). So for interactive sessions, `needs-input` means "waiting on the operator" — whether from an explicit `ask` or an observed idle prompt.
+## Turns, Runs, and Results
 
-Retention is separate: `active | parked | closed`. `park` sets `finished + parked`; `close`/`end` set `finished + closed`; resume clears retention back to `active`. Titles stay raw; display titles are composed from mode (`(I)/(H)/(S)`), retention (`[Parked]/[Closed]`), and raw title.
+Each headless/subagent harness invocation is one turn and one run. Runs carry `continuesRunId`, process/native identifiers, status, end reason, disposition, and result.
 
-## Runs and `endReason`
+| Turn outcome | Run facts | Derived state |
+|--------------|-----------|---------------|
+| `return --finish` | result + `returned` + `finish` | `finished` |
+| `return --await` | result + `returned` + `await` | `awaiting` |
+| exit without return | no result/disposition; exit reason retained | `working` pending reaper |
+| two failed re-prompts | `failed-unreturned` | `awaiting` |
+| pending request | request fact; run may be suspended | `needs-input` |
+| discard/operator abandonment | terminal control fact | `abandoned` |
 
-Each harness invocation (`launch`, `resume`) appends a **run**. A run records `machineId`, `orbRunId` (defaults to the run `id`), `nativeSessionId`, `nativeTranscriptPath`, and an interactive `activity` axis (`busy | idle`).
+Kill and interrupt suppress the un-returned re-prompt path because the caller owns what happens next.
 
-A run has `status: running | suspended | completed | failed`. `suspended` is live: the run is deliberately yielded on a blocking `ask`, and returns to `running` on answer. Terminal mapping:
+A session's results form a stream. `result <id>` reads the latest returned run; `result <id> --run <n>` reads a 1-based historical run.
 
-| Event | Run status | Resulting `workState` |
-|-------|------------|------------------------|
-| `returned` / agent `return` | `completed` | `finished` |
-| `exit-zero` + pending deferred request | `completed` | `needs-input` |
-| `close` / `park` | `completed` | `finished` + retention |
-| `exit-zero` with no return/request | `failed` | `abandoned` |
-| `exit-nonzero` / `signal` / `hangup` / `spawn-failed` / `lost` / `unknown` | `failed` | `abandoned` |
+## Collector Correlation
 
-`endReason` is observable-only (you read it; you don't set it). The takeaway is the same as above: **exit cleanly without `return` → `abandoned`, not `finished`.**
+Collectors record an anchor `{initiatedRunId, startedAt}` and find the first result on that run or its `continuesRunId` rescue chain. They do not subscribe to work state, retention, or process exit. The outcome enum is exactly a correlated `result`, `failed-unreturned`, `abandoned`, or `pending`. Timeout belongs to the waiting command, not the outcome enum: it stops waiting while the durable outcome remains pending.
 
-## Spaces & Spools
+This prevents await/park and crash/re-prompt transitions from impersonating a result. Kill is different: it records abandonment, so the collector resolves as `abandoned`. Live collector stamps live in `core:dispatches`; they drive fan-out caps and keep interactive managers visibly working.
 
-A spool is born in a **local** space (`local`, basis `machine`, not synced) and is **promoted** to a **synced** space (e.g. `flint`, basis `flint`, synced) to share it. The synced space is the "target".
+## Persistent Waiter Internals
+
+Every non-terminal headless/subagent session is a waiter obligation. Its detached waiter stores a session-lifetime lease under `core:page-arm/lease` containing PID, `machineId`, `armedAt`, and—on Linux—boot ID/process start identity plus a contender token. A run end must not clear this lease on await; terminal finish/close/discard/kill tears the process down and clears it.
+
+`page arm` writes a separate one-shot attach lease (`core:waiter-attach`) and waits for the persistent waiter to write its output. Wake cursors/state are durable in `core:waiter-state`, so waiter restart catches up from the spool.
+
+State-aware behavior is: deliver to a live attach, HOLD while working-unattached, resume awaiting with a coalesced digest, or tear down when terminal. The default coalescing window is 3000 ms (`ORBH_WAITER_DEBOUNCE_MS`).
+
+The orchestrator scans all scopes, respawns dead/missing local waiter leases, ignores healthy remote-machine leases, and uses boot-safe liveness. Retry sweeps act only behind direct waiter delivery.
+
+## Ancestry and Safety Caps
+
+Collected dispatches store immediate `parentSessionId` plus metadata `orbhAncestry: {rootSessionId, depth}`. Bare peer launches explicitly suppress parent inference. Defaults are depth 5 and live fan-out 16, configured by `ORBH_DISPATCH_DEPTH_CAP` and `ORBH_DISPATCH_FANOUT_CAP`.
+
+## Spaces and Spools
 
 ```bash
-flint orbh space list                   # List spaces in the active Orb root (id, basis, sync, spool count, born/target)
-flint orbh space show [id]              # Show a space descriptor + spool count (defaults to the target space)
-flint orbh space init <basis> [id]      # Register a space descriptor; basis = machine | user | flint; --sync / --no-sync
-flint orbh promote [id]                 # Promote a local spool → resolved synced space (embeds native bundle, restamps space ids)
-flint orbh promote [id] --to <spaceId>  # Promote to a specific space
-flint orbh move-spool <spoolId> --to <spaceId> [--from <spaceId>]   # Move an arbitrary spool between spaces (restamped bundle)
+flint orbh space list
+flint orbh space show [id]
+flint orbh space init <basis> [id] [--sync|--no-sync]
+flint orbh promote [id] [--to <spaceId>]
+flint orbh move-spool <spoolId> --to <spaceId> [--from <spaceId>]
 ```
 
-- `end` **promotes by default** (use `end --no-promote` to skip).
-- `promote` and `move-spool` overlap; `promote` resolves the synced target automatically, `move-spool` takes explicit `--from`/`--to` (default `--from local`).
+Sessions are born in a machine-local space and may be promoted to a synced target. `end` promotes by default.
 
-## Portable Bundles: `save` / `restore`
+## Portable Bundles
 
 ```bash
-flint orbh save [id]                          # Export a portable bundle: bundle.json + transcript.md + native rollout + orb/events.jsonl
-flint orbh save [id] -o <dir>                 # Output dir (default: <cwd>/Exports/Orbh Bundles/<runtime>-<native-id>)
-flint orbh save <nativeId> --runtime <rt>     # Treat <id> as a NATIVE session id of <rt>, bypassing the orbh store
-flint orbh restore <bundleDir>                # Restore a bundle into THIS machine's native harness storage
-flint orbh restore <bundleDir> --force        # Overwrite existing native files
+flint orbh save [id] [-o <dir>]
+flint orbh save <nativeId> --runtime <rt>
+flint orbh restore <bundleDir> [--force]
 ```
 
-> `restore` writes **native files only** — it does **NOT** re-register the session in orbh. A restored session is invisible to `list` until you `resume` it (which re-mints the orbh control session). Sessions track imported bundles in `rawNativeBundles[]`. `save` and `restore` are therefore not inverses at the control plane.
+`restore` restores native harness files only; it does not re-register an Orbh control session. Resume the restored native session to mint/associate control state.
 
-## Maintenance & Audit
+## Maintenance and Audit
 
 ```bash
-flint orbh heal                         # Repair sessions stuck non-terminal (stale PIDs / orphaned runs)
-flint orbh heal --dry-run               # Preview without writing
-flint orbh verify-sessions              # Audit ALL canonical sessions + index health + promotion readiness
-flint orbh verify-session <id>          # Audit ONE session (see caveat)
-flint orbh rebuild --yes                # DESTRUCTIVE: wipe derived orb.* content, rebuild from native transcripts; keeps orbh.* control
-flint orbh rebuild --dry-run            # Preview (default: previews unless --yes/--force)
-flint orbh reset --yes                  # Alias of `rebuild`
+flint orbh heal [--dry-run]
+flint orbh verify [sessionId] [--json]
+flint orbh verify-sessions [--json]             # deprecated alias for verify
+flint orbh rebuild-session-snapshots [--json]
+flint orbh rebuild [--dry-run|--yes] [--json] [--runtime <name>]
+flint orbh reset [same options]                  # alias of rebuild
 ```
 
-- `rebuild`/`reset` destroy **derived** `orb.*` content and re-derive it from native transcripts; the `orbh.*` **control** plane is preserved. Both default to preview — `--yes` (or `--force`) is required to actually mutate. Also accept `--json`, `--runtime <name>`, `--cwd <dir>`.
-- `verify-sessions` (all) classifies correctly. **`verify-session <id>` (single) is currently broken** — it reports canonical sessions as `missing` even when the index is usable. Prefer `verify-sessions` until fixed.
+`rebuild`/`reset` reconstruct derived transcript events and require `--yes`/`--force` to mutate; Orbh control events are preserved. `rebuild-session-snapshots` re-folds the session projection from canonical control events.

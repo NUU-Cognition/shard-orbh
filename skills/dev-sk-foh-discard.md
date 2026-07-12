@@ -1,5 +1,7 @@
 ---
 description: "Discard the current Orbh session — tombstone its history entry and terminate the harness (no Mesh summary)"
+orbh-sessions:
+  - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
 ---
 
 > [!important] THIS FILE IS AN INSTRUCTION. WHEN REFERENCED IT IS MEANT TO BE TAKEN AS AN ACTION.
@@ -18,7 +20,7 @@ By default `flint orbh discard` records the tombstone and terminates the harness
 
 1. If useful, briefly tell the human you are discarding the session and that no summary record will be written.
 
-2. **Discard the session.** This appends an `orbh.session.discarded` tombstone to the session's Orb control log (event-sourced — there is no session JSON file to delete), drops it out of `orbh list`, and terminates the harness. Self-targets via `ORBH_SESSION_ID` when run inside the harness — no id needed. Do nothing after.
+2. **Discard the session.** This is an explicit terminal abandonment verdict: it appends an `orbh.session.discarded` tombstone, tears down the persistent waiter, drops the entry out of `orbh list`, and terminates the harness. It self-targets through `ORBH_SESSION_ID`; do nothing after.
 
    ```bash
    flint orbh discard
@@ -29,4 +31,5 @@ By default `flint orbh discard` records the tombstone and terminates the harness
 # Output
 
 - An `orbh.session.discarded` tombstone appended to the Orb control log (session hidden from `orbh list`).
+- Persistent waiter duty terminated and its lease cleared.
 - Harness terminated and terminal returned to the shell.
