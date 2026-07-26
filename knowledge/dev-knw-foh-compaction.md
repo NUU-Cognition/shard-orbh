@@ -1,5 +1,5 @@
 ---
-description: "Self-compaction doctrine — the agent authors its own handoff into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact handoff/finish, in-place relaunch under a stable session id"
+description: "Self-compaction doctrine — the agent authors its own handoff into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id"
 orbh-sessions:
   - "[[411171be-587b-44fd-8c74-43f5700bb512]]"
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
@@ -16,27 +16,30 @@ Compaction replaces the **context, not the identity**. The session is the durabl
 
 Read occupancy from the **`CONTEXT` line of your Page** — `flint orbh page`, or any `page arm` delivery. It reports `used / max (pct%)` from the live transcript. Do not invent alternate token accounting. An armed pager autofires an advisory at ≥ 80%.
 
-## The doctrine: two verbs
+## The doctrine: three verbs
 
-At **≥ 80% occupancy** (or clearly approaching it on a long turn):
+Compaction spans two contexts, so it takes three verbs — two on the way out, one on the way in. At **≥ 80% occupancy** (or clearly approaching it on a long turn):
 
-1. **`flint orbh compact handoff`.** Prints the `COMPACTION_ARTIFACT_V1` contract, the exact absolute path to write your handoff to (inside your spool's `scratch/`), and your live Page so you write OPEN OBLIGATIONS from durable state rather than memory. It **records no intent, takes no claim, and kills nothing** — it is re-runnable and safe. Its one durable effect is to **hold the pager** (see below), which is also what makes the session visibly `[Compacting...]`.
+1. **`flint orbh compact start`.** Prints the `COMPACTION_ARTIFACT_V1` contract, the exact absolute path to write your handoff to (inside your spool's `scratch/`), and your live Page so you write OPEN OBLIGATIONS from durable state rather than memory. It **records no intent, takes no claim, and kills nothing** — it is re-runnable and safe. Its one durable effect is to **hold the pager**, which is also what marks the session `[Compacting...]`.
 2. **Write the handoff** to that exact path, with your own tools. No size limit, no shell quoting — it is a file.
-3. **`flint orbh compact finish`.** Takes no arguments; the path is convention. It validates the handoff **while you are still alive**, then ends this context and relaunches the same session pointed at what you wrote. It is a **turn-ending verb**, a sibling of `return`. Do not plan work after it; there is no after.
+3. **`flint orbh compact handoff`.** Takes no arguments; the path is convention. It validates the handoff **while you are still alive**, then ends this context and relaunches the same session pointed at what you wrote. It is a **turn-ending verb**, a sibling of `return`. Do not plan work after it; there is no after.
+4. **`flint orbh compact finish`** — run by the **relaunched context**, not by you. Once it has read the handoff and every path in the FILES list, it runs `finish` to declare the compaction over: the `[Compacting...]` marker clears and the pager hold releases, together.
 
-Changed your mind between `handoff` and `finish`? **`flint orbh compact abort`** releases the hold. Ending the turn any other way (`return --finish` / `--await`) releases it automatically.
+Changed your mind between `start` and `handoff`? **`flint orbh compact abort`** releases the hold. Ending the turn any other way (`return --finish` / `--await`) releases it automatically.
 
 Every refusal — missing handoff, malformed handoff, a handoff belonging to another run, live subagent dispatches — is an **ordinary error while your context survives**. Fix it and retry. This is the whole point of authoring your own handoff: the feedback loop closes.
 
 ## Compaction is visible: `[Compacting...]`
 
-From `compact handoff` until the relaunched context's run exists, every title surface prefixes the session with `[Compacting...]` — the pane title, `orbh list`, the cockpit, and Orbit. It is **derived, never stored**: the marker is the compaction pager hold read through `isSessionCompacting`, keyed to the run that took it, so a relaunch (new run id), an `abort`, a `return`, or a kill each end it as a consequence rather than through a cleanup step that could be missed. Nothing writes it into `session.title`, so a compaction that dies mid-flight cannot leave a polluted title behind.
+From `compact start` until the relaunched context runs `compact finish`, every title surface prefixes the session with `[Compacting...]` — the pane title, `orbh list`, the cockpit, and Orbit. It is **derived, never stored**: the marker is the compaction pager hold read through `isSessionCompacting`. Nothing writes it into `session.title`, so a compaction that dies mid-flight cannot leave a polluted title behind.
 
-One deliberate consequence: run `compact handoff` and then neither finish nor abort, and the marker stays. That is honest — a dangling hold is a real condition, and this is the first thing that makes it visible.
+The window deliberately spans the relaunch. What a human wants to know is not "is a process being killed" — that takes about a second — but "is this session doing something other than my work", and that includes the successor's bootstrap, where a fresh context reads a handoff and every file it names before it can act. `finish` is the successor declaring that done, and it is the only thing that ends the window (besides `abort`, or ending the turn with `return`).
+
+One deliberate consequence: a successor that never runs `finish` leaves the marker up. That is the honest reading — it says a context relaunched and never confirmed it read its handoff, which is a failure worth seeing rather than hiding.
 
 ## The pager is HELD, not lost
 
-`compact handoff` **holds** the pager and terminates any live arm, so nothing interrupts you between drafting the handoff and dying. Holding loses no events: the pager's wake baseline is the durable delivery cursor in `core:waiter-state`, which only advances when a page is actually rendered. Anything that lands while held is still pending, and the relaunched context resumes from that cursor the moment it arms. The Page shows `PAGER held for compaction` while the hold is in place.
+`compact start` **holds** the pager and terminates any live arm, so nothing interrupts the critical section — draft the handoff, die, and read yourself back into existence. Holding loses no events: the pager's wake baseline is the durable delivery cursor in `core:waiter-state`, which only advances when a page is actually rendered. Anything that lands while held is still pending. **Arming does not release the hold** — the relaunched context arms near the start of its bootstrap, and releasing there would end the critical section while it is still reading. `compact finish` releases it. The Page shows `PAGER held for compaction` while the hold is in place.
 
 (`held` is deliberately not called "parked" — `retention: 'parked'` and the legacy `park` spelling of `return --await` already mean other things.)
 
@@ -46,14 +49,14 @@ One deliberate consequence: run `compact handoff` and then neither finish nor ab
 
 ## Who executes
 
-- **Headless/subagent:** `finish` records a moments-long durable intent (a crash-recovery token, not a queue) and spawns a detached executor — needed because the CLI dies with the harness. The executor kills the harness (run end reason `compacted` — a deliberate classification, never a crash, never reaped), takes up the handoff, and relaunches, as one synchronous pipeline. The persistent waiter and orchestrator sweep are crash backstops only.
+- **Headless/subagent:** `handoff` records a moments-long durable intent (a crash-recovery token, not a queue) and spawns a detached executor — needed because the CLI dies with the harness. The executor kills the harness (run end reason `compacted` — a deliberate classification, never a crash, never reaped), takes up the handoff, and relaunches, as one synchronous pipeline. The persistent waiter and orchestrator sweep are crash backstops only.
 - **Interactive:** the manager (the PTY wrapper) is the durable endpoint and owns the whole pipeline on a single control verb: it kills the harness child, shows "compacting…" in the pane, takes up the handoff, and starts the fresh child **in the same pane** — the human watches the succession live. Sockets, pane title, attach client, and `ORBH_SESSION_ID` all persist. A pane whose manager predates the verb refuses loudly (context survives); exit and `flint orbh resume <id>`.
 
 There is **no operator-driven compaction**. `flint orbh session compact <id>` is gone: an operator in another terminal has no context to write a handoff from. Ask the session to compact itself.
 
 ## The relaunched context's duty
 
-The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Preserve and execute every OPEN OBLIGATION, then resume the duty.
+The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty.
 
 ## Failure shape
 
