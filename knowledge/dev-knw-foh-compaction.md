@@ -18,7 +18,12 @@ Read occupancy from the **`CONTEXT` line of your Page** — `flint orbh page`, o
 
 ## The doctrine: three verbs
 
-Compaction spans two contexts, so it takes three verbs — two on the way out, one on the way in. At **≥ 80% occupancy** (or clearly approaching it on a long turn):
+Compaction spans two contexts, so it takes three verbs — two on the way out, one on the way in.
+
+> [!note] 80% is guidance, not a precondition
+> **Nothing gates these verbs on occupancy.** `compact start` records no intent and is re-runnable at any percentage; no sweep fires them for you. 80% is the point by which you should have *started* — chosen so there is room left to write a good handoff — not a trigger that acts on your behalf. Compact earlier when an operator asks or when a natural seam makes a clean handoff cheap; do not wait past it expecting something else to intervene.
+
+At **≥ 80% occupancy** (or clearly approaching it on a long turn):
 
 1. **`flint orbh compact start`.** Prints the `COMPACTION_ARTIFACT_V1` contract, the exact absolute path to write your handoff to (inside your spool's `scratch/`), and your live Page so you write OPEN OBLIGATIONS from durable state rather than memory. It **records no intent, takes no claim, and kills nothing** — it is re-runnable and safe. Its one durable effect is to **hold the pager**, which is also what marks the session `[Compacting...]`.
 2. **Write the handoff** to that exact path, with your own tools. No size limit, no shell quoting — it is a file.
