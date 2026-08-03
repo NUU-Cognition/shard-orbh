@@ -11,11 +11,11 @@ description: "Per-session summary file written by sk-foh-close before closing th
 id: [generate-uuid4]
 tags:
   - "#agent/session"
-  - "#agent/[runtime-slug, e.g. claude-code|codex|opencode]"
+  - "#agent/[runtime id as Orbh registers it, e.g. agy|claude|codex|droid|grok|kimi|opencode]"
 session-id: "[session UUID]"
 machine: "[machine name resolved via scutil/hostname]"
 runtime: "[Claude Code|Codex|...]"
-status: [finished|suspended|failed|cancelled (final status of the session)]
+status: [finished|awaiting|abandoned (the FINAL Orbh workState of the session)]
 started: "[ISO-8601 timestamp of run start]"
 ended: "[ISO-8601 timestamp now]"
 authors:

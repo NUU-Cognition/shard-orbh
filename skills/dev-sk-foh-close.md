@@ -48,7 +48,8 @@ Wrap up the current Orbh session: write a per-session summary markdown file to t
 7. **Close the session.** This records closed retention and terminates the harness—do nothing after.
 
    ```bash
-   flint orbh close <session-id>
+   flint orbh close                # self-targets via ORBH_SESSION_ID inside a harness
+   flint orbh close <session-id>   # explicit id is equally acceptable
    ```
 
    > The default path is Obsidian-independent. Pass `--obsidian` only when you specifically want to close a bound Obsidian terminal tab.
