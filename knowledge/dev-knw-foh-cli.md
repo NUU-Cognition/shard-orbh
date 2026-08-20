@@ -146,7 +146,15 @@ flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via o
 flint orbh auth migrate <account> [--force]     # move THIS session to another account
 ```
 
-`auth rename` moves the account directory to the new name. It also updates a matching machine default and the active Flint default. The old account path becomes a hidden compatibility alias. Thus, an existing session can use the absolute account path that it stored before the rename. A new child session resolves an inherited alias to the new account name. `auth list` shows only the new account name. `auth remove` removes the compatibility aliases with the renamed account.
+`auth add` assigns an immutable UUID to the account. The runtime registry is at `~/.nuucognition/orbh/accounts/<runtime>/registry.json`. A new session stores this account ID.
+
+The stable account home is at `~/.nuucognition/orbh/accounts/<runtime>/.homes/<id>`. A new account uses this stable home immediately. Orbh registers a legacy name-based home without an immediate data move.
+
+`auth rename` keeps the account ID and stable home. The first rename promotes a legacy home to the stable ID path. Later renames change only the registry and name aliases. A matching machine default and active Flint default keep the same account ID.
+
+The old account path remains as a hidden compatibility alias. Thus, an existing process can use the absolute path that it stored before the rename. A resumed legacy session receives the account ID. A new child session uses the current name and stable home.
+
+`auth list` shows only the current account name and a short account ID. `auth remove` removes all name aliases. It also keeps an ID tombstone for a clear session error.
 
 ### `auth migrate` — change account, keep the conversation
 
