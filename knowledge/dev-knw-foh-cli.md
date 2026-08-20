@@ -136,6 +136,7 @@ Accounts are isolated harness login homes, per runtime.
 ```bash
 flint orbh auth list [runtime]
 flint orbh auth add <runtime> <name> [--no-login]
+flint orbh auth rename <runtime> <old-name> <new-name> # rename an isolated account home
 flint orbh auth default <runtime> <name>        # Flint-local inside a Flint, else machine-global
 flint orbh auth default <runtime> --clear       # clear the default (name required unless --clear)
 flint orbh auth remove <runtime> <name> [--yes] # remove an isolated account home
@@ -144,6 +145,8 @@ flint orbh auth ccusage [--dry-run] [args…]     # run ccusage across Orbh acco
 flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via one throwaway session each
 flint orbh auth migrate <account> [--force]     # move THIS session to another account
 ```
+
+`auth rename` moves the account directory to the new name. It also updates a matching machine default and the active Flint default. The old account path becomes a hidden compatibility alias. Thus, an existing session can use the absolute account path that it stored before the rename. `auth list` shows only the new account name. `auth remove` removes the compatibility aliases with the renamed account.
 
 ### `auth migrate` — change account, keep the conversation
 
