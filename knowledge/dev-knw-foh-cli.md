@@ -146,7 +146,7 @@ flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via o
 flint orbh auth migrate <account> [--force]     # move THIS session to another account
 ```
 
-`auth rename` moves the account directory to the new name. It also updates a matching machine default and the active Flint default. The old account path becomes a hidden compatibility alias. Thus, an existing session can use the absolute account path that it stored before the rename. `auth list` shows only the new account name. `auth remove` removes the compatibility aliases with the renamed account.
+`auth rename` moves the account directory to the new name. It also updates a matching machine default and the active Flint default. The old account path becomes a hidden compatibility alias. Thus, an existing session can use the absolute account path that it stored before the rename. A new child session resolves an inherited alias to the new account name. `auth list` shows only the new account name. `auth remove` removes the compatibility aliases with the renamed account.
 
 ### `auth migrate` — change account, keep the conversation
 
