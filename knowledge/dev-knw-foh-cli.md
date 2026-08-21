@@ -148,9 +148,13 @@ flint orbh auth migrate <account> [--force]     # move THIS session to another a
 
 `auth add` assigns an immutable UUID to the account. The runtime registry is at `~/.nuucognition/orbh/accounts/<runtime>/registry.json`. A new session stores this account ID.
 
+Orbh serializes registry changes across processes. If `registry.json` is missing, Orbh recovers modern accounts from their name links. A removed account name stays reserved by default. Use `auth add --reuse-removed-name` to reuse it. The new account gets a new ID. Sessions for the removed ID still cannot resume.
+
 The stable account home is at `~/.nuucognition/orbh/accounts/<runtime>/.homes/<id>`. A new account uses this stable home immediately. Orbh registers a legacy name-based home without an immediate data move.
 
 `auth rename` keeps the account ID and stable home. The first rename promotes a legacy home to the stable ID path. Later renames change only the registry and name aliases. A matching machine default and active Flint default keep the same account ID.
+
+An account can return to an old name. Orbh recognizes that the old alias has the same account ID.
 
 The old account path remains as a hidden compatibility alias. Thus, an existing process can use the absolute path that it stored before the rename. A resumed legacy session receives the account ID. A new child session uses the current name and stable home.
 
