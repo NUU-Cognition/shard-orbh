@@ -56,7 +56,7 @@ Do not use these forms:
 - `PAGER  held for compaction since …` means `compact start` suspended paging on purpose. `compact finish`, `compact abort`, or any alternate turn-ending `session return` releases it, and nothing is lost while held — a later arm resumes from the same durable cursor. See [[dev-knw-foh-compaction]].
 - An awaiting Page renders `AWAITING since … · last woken by …`, derived from durable events.
 - `flint orbh list` has a dedicated **Awaiting** section with awaiting duration and last-woken source; dispatch children are trees by default.
-- Awaiting beyond `ORBH_AWAITING_DORMANCY_DAYS` (default 7) is flagged as a broken await-promise worth retiring. A station-bound session is exempt.
+- A session that is still `awaiting` beyond `ORBH_AWAITING_DORMANCY_DAYS` (default 7) shows `⚠ awaiting Nd with no activity — consider retiring`. A station-bound session is exempt.
 
 Self Page reads may mutate Page counters and drain inbox state; observer reads do not. Page functions fail independently with a warning. Treat `core:*` interface slices as reserved.
 
