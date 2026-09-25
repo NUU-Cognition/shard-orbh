@@ -17,6 +17,20 @@ flint orbh session return --await --until-group <g> "<result>"     # …and also
 
 `--wake-at` and `--until-group` require `--await` — a finished session has no next wake. `--wake-at` takes an ISO 8601 **datetime** (`2026-08-04T09:00`) or a `+duration` (`+45m`, `+2h`, `+1h30m`, `+1d`); a bare calendar date is rejected on purpose. Both are *additional* wake predicates: messages, requests, room and station activity can still wake you first.
 
+## Agent Rules
+
+Each rule prevents a failure that the NUU Flint session audit (Report 051) found.
+
+1. **Do not end a headless turn while a background task runs.** The process exits at the end of the turn and kills the task. Wait inside the turn, or `return --await`. See "Waiting Inside a Turn" in [[dev-knw-foh-page]].
+2. **Collect results through Orbh.** Use `flint orbh result <id>`, `flint orbh wait <id>`, or the `CHILD RESULT` block of a Page. Do not grep log files for results. Do not wait in `sleep` loops, and do not block the foreground in a poll loop.
+3. **Commit only your own paths.** Work in your own worktree when you have one. Commit with `git commit -m "<message>" -- <path>...`. Do not use `git add -A`, `git add .`, or `git commit -a`, and do not commit the whole shared index: it can contain the staged changes of another session.
+4. **Show a gate wait.** Before you wait on a machine gate (build slot, free memory, quota reset), run `flint orbh session set phase gate-wait` and `flint orbh session set blockers "<the gate>"`. Set `blockers` to `none` after the wait.
+5. **Verify before you report.** After `profiles switch` or `auth migrate`, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
+6. **Follow the reporting contract of your prompt.** Send each message that your prompt requires, to the session that it names. When a third session gives you orders, tell your dispatcher too.
+7. **Read the full output of Orbh verbs.** Do not cut it with `cut`, `head`, `tail`, or `grep -v`. A refusal or a notice such as `target … has ended` can be on any line.
+
+Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], and the broadcast and `kill` rules in [[dev-knw-foh-coordination]].
+
 ## The Pager and Wake Delivery
 
 `flint orbh page` renders your session's introspection Page: procedures, unread coordination, jobs, awaiting provenance, CONTEXT occupancy, and hygiene warnings. Read it at meaningful seams: first action on resume, before ending a long turn, after a subagent batch.
@@ -34,7 +48,7 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 The Page `CONTEXT` line is the source of truth for context occupancy; an armed pager autofires a hard advisory at ≥ 80%. **80% is guidance, not a gate — nothing in the runtime blocks or triggers the verbs, and `compact start` is re-runnable and safe at any occupancy.** Treat it as the point by which you should have started, not a threshold that fires on your behalf: at or above **80%**, or clearly approaching it on a long turn, or whenever an operator asks you to compact, **you write your own handoff** — there is no distiller:
 
 1. `flint orbh compact start` — prints the handoff contract, the exact path in your spool's `scratch/` to write it to, and your live Page (so OPEN OBLIGATIONS comes from durable state, not memory). Records nothing, kills nothing; it **holds the pager**, and marks the session `[Compacting...]` on every title surface.
-2. Write the handoff to that path with your own tools.
+2. Write the handoff to that path with your own tools. In OPEN OBLIGATIONS, list every open obligation with the command that collects it (for example `flint orbh wait <id>`). The successor collects only what the handoff lists.
 3. `flint orbh compact handoff` — a **turn-ending verb**, sibling of `return`. It validates the handoff *while you are still alive*, ends this context, and relaunches a fresh run **on the same session id**: inbox, jobs, rooms, stations, scratch, and collector anchors all carry over by construction.
 4. `flint orbh compact finish` — run by the **relaunched context**, once it has read the handoff and every FILES path. It clears `[Compacting...]` and releases the pager hold — the normal successor-side release (`compact abort` or ending the turn before handoff also release it; arming does not).
 

@@ -33,6 +33,22 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 
 **Between turns and while awaiting — the machine orchestrator.** Once your turn ends and the session is `awaiting`, the machine-wide Orbh orchestrator sweep owns delivery. Its business sweeps run about every 15 s (the 1 s loop underneath is only supervision heartbeat), it waits ~6 s for a wake fact to settle, then coalesces everything pending into one digest and resumes you with it as a new turn's prompt. Overdue scheduled wakes get a second retry net every 15 s. The sweep steps aside for any session holding a live `page arm` lease, so the two paths never double-deliver. Awaiting is therefore the only headless self-pacing primitive: `return --await` and let the sweep wake you.
 
+### Waiting Inside a Turn
+
+A background task belongs to the process of the current run, not to the session. When a headless turn ends, the process exits and kills its background tasks. Their output is lost, and the work must run again. Choose one of these forms:
+
+1. **You have other work.** Run the wait in background execution and continue. Collect the result when its notification arrives, in this turn.
+2. **You have no other work, and the wait is shorter than your tool timeout.** Block in the foreground on one command that ends with the event: the build itself, `flint orbh wait <id>`, or `flint orbh job wait <id>`.
+3. **The wait is long, or another session owns the event.** `return --await`, with `--until-group <g>` or `--wake-at <when>` when they apply. The orchestrator wakes you with a digest. A subagent that returns sends this turn's result to its collector, so a subagent uses this form only when its dispatcher allows `--await`.
+
+Do not use these forms:
+
+- A last message such as "I wait for …" with no `return`. The turn ends there, and the background task dies.
+- Background `sleep` calls as a timer. Each one returns at once, so each check is a full model call.
+- `until grep …; do sleep …; done` on a log file, or a loop over `flint orbh list`. Wait on the event itself.
+- A foreground loop that blocks an interactive session for hours. The human cannot use the session while it runs.
+- A routine `--timeout` on a collector. Each timeout ends the collector early and costs a turn only to start it again.
+
 ## Hygiene and Awaiting Surfaces
 
 - On an unattached working headless turn the Page shows `⚠ paging not armed — mid-turn delivery is delayed; run 'flint orbh page arm' in the background when latency matters (the orchestrator sweep owns between-turn wake delivery)`. Arm if you are coordinating live; ignore it on a heads-down turn. There is no such warning while awaiting — that state needs no pager.

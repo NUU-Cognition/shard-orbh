@@ -5,6 +5,7 @@ orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -117,7 +118,7 @@ These are operator/session-retention controls, not substitutes for a headless ag
 flint orbh close [id] [--obsidian]
 flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--obsidian]
 flint orbh discard [id] [--obsidian]
-flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require-promote] [--no-close] [--no-kill]
+flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
 ```
 
 | Verb | Meaning |
@@ -125,7 +126,7 @@ flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require
 | `close` | Terminal finished + closed retention; terminates the harness and clears any pager lease. |
 | `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` (park-only) force-resolves it. |
 | `discard` | Tombstones the entry, records abandonment, terminates the harness. |
-| `end` / `x` | Finishes, promotes by default, closes/terminates, and tears down terminal obligations. |
+| `end` / `x` | Finishes, closes/terminates, and tears down terminal obligations. It does not promote the spool: sessions are born in `local` and stay there. |
 
 The default close/park/discard path is Obsidian-independent; `--obsidian` selects a bound terminal-tab path.
 
@@ -190,6 +191,8 @@ Constraints, all enforced before anything is killed or moved:
 - A name collision in the destination is refused rather than merged.
 
 Only the session's own files travel. **Auto-memory, harness config, and credentials stay with the old account** — an account *is* its credentials, so carrying them would defeat the operation. A failure after the move rolls the files back.
+
+**Verify the change before you report it.** A switch or a move can fail and leave the session on the old profile or account. After the relaunch, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
 
 Orb agents get the same operation, plus the durable declaration, through `flint orbh agent migrate <name> <account>` (Orb Agents shard).
 
