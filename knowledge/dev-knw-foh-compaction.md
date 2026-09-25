@@ -4,6 +4,7 @@ orbh-sessions:
   - "[[411171be-587b-44fd-8c74-43f5700bb512]]"
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
   - "[[b906e3ea-30d1-48f6-827a-89c5553e49c8]]"
+  - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
 ---
 
 # Knowledge: Self-Compaction at 80%
@@ -35,6 +36,17 @@ At **≥ 80% occupancy** (or clearly approaching it on a long turn):
 Changed your mind between `start` and `handoff`? **`flint orbh compact abort`** releases the hold. Ending the turn any other way (`return --finish` / `--await`) releases it automatically.
 
 Every refusal — missing handoff, malformed handoff, a handoff belonging to another run, a dispatch claim whose child has not yet materialized — is an **ordinary error while your context survives**. Fix it and retry. This is the whole point of authoring your own handoff: the feedback loop closes. Materialized in-flight dispatches do **not** refuse: `compact start` detaches their collector stamps while the children keep running, and the successor inherits them as durable obligations to re-collect.
+
+## OPEN OBLIGATIONS: each one with its collection command
+
+The successor collects only what the handoff lists. An obligation that you leave out stays open, and nothing collects it. Build the list from the Page that `compact start` prints, not from memory. Write one line for each obligation, and give the command that collects it:
+
+- a dispatched subagent turn (a line in the `DISPATCHES` block of the Page): `flint orbh wait <id>`;
+- a job or a job group: `flint orbh job result <job-id>`, or `return --await --until-group <g>`;
+- an unanswered request to you: its request id, its question, and `flint orbh message respond <requestId> "<answer>"`;
+- a message or a result that you owe: the target session and what you must send.
+
+Write `- none` only when the Page shows no open obligation.
 
 ## Compacting into a different profile
 
@@ -87,7 +99,7 @@ There is **no operator-driven compaction**. `flint orbh session compact <id>` is
 
 ## The relaunched context's duty
 
-The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty.
+The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
 
 ## Failure shape
 

@@ -6,6 +6,7 @@ orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[f5bc64b0-3b0a-4b22-a079-866934fc9c24]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
 ---
 
 # Knowledge: Orbh Orchestration
@@ -119,6 +120,17 @@ flint orbh result <session-id> --run <n>   # a specific historical turn
 ```
 
 Adopt every result that already exists; re-dispatch only work with **no correlated result and no live run**. Re-dispatching a wave that already completed doubles cost and can double side effects. The same rule covers late adoption of orphans: results outlive their collector, so an ancestor (or the operator) can always collect by id after the dispatcher died — nothing needs re-running just because nobody was watching when it finished.
+
+## Manager Rules
+
+Each rule prevents a failure that the NUU Flint session audit (Report 051) found.
+
+- **Check the accounts before a fan-out.** Run `flint orbh auth usage`. Find the account of each live interactive session with `flint orbh inspect <id>` (the `Account` line). Do not put a fleet on the account of a live interactive session: when the fleet uses up the quota, the human's sessions stop too. Spread a large fleet over more than one account with `--account <name>`.
+- **Collect through the result stream.** Run each `request -q` in background execution. After a standing child returns `--await`, run `flint orbh wait --next <id>` in background execution to get its next result, or read the `CHILD RESULT` block of your Page. Do not watch log files for a "final state" line, and do not wait in `sleep` loops.
+- **Give each builder its own worktree.** When two or more builders change the same repository, give each one a worktree and a branch. Tell each builder to commit with explicit paths (`git commit -- <path>...`).
+- **Close out before you finish.** Before your final `return --finish`:
+  1. Read the `DISPATCHES` block of your Page. Collect each open entry with `flint orbh wait <id>`, or write in your result why you drop it.
+  2. Close each child that you told to `return --await` and that has no more work: `flint orbh close <id>`. An awaiting child whose parent has ended has no wake path. Do not use `discard` for a child that finished its work: `discard` records it as `abandoned`.
 
 ## Infrastructure: Supervisor, Reaper, Wake Engine
 

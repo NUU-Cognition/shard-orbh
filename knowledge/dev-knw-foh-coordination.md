@@ -6,6 +6,7 @@ orbh-sessions:
   - "[[1e7717cf-c6b0-4706-a149-ed479bd341cd]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
 ---
 
 # Knowledge: Orbh Session Coordination
@@ -141,6 +142,11 @@ Messages are durable Page-worthy events.
 - `--revive` remains the explicit resurrection flag for ended sessions.
 - A durable orb agent is addressable by name: `flint orbh message send agent:<name> "<text>"`.
 
+Two rules for senders:
+
+- **Send a broadcast only to the sessions that must act on it.** Each message wakes an awaiting target, and each wake reads the full context of the target again. Put several advisory points into one message.
+- **Read the full output of `message send`.** For a finished target it prints `target <id> has ended (…); add --revive to resume it now`. Orbh queues the message, but nothing wakes the target. Do not cut the output to a fixed width.
+
 `message request` is the blocking peer-to-peer ask surface; run it in background execution:
 
 ```bash
@@ -176,6 +182,8 @@ flint orbh kill [id]
 ```
 
 `interrupt` is explicit escalation for a working headless/subagent: record the message, terminate the live run, and resume with an interrupt digest. Against an awaiting target it behaves as a wake; against a terminal target it only queues unless explicitly revived by the appropriate surface. `respond` returns blocking `ask` input in place or resumes a deferred requester. `kill` terminates the run and records session abandonment, so a collector resolves as `abandoned`; kill/interrupt paths do not trigger un-returned re-prompts.
+
+**Before `kill`, check the target for live descendants.** Run `flint orbh peek <id>` and read the `Subagents:` line (`N live · M direct`). `kill` does not warn about children and does not stop them. A killed manager cannot collect the results of its children, and its awaiting children lose their wake path. Do not decide that a session is idle from `duration` or `updated`: `duration` counts from the start of the session, and delivery health checks change `updated` about every 5 minutes.
 
 ## Cheap One-Shots and Mode Changes
 
