@@ -6,6 +6,7 @@ orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
+  - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -59,7 +60,9 @@ Both scheduling flags **require `--await`** — a finished session has no next w
 - `--wake-at <when>` takes an ISO 8601 **datetime** (`2026-08-04T09:00`, `2026-08-04T09:00+10:00`) or a `+duration` matching days/hours/minutes/seconds (`+45m`, `+2h`, `+1h30m`, `+1d`). A bare calendar date is rejected deliberately, since it would silently mean UTC midnight; the ceiling is 365 days, and a time already past means wake immediately. The resolved time is written to the interface key `core:wake-at` *before* the turn ends, so the session is never observably awaiting without the schedule it asked for. **A later `--await` with no `--wake-at` retires the prior schedule**, as do finish/kill/end.
 - `--until-group <group>` resumes you when every job in that group is terminal (failure resolves the barrier too).
 
-Both are *additional* predicates, not exclusive ones: messages, requests, room activity, station items and child results can still wake you first. `--barrier-timeout <seconds>` exists **only on `park`**, not on `session return`.
+- `--barrier-timeout <seconds>` requires `--await --until-group <g>`. At the deadline it marks the group jobs that still run as failed, so the barrier resolves and the session cannot be stranded. `park` accepts the same option.
+
+Both are *additional* predicates, not exclusive ones: messages, requests, room activity, station items and child results can still wake you first.
 
 ### Return Is the Turn Seam
 
@@ -117,18 +120,18 @@ These are operator/session-retention controls, not substitutes for a headless ag
 ```bash
 flint orbh close [id] [--no-leaf]
 flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--no-leaf]
-flint orbh discard [id] [--obsidian]
+flint orbh discard [id] [--no-leaf]
 flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
 ```
 
 | Verb | Meaning |
 |------|---------|
 | `close` | Terminal finished + closed retention; terminates the harness, closes the bound Obsidian terminal tab, and clears any pager lease. |
-| `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. Terminates the harness, then closes the bound Obsidian terminal tab (`--no-leaf` keeps the pane open at a shell prompt). `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` (park-only) force-resolves it. Takes a session id, so an operator or a tool such as Strike can park a session from outside. |
-| `discard` | Tombstones the entry, records abandonment, terminates the harness. |
+| `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. Terminates the harness, then closes the bound Obsidian terminal tab (`--no-leaf` keeps the pane open at a shell prompt). `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` force-resolves it (`session return --await --until-group` accepts it too). Takes a session id, so an operator or a tool such as Strike can park a session from outside. |
+| `discard` | Tombstones the entry, records abandonment, terminates the harness, then closes the bound Obsidian terminal tab. |
 | `end` / `x` | Finishes, closes/terminates, and tears down terminal obligations. It does not promote the spool: sessions are born in `local` and stay there. |
 
-`close` and `park` terminate the harness and then close the bound Obsidian terminal tab. Pass `--no-leaf` to keep the pane open at a shell prompt. `--obsidian` still parses on both as a deprecated alias of the default. `discard` keeps the old shape: its default path is Obsidian-independent, and `--obsidian` selects the bound terminal-tab path instead.
+`close`, `park`, and `discard` terminate the harness and then close the bound Obsidian terminal tab. Pass `--no-leaf` to keep the pane open at a shell prompt. `--obsidian` still parses on all three as a deprecated alias of the default.
 
 ## Accounts: `auth`, and Migrating a Live Session
 
@@ -182,7 +185,7 @@ So this is the deliberate opposite of compaction: compaction relaunches into a *
 | profile, same runtime | `profiles switch <runtime/profile>` | preserved |
 | runtime (± profile, ± account) | `compact handoff --into <runtime/profile>` | fresh, carried by your handoff |
 
-**Headless sessions migrate too**, by a simpler path: there is no pane and nothing to respawn, because the account home is re-derived from the store at *every* spawn. So the move is just "settle, move files, flip", and the session comes up in the new home at its **next wake** — the command says `Not relaunched` when that is what happened. A headless session with a **live turn** is not refused — the turn is **killed** at a deliberate boundary (`endReason: migrated`, `status: completed`, no `error` retention) and then the files move. The kill is required for integrity, since the transcript is written live and renaming it under a running child would tear it. The turn in flight is lost; the conversation is not. The binary's own `auth migrate` help string still says the verb *is refused while a turn is running* — that string is stale; the kill-at-boundary behavior is what is implemented (`packages/orbh/src/account-migration.ts`).
+**Headless sessions migrate too**, by a simpler path: there is no pane and nothing to respawn, because the account home is re-derived from the store at *every* spawn. So the move is just "settle, move files, flip", and the session comes up in the new home at its **next wake** — the command says `Not relaunched` when that is what happened. A headless session with a **live turn** is not refused — the turn is **killed** at a deliberate boundary (`endReason: migrated`, `status: completed`, no `error` retention) and then the files move. The kill is required for integrity, since the transcript is written live and renaming it under a running child would tear it. The turn in flight is lost; the conversation is not. The `auth migrate` help says the same (`packages/orbh/src/account-migration.ts` implements it).
 
 Constraints, all enforced before anything is killed or moved:
 

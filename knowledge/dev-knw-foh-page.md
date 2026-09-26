@@ -7,6 +7,7 @@ orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[79de8b0a-567e-459f-a720-182c53f09b46]]"
+  - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -108,7 +109,7 @@ flint orbh job run "pnpm test" --group fan --timeout 1800
 flint orbh session return --await --until-group fan "Fan-out dispatched; awaiting the wave."
 ```
 
-`flint orbh park [id] --until-group <g> [--barrier-timeout <s>]` is the legacy/operator spelling. It carries no turn result, and `--barrier-timeout` — which force-resolves the barrier, marking still-running group jobs failed so a session can never be stranded — exists **only on `park`**.
+`flint orbh park [id] --until-group <g> [--barrier-timeout <s>]` is the legacy/operator spelling. It carries no turn result. `--barrier-timeout <s>` force-resolves the barrier: it marks the group jobs that still run as failed, so a session can never be stranded. `session return --await --until-group <g> --barrier-timeout <s>` accepts it too.
 
 The barrier is additional, not exclusive: messages, requests, subscribed room activity, station items, and individual terminal-job events can still wake you before the whole group is terminal. On wake, inspect `job list` and use `job result <id>` for full output. Plain `park`/`--await` clears a stale barrier directive.
 
