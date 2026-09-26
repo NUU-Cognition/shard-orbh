@@ -5,6 +5,7 @@ orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -117,7 +118,7 @@ These are operator/session-retention controls, not substitutes for a headless ag
 flint orbh close [id] [--no-leaf]
 flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--no-leaf]
 flint orbh discard [id] [--obsidian]
-flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require-promote] [--no-close] [--no-kill]
+flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
 ```
 
 | Verb | Meaning |
@@ -125,7 +126,7 @@ flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require
 | `close` | Terminal finished + closed retention; terminates the harness, closes the bound Obsidian terminal tab, and clears any pager lease. |
 | `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. Terminates the harness, then closes the bound Obsidian terminal tab (`--no-leaf` keeps the pane open at a shell prompt). `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` (park-only) force-resolves it. Takes a session id, so an operator or a tool such as Strike can park a session from outside. |
 | `discard` | Tombstones the entry, records abandonment, terminates the harness. |
-| `end` / `x` | Finishes, promotes by default, closes/terminates, and tears down terminal obligations. |
+| `end` / `x` | Finishes, closes/terminates, and tears down terminal obligations. It does not promote the spool: sessions are born in `local` and stay there. |
 
 `close` and `park` terminate the harness and then close the bound Obsidian terminal tab. Pass `--no-leaf` to keep the pane open at a shell prompt. `--obsidian` still parses on both as a deprecated alias of the default. `discard` keeps the old shape: its default path is Obsidian-independent, and `--obsidian` selects the bound terminal-tab path instead.
 
@@ -191,6 +192,8 @@ Constraints, all enforced before anything is killed or moved:
 
 Only the session's own files travel. **Auto-memory, harness config, and credentials stay with the old account** — an account *is* its credentials, so carrying them would defeat the operation. A failure after the move rolls the files back.
 
+**Verify the change before you report it.** A switch or a move can fail and leave the session on the old profile or account. After the relaunch, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
+
 Orb agents get the same operation, plus the durable declaration, through `flint orbh agent migrate <name> <account>` (Orb Agents shard).
 
 ## Page, Pager, and List Hygiene
@@ -204,7 +207,7 @@ flint orbh list --status awaiting
 
 `page arm` is a **one-shot, run-scoped pager**, not an attach to anything standing. Run it through background execution during a live turn; it exits with a full Page render on the first Page-worthy event, and you re-arm if latency still matters. It expires after 2 h on an unattended session (`ORBH_PAGE_ARM_TTL_SECONDS`; unbounded for interactive), and `--max-wait <seconds>` bounds *your* latency instead — at the deadline it emits a heartbeat render and exits rather than erroring. Recognisable exits: `page arm already active for this session (pid N); not starting a second` (a second arm on the same run, correct rather than an error), `page arm superseded by a newer arm`, `page arm expired — re-arm with flint orbh page arm`, and `session ended — pager exiting` (do not arm again). Between turns, an awaiting session needs no pager at all: the machine orchestrator sweep owns that delivery. Full model in [[dev-knw-foh-page]].
 
-`list` and `active` **open a cockpit in a TTY**; `--print` is the static table and `--json` the machine-readable form — and `--json` is *the default when invoked from inside an Orbh session*, so a script that expects a table must pass `--print`. `list` renders dispatch trees by default (`--subagents` flattens them) and gives awaiting sessions their own section with duration and last-woken provenance. Awaiting past `ORBH_AWAITING_DORMANCY_DAYS` (default 7) is flagged as a broken await-promise worth retiring; a station-bound session is exempt.
+`list` and `active` **open a cockpit in a TTY**; `--print` is the static table and `--json` the machine-readable form — and `--json` is *the default when invoked from inside an Orbh session*, so a script that expects a table must pass `--print`. `list` renders dispatch trees by default (`--subagents` flattens them) and gives awaiting sessions their own section with duration and last-woken provenance. A session that is still `awaiting` past `ORBH_AWAITING_DORMANCY_DAYS` (default 7) shows `⚠ awaiting Nd with no activity — consider retiring`; a station-bound session is exempt, and a session that left `awaiting` shows no hint.
 
 ## Notes
 

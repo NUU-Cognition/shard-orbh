@@ -103,11 +103,10 @@ Collected dispatches store immediate `parentSessionId` plus metadata `orbhAncest
 flint orbh space list
 flint orbh space show [id]
 flint orbh space init <basis> [id] [--sync|--no-sync]   # basis: machine | user | flint
-flint orbh promote [id] [--to <spaceId>]
 flint orbh move-spool <spoolId> --to <spaceId> [--from <spaceId>]
 ```
 
-Sessions are born in a machine-local space and may be promoted to a synced target. `end` promotes by default. `space init` defaults its id to `local`, then `$ORBH_USER_SPACE_ID`, then `flint`.
+One store, one space: sessions are born in the machine-local space `local` and stay there. `end` does not promote the spool, and the `promote` verb is gone. `flint` is the legacy git-synced session space. Session lookup reads only `local`, so move a legacy spool with `flint orbh move-spool <spoolId> --from flint --to local`. `space init` defaults its id to `local`, then `$ORBH_USER_SPACE_ID`, then `flint`.
 
 ## Portable Bundles
 
