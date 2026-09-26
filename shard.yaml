@@ -1,13 +1,14 @@
 shard-spec: "0.1.0"
 id: d41b221d-2bf5-4b6b-abc4-136635209275
-org: nuu-cognition
+org: nuucognition
 source:
   id: 4a6bc928-0ab4-43ac-aa27-97557795d539
-version: "0.4.0"
+version: "0.4.1"
 name: Orbh
 shorthand: foh
 description: Headless agent identity and operating rules for orbh-launched sessions using flint orbh commands
 dependencies:
   - source: NUU-Cognition/shard-flint
+    version: "0.3.0"
 folders:
   - Mesh/Agents
