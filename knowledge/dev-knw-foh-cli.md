@@ -60,9 +60,9 @@ Both scheduling flags **require `--await`** — a finished session has no next w
 - `--wake-at <when>` takes an ISO 8601 **datetime** (`2026-08-04T09:00`, `2026-08-04T09:00+10:00`) or a `+duration` matching days/hours/minutes/seconds (`+45m`, `+2h`, `+1h30m`, `+1d`). A bare calendar date is rejected deliberately, since it would silently mean UTC midnight; the ceiling is 365 days, and a time already past means wake immediately. The resolved time is written to the interface key `core:wake-at` *before* the turn ends, so the session is never observably awaiting without the schedule it asked for. **A later `--await` with no `--wake-at` retires the prior schedule**, as do finish/kill/end.
 - `--until-group <group>` resumes you when every job in that group is terminal (failure resolves the barrier too).
 
-- `--barrier-timeout <seconds>` requires `--await --until-group <g>`. At the deadline it marks the group jobs that still run as failed, so the barrier resolves and the session cannot be stranded. `park` accepts the same option.
-
 Both are *additional* predicates, not exclusive ones: messages, requests, room activity, station items and child results can still wake you first.
+
+`--barrier-timeout <seconds>` requires `--await --until-group <g>`. At the deadline it marks the group jobs that still run as failed, so the barrier resolves and the session cannot be stranded. `park` accepts the same option.
 
 ### Return Is the Turn Seam
 
