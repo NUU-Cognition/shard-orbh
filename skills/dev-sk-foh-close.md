@@ -1,5 +1,5 @@
 ---
-description: "Write a session summary, return the final turn, and close the session (terminates the harness)"
+description: "Write a session summary, return the final turn, and close the session (terminates the harness and closes the terminal tab)"
 orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
 ---
@@ -8,7 +8,7 @@ orbh-sessions:
 
 # Skill: Orbh Close
 
-Wrap up the current Orbh session: write a per-session summary markdown file to the Mesh, return the final turn with `--finish`, then close the session. `return` stores the deliverable and tears down terminal waiter duty; `close` adds closed retention and terminates the harness. The close call is last—nothing runs after it.
+Wrap up the current Orbh session: write a per-session summary markdown file to the Mesh, return the final turn with `--finish`, then close the session. `return` stores the deliverable and tears down terminal waiter duty; `close` adds closed retention, terminates the harness, and closes the bound Obsidian terminal tab. The close call is last—nothing runs after it.
 
 # Input
 
@@ -45,17 +45,17 @@ Wrap up the current Orbh session: write a per-session summary markdown file to t
    flint orbh session return --finish "<final result>"
    ```
 
-7. **Close the session.** This records closed retention and terminates the harness—do nothing after.
+7. **Close the session.** This records closed retention, terminates the harness, and closes the bound Obsidian terminal tab—do nothing after.
 
    ```bash
    flint orbh close                # self-targets via ORBH_SESSION_ID inside a harness
    flint orbh close <session-id>   # explicit id is equally acceptable
    ```
 
-   > The default path is Obsidian-independent. Pass `--obsidian` only when you specifically want to close a bound Obsidian terminal tab.
+   > One call ends all three: the session record, the harness, and the tab. A session with no bound tab closes normally and says so. Pass `--no-leaf` when you want the pane to stay open at a shell prompt. `--obsidian` is a deprecated alias of the default.
 
 # Output
 
 - `Mesh/Agents/<Runtime>/<session-id>.md` — searchable, machine-attributed session record.
 - Session result stored on the current run.
-- Session recorded as closed; harness terminated and terminal returned to the shell.
+- Session recorded as closed; harness terminated and the bound Obsidian terminal tab closed.

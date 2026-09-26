@@ -6,6 +6,7 @@ orbh-sessions:
   - "[[1e7717cf-c6b0-4706-a149-ed479bd341cd]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[79de8b0a-567e-459f-a720-182c53f09b46]]"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -25,7 +26,7 @@ flint orbh page arm [id] [--max-wait <s>]     # One-shot pager; use background e
 
 There is no standing waiter process. Delivery has exactly two paths, and which one is live depends on whether your turn is running.
 
-**During a live turn — the pager.** Run `flint orbh page arm` through your harness's background execution. It is a one-shot long-poll owned by your *current run*: it claims a run-scoped lease in `core:page-arm`, watches your spool, and exits with a full Page render the moment a message, terminal job, child result, request answer, room event, station item, group-barrier completion, due scheduled wake, or 80% context advisory lands. Your harness surfaces that as a background-task notification. It fires once — arm again after it fires while latency matters. It expires after 2 h by default (`ORBH_PAGE_ARM_TTL_SECONDS`; unbounded for interactive sessions), and exits early with `page arm superseded by a newer arm` or `session ended — pager exiting`. If it says the latter, or you are about to return, do not arm again. A second arm for the same run is refused as `page arm already active for this session (pid N); not starting a second` — that is correct, not an error.
+**During a live turn — managed delivery or the pager.** Run `flint orbh page status` first. `MODE managed` means the manager holds a harness event connection and submits every Page to you as native tool output (Codex through the App Server, Claude through its inbox socket; interactive and headless alike since Task 682): do not arm a shell pager. In any other mode, run `flint orbh page arm` through your harness's background execution. It is a one-shot long-poll owned by your *current run*: it claims a run-scoped lease in `core:page-arm`, watches your spool, and exits with a full Page render the moment a message, terminal job, child result, request answer, room event, station item, group-barrier completion, due scheduled wake, or 80% context advisory lands. Your harness surfaces that as a background-task notification. It fires once — arm again after it fires while latency matters. It expires after 2 h by default (`ORBH_PAGE_ARM_TTL_SECONDS`; unbounded for interactive sessions), and exits early with `page arm superseded by a newer arm` or `session ended — pager exiting`. If it says the latter, or you are about to return, do not arm again. A second arm for the same run is refused as `page arm already active for this session (pid N); not starting a second` — that is correct, not an error.
 
 `--max-wait <seconds>` bounds *your* latency rather than the pager's usefulness: at the deadline it emits a heartbeat Page render and exits instead of erroring. Omit it to wait until the TTL.
 

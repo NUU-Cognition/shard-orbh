@@ -3,7 +3,9 @@ description: "Profiles — pre-configured runtime targets: discovery, exact-name
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[1e7717cf-c6b0-4706-a149-ed479bd341cd]]"
+  - "[[10efdd60-cf13-4cb2-b344-63803ba0b538]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
+  - "[[1ac0e8bb-a7d6-47b6-983d-d40af40b06f8]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -20,46 +22,42 @@ Profiles are pre-configured runtime targets — a bundle of model + reasoning ef
 ```bash
 flint orbh profiles                              # List all profiles, grouped by runtime
 flint orbh profiles claude                       # Filter to one runtime
+flint orbh runtimes                              # Which runtimes are installed on this machine
 flint orbh launch claude/o5mx "<prompt>"         # Launch a peer with an explicit profile
 flint orbh request -q codex/solxh "<prompt>"      # Dispatch a collected subagent
 ```
 
 ## The Live Profile Set (verify with `flint orbh profiles`)
 
-As observed at HEAD, regenerated from live `flint orbh profiles`. The code pattern is `<model-family><effort>`: e.g. `o5` = Opus 5, `o48` = Opus 4.8, `f5` = Fable 5, `s5` = Sonnet 5, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna; effort suffixes are `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `l` (low), `u` (ultra — Sol/Terra), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
+As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o5` = Opus 5, `o48` = Opus 4.8, `s5` = Sonnet 5, `a6` = GPT-6 Astra, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g46`/`g45` = Grok 4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
 
-### `agy` (Antigravity CLI)
-
-| Code | Model | Effort | Notes |
-|------|-------|--------|-------|
-| `f36h` / `f36m` / `f36l` | Gemini 3.6 Flash | high / medium / low | Fast, cheap; newest Flash |
-| `f35h` / `f35m` / `f35l` | Gemini 3.5 Flash | high / medium / low | Previous Flash generation |
-| `p31h` / `p31l` | Gemini 3.1 Pro | high / low | Complex reasoning and coding (no medium/max) |
-| `o46t` | Claude Opus 4.6 Thinking | thinking | Claude via Antigravity, not via the `claude` runtime |
-| `s46` | Claude Sonnet 4.6 | — | Claude via Antigravity |
-| `oss120` | GPT-OSS 120B | medium | Open-weights option |
+Runtime availability on this machine (`flint orbh runtimes`): `claude`, `codex`, `grok`, `opencode` are installed. `agy`, `droid`, `kimi` are registered names but are **not installed** and have **no profiles** in the shared layer — do not target them.
 
 ### `claude`
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `f5uc` / `f5mx` / `f5xh` / `f5h` / `f5m` / `f5l` | Fable 5 (`claude-fable-5`) | ultracode / max / xhigh / high / medium / low | Flagship Claude — highest capability |
+| `f51xh` / `f51h` | Fable 5.1 (`claude-fable-5-1`) | xhigh / high | Newest Claude — highest capability. Only these two efforts exist; there is no `f51m`, `f51mx`, or `f51uc` |
+| `f5uc` / `f5mx` / `f5xh` / `f5h` / `f5m` / `f5l` | Fable 5 (`claude-fable-5`) | ultracode / max / xhigh / high / medium / low | Previous Fable generation; full effort ladder including ultracode |
 | `o5uc` / `o5mx` / `o5xh` / `o5h` / `o5m` / `o5l` | Opus 5 (`claude-opus-5`) | ultracode / max / xhigh / high / medium / low | Current-generation Opus. `claude/o5h` is the CLI's own default child target (`workflow after` / `after-procedure` `--target`) |
 | `o48uc` / `o48mx` / `o48xh` / `o48h` / `o48m` / `o48l` | Opus 4.8 (`claude-opus-4-8`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus; strong agentic coding & enterprise work |
 | `s5uc` / `s5mx` / `s5xh` / `s5h` / `s5m` / `s5l` | Sonnet 5 (`claude-sonnet-5`) | ultracode / max / xhigh / high / medium / low | Best speed/intelligence balance; everyday default |
+
+The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort xhigh`.
 
 ### `codex`
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `solu` / `solmx` / `solxh` / `solh` / `solm` / `soll` | GPT-5.6 Sol | ultra / max / xhigh / high / medium / low | Flagship — strongest coding/agent work |
-| `teru` / `termx` / `terxh` / `terh` / `term` / `terl` | GPT-5.6 Terra | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse (≈ old 5.5 class, lower cost) |
-| `lunmx` / `lunxh` / `lunh` / `lunm` / `lunl` | GPT-5.6 Luna | max / xhigh / high / medium / low | Fast/affordable; no `ultra` (model does not support it) |
+| `a6mx` / `a6xh` / `a6h` / `a6m` / `a6l` | GPT-6 Astra (`gpt-6-astra`) | max / xhigh / high / medium / low | Most capable Codex model; no `ultra` profile |
+| `solu` / `solmx` / `solxh` / `solh` / `solm` / `soll` | GPT-5.6 Sol (`gpt-5.6-sol`) | ultra / max / xhigh / high / medium / low | GPT-5.6 flagship — strongest 5.6 coding/agent work |
+| `teru` / `termx` / `terxh` / `terh` / `term` / `terl` | GPT-5.6 Terra (`gpt-5.6-terra`) | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse, lower cost than Sol |
+| `lunmx` / `lunxh` / `lunh` / `lunm` / `lunl` | GPT-5.6 Luna (`gpt-5.6-luna`) | max / xhigh / high / medium / low | Fast/affordable; no `ultra` (model does not support it) |
 
 ### `gemini`
 
 > [!warning] Profiles exist, the runtime does not
-> `gemini` profiles are still in the registry, but `gemini` is **not** a registered runtime — `flint orbh runtimes` lists `agy, claude, codex, droid, grok, kimi, opencode` only, and `launch --help`'s target list omits it. Verify launchability before recommending `gemini/*`; the `agy` Gemini profiles are the working path to these models today.
+> `gemini` profiles are still in the registry, but `gemini` is **not** a registered runtime — `flint orbh runtimes` lists `agy, claude, codex, droid, grok, kimi, opencode` only, and `launch --help`'s target list omits it. There is no working path to Gemini models on this machine today (the `agy` runtime that used to carry them is not installed). Do not recommend `gemini/*`.
 
 | Code | Model | Notes |
 |------|-------|-------|
@@ -70,33 +68,22 @@ As observed at HEAD, regenerated from live `flint orbh profiles`. The code patte
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `g45h` | Grok 4.5 (`grok-4.5`) | high | Highest-effort Grok 4.5 profile |
-| `g45m` | Grok 4.5 (`grok-4.5`) | medium | Balanced Grok 4.5 profile |
-| `g45l` | Grok 4.5 (`grok-4.5`) | low | Lower-cost Grok 4.5 profile |
+| `g46xh` / `g46h` / `g46m` / `g46l` | Grok 4.6 (`grok-4.6`) | xhigh / high / medium / low | Current Grok; `g46xh` is the highest-effort Grok profile |
+| `g45h` / `g45m` / `g45l` | Grok 4.5 (`grok-4.5`) | high / medium / low | Previous generation |
 | `c25` | Grok Composer 2.5 Fast (`grok-composer-2.5-fast`) | — | Fast composition |
-
-(The registry mislabels all three `g45*` titles as "Grok 4.5 High"; their `--effort` args are correct and the rows above follow the args.)
-
-### `kimi` (Kimi Code CLI)
-
-| Code | Model | Effort | Notes |
-|------|-------|--------|-------|
-| `k3mx` | Kimi K3 (`kimi-code/k3`) | max | Heaviest thinking |
-| `k3` | Kimi K3 (`kimi-code/k3`) | high | Install default effort |
-| `k3l` | Kimi K3 (`kimi-code/k3`) | low | Faster, cheaper thinking |
 
 ### `opencode`
 
 | Code | Model | Notes |
 |------|-------|-------|
-| `solxh` | GPT-5.6 Sol, xhigh variant | Via the OpenCode `openai` provider |
-| `solh` | GPT-5.6 Sol, high variant | Via the OpenCode `openai` provider |
-| `k3` | Kimi K3 | Via the Kimi For Coding subscription provider |
-| `dsfmx` | DeepSeek V4 Flash, max variant | Via the OpenCode Go provider |
+| `fireworks-kimi` | Kimi K2.5 Turbo | Routed through the Fireworks provider (`fireworks-ai/.../routers/kimi-k2p5-turbo`) |
+| `fireworks-minimax` | Minimax 2.7 | Routed through the Fireworks provider (`fireworks-ai/.../models/minimax-m2p7`) |
 
-### `droid`
+These are the only non-Claude, non-OpenAI, non-Grok models reachable on this machine. The earlier `opencode/solxh`, `opencode/solh`, `opencode/k3`, and `opencode/dsfmx` profiles are gone from the shared layer.
 
-Registered as a runtime name (it appears in every target list) but **not installed on this machine** — `flint orbh runtimes` shows it unavailable, and it has no profiles. Do not target it.
+### Runtimes without profiles
+
+`agy` (Antigravity CLI), `kimi` (Kimi Code CLI), and `droid` are registered runtime names — they appear in every target list — but `flint orbh runtimes` shows all three unavailable on this machine and the shared layer defines no profiles for them. Their former profile codes (`agy/f36h`, `agy/p31h`, `agy/o46t`, `kimi/k3`, `kimi/k3mx`, …) no longer resolve.
 
 ## Choosing a Profile
 
@@ -105,22 +92,56 @@ Pick by task, not by habit. Workspace guidance:
 | Task Type | Suggested target | Why |
 |-----------|------------------|-----|
 | Implement code, refactor, write tests | `codex/solxh` (workspace default subagent; `codex/terxh` for cheaper balanced) | GPT-5.6 Sol / Terra at xhigh |
-| Research, design, review, Mesh artifacts | `claude/o5mx` or `claude/f5mx` (or the `xh` variants) | Strongest Claude reasoning |
-| Long standing multi-stage coding session | `claude/f5uc` / `claude/o5uc` / `claude/s5uc` | Ultracode: xhigh effort + standing dynamic-workflow orchestration |
+| Research, design, review, Mesh artifacts | `claude/f51xh` (or `claude/o5mx` / `claude/f5mx`) | Strongest Claude reasoning; Fable 5.1 tops out at xhigh |
+| Long standing multi-stage coding session | `claude/f5uc` / `claude/o5uc` / `claude/s5uc` | Ultracode: xhigh effort + standing dynamic-workflow orchestration (no Fable 5.1 ultracode yet) |
 | Everyday balanced Claude work | `claude/s5h` or `claude/s5xh` | Sonnet 5 — speed + intelligence |
-| Fast / lightweight / cheap | `claude/s5l`, `claude/s5m`, `agy/f36m`, `codex/lunl` / `codex/soll` | Lower cost, quick turnaround |
+| Fast / lightweight / cheap | `claude/s5l`, `claude/s5m`, `codex/lunl` / `codex/soll` | Lower cost, quick turnaround |
 | Very large context (whole-repo reads, long transcripts) | Fable / Opus / Sonnet 5 all ship 1M context | No special `[1m]` suffix needed on current models |
 | Parallel batch throughput (wide fan-outs) | `codex/solm` / `codex/term` / `codex/lunm` / `claude/s5m` | Good throughput per dollar |
-| Hardest single-task reasoning | `claude/f5mx` / `claude/o5mx`, `codex/solmx` or `codex/solu` | max depth, or ultra (Codex auto task delegation) |
-| Second opinion / cross-model review | `grok/g45h`, `agy/p31h`, `kimi/k3` | Different model family, different failure modes (prefer these over `gemini/*` — see the runtime caveat above) |
+| Hardest single-task reasoning | `codex/a6mx` / `codex/a6xh`, `claude/f51xh`, `codex/solu` | GPT-6 Astra or Fable 5.1 at max depth, or Sol ultra (Codex auto task delegation) |
+| Second opinion / cross-model review | `grok/g46xh` / `grok/g46h`, `opencode/fireworks-kimi`, `opencode/fireworks-minimax` | Different model family, different failure modes (prefer these over `gemini/*` — see the runtime caveat above) |
 
 Rules of thumb:
 
 - **Default subagent for code work is `codex/solxh`** — the standard delegation target in this workspace (see [[dev-knw-foh-orchestrator]]).
-- **Claude tier pick:** Fable 5 and Opus 5 are the current-generation picks — Fable 5 for maximum capability, Opus 5 for serious agentic/enterprise work (Opus 4.8 remains available as the previous generation); Sonnet 5 for everyday speed/intelligence balance.
-- **Codex tier pick:** Sol for hard open-ended work; Terra for everyday; Luna for clear high-volume tasks.
+- **Claude tier pick:** Fable 5.1 is the newest and most capable, but ships only `h` and `xh`. Use Fable 5 or Opus 5 when you need `mx` or `uc`. Opus 4.8 remains available as the previous generation. Sonnet 5 for everyday speed/intelligence balance.
+- **Codex tier pick:** Astra (GPT-6) for the hardest work; Sol for hard open-ended 5.6-class work; Terra for everyday; Luna for clear high-volume tasks. Only Sol and Terra have `ultra`.
 - **Effort is the main dial within a family.** Drop from `xh`/`mx` to `m` when the task is mechanical or you're fanning out wide; climb to `mx`/`u` only when the task genuinely needs maximum depth (or ultra's subagent delegation).
 - When in doubt, run `flint orbh profiles` and read the descriptions — the live listing is the source of truth, not this table.
+
+## Managed Claude Settings (`flint orbh claude doctor | config`)
+
+Launch profiles pick the model and effort for one session. A second, durable layer asserts a small set of `settings.json` keys on **every Claude config home** Orbh knows about: the user's `~/.claude` plus every account home from `flint orbh auth list`. This is the Claude slice of [[(Spec) Orbh Harness Configuration Management]].
+
+Built-in policy:
+
+| Key | Value | Since | Why |
+|-----|-------|-------|-----|
+| `autoMemoryEnabled` | `false` | — | Orbh sessions must not accumulate Claude auto-memory across workspaces and accounts |
+| `bashEditDiffEnabled` | `false` | 2.1.271 | Bash edit diffs append unrelated file diffs to every Bash tool result |
+
+```bash
+flint orbh claude doctor [--json] [--wide]                 # installed version + one row per home, one state per key
+flint orbh claude config diff [--json]                     # same inspection; exits 1 on any drift
+flint orbh claude config apply [--dry-run] [--json]        # write the keys into every home
+flint orbh claude config apply --account <name>            # one account only ("user" = ~/.claude)
+flint orbh claude config apply --home <path>               # one arbitrary config directory
+flint orbh claude config update [--dry-run] [--json]       # bring every home up to date by force, then show doctor
+```
+
+`config update` is the one-shot verb: it force-applies to every home (refreshes each home's provenance even when no key changed, and replaces an unreadable `settings.json` after moving it aside as `settings.json.orbh-broken.<timestamp>`), then prints the doctor table and exits 1 if any home is still not in sync. `--no-force` limits it to homes that drift. `config apply --force` gives the same force behaviour for one account or path.
+
+Key states are a **content comparison** between the policy and the file on disk, never a timestamp: `in-sync`, `drifted` (present, different value), `unmanaged` (absent), `inert` (binary older than `since`), `unreadable` (settings.json is not valid JSON). A hand edit to any home shows as `drifted` on the next `diff` or `doctor`. `apply` rewrites only the managed keys, atomically, and leaves every other key alone. It also writes `<home>/orbh-managed.json` with the apply time, Claude version, keys, and a content hash — provenance for the APPLIED column, not the source of truth.
+
+**Launch injection.** Independently of `apply`, every Orbh launch, resume, and interactive spawn of Claude folds the managed keys into the `--settings` argument, merged with any profile-supplied settings JSON (for example the ultracode profiles' `{"ultracode":true}`) into one flag. CLI flags outrank every settings file, so an un-applied or hand-edited home cannot turn the keys back on for an Orbh session. Set `ORBH_CLAUDE_MANAGED_SETTINGS=0` in the environment to skip injection.
+
+**Extending the policy.** Create `~/.nuucognition/orbh/policies/claude.json`:
+
+```json
+{ "settings": { "cleanupPeriodDays": 30, "bashEditDiffEnabled": null }, "since": { "cleanupPeriodDays": "2.0.0" } }
+```
+
+`settings` adds or overrides keys; `null` removes a built-in key from management. `since` marks the first Claude version that honours a key. The file is merged over the built-in policy at every read.
 
 ## Changing the Profile of an Existing Session
 
@@ -164,9 +185,9 @@ Writes `target:` in the agent's mind **and** switches the live body when the tar
 
 ## Maintaining the Shared Layer
 
-`~/.nuucognition/orbh/default.json` is the synced canonical shared layer. `~/.nuucognition/orbh/profiles.json` is an optional local override layer; it is untouched by sync and wins for matching runtime/profile names.
+`~/.nuucognition/orbh/default.json` is the synced canonical shared layer, pulled from `https://github.com/NUU-Cognition/orbh-profiles.git`. `~/.nuucognition/orbh/profiles.json` is an optional local override layer; it is untouched by sync and wins for matching runtime/profile names. Never add personal profiles to `default.json` — `profiles update` overwrites it.
 
-**On this machine the effective set renders from the local `profiles.json`** — the header line `flint orbh profiles` prints names the file it is reading, so check it before assuming a table matches the shared layer. That live listing, not any table (including the one above), is the source of truth; a machine whose override diverges will show a different set.
+The header line of `flint orbh profiles` names the override path (`profiles.json`) even when that file does not exist. On this machine there is **no** `profiles.json`, so the effective set **is** the shared `default.json`. A machine with an override will show a different set; the live listing on that machine, not any table (including the one above), is the source of truth.
 
 ```bash
 flint orbh profiles update      # Replace local default.json from the canonical shared layer; preserve profiles.json

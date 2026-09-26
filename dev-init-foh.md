@@ -23,7 +23,7 @@ flint orbh session return --await --until-group <g> "<result>"     # …and also
 
 There is no standing waiter process. Delivery has exactly two paths, and which one is live depends on whether your turn is running.
 
-**During a live turn — the pager.** `flint orbh page arm`, run through your harness's background execution, is a one-shot long-poll owned by your *current run*. It exits with a full Page render the moment something lands, and your harness surfaces that as a background-task notification. Arm again after it fires while latency matters. Do not arm again after `session ended — pager exiting`, or when you are about to return.
+**During a live turn — managed delivery or the pager.** Run `flint orbh page status` first; `MODE managed` means the manager submits every Page to you natively and you must not arm a shell pager. Otherwise `flint orbh page arm`, run through your harness's background execution, is a one-shot long-poll owned by your *current run*. It exits with a full Page render the moment something lands, and your harness surfaces that as a background-task notification. Arm again after it fires while latency matters. Do not arm again after `session ended — pager exiting`, or when you are about to return.
 
 **With no arm on a working turn, nothing is watching you.** Events are not held by any process; they accumulate as durable spool state and surface at your next Page read or your turn boundary. A missed re-arm costs latency, never events.
 

@@ -114,20 +114,20 @@ Beyond `-q`/`-c`, `request` takes `--runtime <runtime>` (target as a flag, promp
 These are operator/session-retention controls, not substitutes for a headless agent's normal return discipline:
 
 ```bash
-flint orbh close [id] [--obsidian]
-flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--obsidian]
+flint orbh close [id] [--no-leaf]
+flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--no-leaf]
 flint orbh discard [id] [--obsidian]
 flint orbh end [id] [--result <text>] [--to <spaceId>] [--no-promote] [--require-promote] [--no-close] [--no-kill]
 ```
 
 | Verb | Meaning |
 |------|---------|
-| `close` | Terminal finished + closed retention; terminates the harness and clears any pager lease. |
-| `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` (park-only) force-resolves it. |
+| `close` | Terminal finished + closed retention; terminates the harness, closes the bound Obsidian terminal tab, and clears any pager lease. |
+| `park` | Legacy await spelling; awaiting/parked retention, woken by the orchestrator sweep. Terminates the harness, then closes the bound Obsidian terminal tab (`--no-leaf` keeps the pane open at a shell prompt). `--until-group` adds the all-terminal job-group condition to the standard wake set, and `--barrier-timeout` (park-only) force-resolves it. Takes a session id, so an operator or a tool such as Strike can park a session from outside. |
 | `discard` | Tombstones the entry, records abandonment, terminates the harness. |
 | `end` / `x` | Finishes, promotes by default, closes/terminates, and tears down terminal obligations. |
 
-The default close/park/discard path is Obsidian-independent; `--obsidian` selects a bound terminal-tab path.
+`close` and `park` terminate the harness and then close the bound Obsidian terminal tab. Pass `--no-leaf` to keep the pane open at a shell prompt. `--obsidian` still parses on both as a deprecated alias of the default. `discard` keeps the old shape: its default path is Obsidian-independent, and `--obsidian` selects the bound terminal-tab path instead.
 
 ## Accounts: `auth`, and Migrating a Live Session
 

@@ -4,6 +4,8 @@ orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[09eafad7-61d5-4654-a0fe-b703803c366b]]"
+  - "[[79de8b0a-567e-459f-a720-182c53f09b46]]"
 ---
 
 # Knowledge: Orbh Session Internals
@@ -85,7 +87,9 @@ Two sibling keys share the slice: `held` — the compaction pager hold, taken by
 
 **`core:waiter-state/delivery`** is the durable delivery cursor, and it is what makes arm → fire → re-arm lossless. Its shape is `{ terminalJobIds, deliveredChildResultRunIds, deliveredNoticeIds, deliveredStationItemIds, pendingRequestIds, answeredRequestIds, barrier, roomCursors }`. Note `deliveredStationItemIds`: **station items are a first-class wake source**, so a station-bound session is woken by queued work like any other event ([[dev-knw-foh-machinery]]).
 
-**`core:waiter-attach`** is dead code. The slice constants and lease helpers still exist in source with zero callers; nothing has ever written the slice, and it appears on no live spool. There is no attach indirection to reason about — during a live turn `page arm` *is* the pager, for the duration of one arm.
+**`core:event-delivery`** is the managed-delivery family, written by the Page pump of a manager that holds a harness event connection (interactive Codex and Claude, and unattended Claude since Task 682). Three keys, three questions: `connection` is the health of the link (`{ version: 2, runId, nativeSessionId, endpoint, pid, machineId, link, attachedAt?, changedAt, verifiedAt, error? }`, with `link` one of `connecting | attaching | connected | held | error | closed`); `receipt` is the outcome of the last Page (`{ version: 2, eventId, outcome: accepted | uncertain, at, source, evidence?: transport | transcript | operator, readAt?, nativeTurnId?, error? }`); `pending` is the one Page on its way, written once with `submitted: true` right before the transport call and cleared after the receipt and the cursor advance. One delivery is four events. `endpoint` is rewritten after attach, `changedAt` moves with `link`, and `verifiedAt` moves on a successful check at most every five minutes. A version 1 record (`status`, `checkedAt`) still reads. `flint orbh timeline` renders all of this under the `delivery` class.
+
+**The delivery mode** (`page status` `MODE`) is computed across these slices: `held` from the compaction hold, `managed` from a live `connection` record (current run, this machine, live manager pid, link not `error` or `closed`), `shell-pager` from a live page-arm lease, else `unleased`. The four slices are one family with two legacy names: there is no waiter process behind `core:waiter-state`, and the compaction hold under `core:page-arm/held` is not an arm. The keys keep their names because a live orchestrator on older code reads the cursor; `core:waiter-attach` was dead code and was removed in Task 682.
 
 Delivery to an awaiting session is owned by the machine orchestrator's awaiting-wake sweep, which refuses sessions that are no longer awaiting, are interactive, or are compacting, and defers to any live `page-arm` lease (including one held by another machine). See [[dev-knw-foh-orchestrator]] for the sweep inventory and cadences.
 
@@ -108,12 +112,17 @@ Sessions are born in a machine-local space and may be promoted to a synced targe
 ## Portable Bundles
 
 ```bash
-flint orbh save [id] [-o <dir>]
-flint orbh save <nativeId> --runtime <rt>
-flint orbh restore <bundleDir> [--force]
+flint orbh save [id] [-o <dir>]                # export one session as a bundle directory
+flint orbh save <nativeId> --runtime <rt>      # native-only bundle, bypassing the session store
+flint orbh restore <bundleDir> [--force]       # native files only; prints a --fork-session resume
+flint orbh import <bundleDir> [--force] [--account <name>] [--cwd <dir>]   # full session, SAME id
 ```
 
-`restore` restores native harness files only; it does not re-register an Orbh control session. Resume the restored native session to mint/associate control state.
+A bundle is a plain directory, not an archive: `bundle.json` (manifest, sha256 per file), `native/` (raw harness files for EVERY native session id across the session's runs — a compacted session has one per thread), `transcript.md`, and `orb/` (the spool event bundle: events, blobs, snapshot, plus `spool-scratch/` carrying agent-written scratch files such as compaction handoffs). Credentials never enter a bundle. Default destination: `<cwd>/.orbh/bundles/<runtime>-<nativeId>`.
+
+`restore` lands only the `native/` half and forks the native session; it does not register an Orbh session. `import` is the cross-machine path (Task 655): it lands the `orb/` spool in this machine's local space under the SAME session id, writes the id→spool index entry, stamps a divergent identity from the manifest, clears foreign page-arm state, records an `imported` fact in `core:transfers`, re-pins the session to a THIS-machine account (`--account <name>`, else the same-name match against the pinned account), and restores the native files into that account's home without fork semantics — identical files skip by sha256, differing files refuse without `--force`. Every refusal fires before the first store write. A session id that already exists here refuses; `--force` replaces only a live spool at the bundle's own coordinates.
+
+Semantics are copy, not move: work a session on one machine at a time — two diverged copies have no merge. Save after the session waits or finishes; an imported `working` run names a foreign dead pid until `reconcile` settles it. Machine to machine: `save <id> -o <dir>`, ship the folder, `import <dir>` on the other side, then `resume <id>`. The target account must already be signed in there (`auth` is separate; bundles carry the conversation, never the credential).
 
 ## Maintenance and Audit
 
