@@ -6,6 +6,7 @@ orbh-sessions:
   - "[[10efdd60-cf13-4cb2-b344-63803ba0b538]]"
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[1ac0e8bb-a7d6-47b6-983d-d40af40b06f8]]"
+  - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -16,7 +17,8 @@ Profiles are pre-configured runtime targets — a bundle of model + reasoning ef
 
 - Profile resolution is **exact** — there is no fuzzy matching; an unknown profile name **errors**.
 - Profile names are **short codes**, not `runtime/tier` slugs. WRONG names like `claude/opus-max`, `codex/high`, `claude/sonnet`, `codex/medium` **do not resolve** and will error.
-- A **bare runtime** (`flint orbh launch claude "<prompt>"`) uses that runtime's `default` profile if one exists, else no profile args.
+- **No target** (`flint orbh i`, `flint orbh launch "<prompt>"`, `flint orbh request "<prompt>"`) selects the first available target of the **default target list** (see below).
+- A **bare runtime** (`flint orbh launch claude "<prompt>"`) selects the first target of the default target list for that runtime (`claude` → `claude/o55h`). When the list has no target of that runtime, the session gets no profile args.
 - The set evolves as model families ship — **always confirm live** with `flint orbh profiles`.
 
 ```bash
@@ -27,11 +29,38 @@ flint orbh launch claude/o5mx "<prompt>"         # Launch a peer with an explici
 flint orbh request -q codex/solxh "<prompt>"      # Dispatch a collected subagent
 ```
 
+## The Default Target List
+
+A launch with no target takes the first **available** target of an ordered list. The shipped list is `claude/o55h`, then `codex/a6h`. A target is available when its runtime CLI is installed, its profile exists, the account of the launch exists and has no active limit marker, and its login is not known to be expired (only Claude has a local login check). The command prints `Target: <target> (default list)` and one `<target> skipped: <reason>` line for each target before it, on stderr. When no target is available, it refuses (exit 1) with the install or login command of the first target.
+
+Three layers own the list. The highest layer with a list applies, and it replaces the lower list (no merge):
+
+| Layer | Where | Write |
+|-------|-------|-------|
+| Flint | `[orbh] default = ["codex/a6h", "claude/o55h"]` in `flint.toml` | `flint orbh profiles default set --flint <target>...` / `unset --flint` |
+| Machine | `defaultTargets` in `~/.nuucognition/orbh/settings.json` (`ORBH_SETTINGS_PATH` overrides the file) | `flint orbh profiles default set <target>...` / `unset`, or step 4 of `flint setup` |
+| Shipped | `claude/o55h`, `codex/a6h` | — |
+
+```bash
+flint orbh profiles default [--json] [-p <dir>]          # The list, the layer of each entry, the state of each target, the selected target
+flint orbh profiles default set codex/a6h claude/o55h    # The machine layer
+flint orbh profiles default set --flint claude/o55h      # The Flint layer of this Flint
+flint orbh profiles default unset [--flint]              # Remove a layer; the output names the list that applies then
+```
+
+Rules:
+
+- **An explicit target never falls back.** When it is not available, the launch refuses before it makes a session: `The target <t> is not available: <reason>. An explicit target does not fall back.`
+- **The account is checked.** The check uses the account of the launch: `--account`, else the account of a dispatcher of the same runtime, else the agent mind or the worker account, else the default account. An account never moves to another runtime.
+- **Launch only (v1).** The selection happens once, when a session launches. A running or resumed session keeps its target; a limit in the middle of a turn does not switch it.
+- `flint orbh agent`, `flint orbh worker`, the workflow `--target default` (the default), and the NUU Flint plugin (an empty profile) use the list too.
+- Skip reasons and their next commands: `<cli> is not installed` → `npm install -g @anthropic-ai/claude-code` / `npm install -g @openai/codex`; `the profile <t> does not exist` → `flint orbh profiles <runtime>`; an unknown account → `flint orbh auth list <runtime>`; `the account <runtime>/<name> is limited until <time>` → `flint orbh auth usage <runtime>`; an expired Claude login → `claude auth login` (with `CLAUDE_CONFIG_DIR` of the account home for an account).
+
 ## The Live Profile Set (verify with `flint orbh profiles`)
 
-As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o5` = Opus 5, `o48` = Opus 4.8, `s5` = Sonnet 5, `a6` = GPT-6 Astra, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g46`/`g45` = Grok 4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
+As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The Opus 5.5 row was added on 2026-09-27. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o55` = Opus 5.5, `o5` = Opus 5, `o48` = Opus 4.8, `s5` = Sonnet 5, `a6` = GPT-6 Astra, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g46`/`g45` = Grok 4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
 
-Runtime availability on this machine (`flint orbh runtimes`): `claude`, `codex`, `grok`, `opencode` are installed. `agy`, `droid`, `kimi` are registered names but are **not installed** and have **no profiles** in the shared layer — do not target them.
+Runtime availability on this machine (`flint orbh runtimes`, 2026-09-27): `claude`, `codex`, `cursor`, `grok`, `opencode` are installed. `agy`, `droid`, `kimi`, `muse` are registered names but are **not installed**. `agy`, `cursor`, `droid`, `kimi`, and `muse` have **no profiles** in the shared layer — do not target them with a profile.
 
 ### `claude`
 
@@ -39,7 +68,8 @@ Runtime availability on this machine (`flint orbh runtimes`): `claude`, `codex`,
 |------|-------|--------|-------|
 | `f51xh` / `f51h` | Fable 5.1 (`claude-fable-5-1`) | xhigh / high | Newest Claude — highest capability. Only these two efforts exist; there is no `f51m`, `f51mx`, or `f51uc` |
 | `f5uc` / `f5mx` / `f5xh` / `f5h` / `f5m` / `f5l` | Fable 5 (`claude-fable-5`) | ultracode / max / xhigh / high / medium / low | Previous Fable generation; full effort ladder including ultracode |
-| `o5uc` / `o5mx` / `o5xh` / `o5h` / `o5m` / `o5l` | Opus 5 (`claude-opus-5`) | ultracode / max / xhigh / high / medium / low | Current-generation Opus. `claude/o5h` is the CLI's own default child target (`workflow after` / `after-procedure` `--target`) |
+| `o55uc` / `o55mx` / `o55xh` / `o55h` / `o55m` / `o55l` | Opus 5.5 (`claude-opus-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Opus. `claude/o55h` is the first target of the shipped default target list |
+| `o5uc` / `o5mx` / `o5xh` / `o5h` / `o5m` / `o5l` | Opus 5 (`claude-opus-5`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus. The workflow child target (`workflow after` / `after-procedure` `--target`) is now `default`: the default target list |
 | `o48uc` / `o48mx` / `o48xh` / `o48h` / `o48m` / `o48l` | Opus 4.8 (`claude-opus-4-8`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus; strong agentic coding & enterprise work |
 | `s5uc` / `s5mx` / `s5xh` / `s5h` / `s5m` / `s5l` | Sonnet 5 (`claude-sonnet-5`) | ultracode / max / xhigh / high / medium / low | Best speed/intelligence balance; everyday default |
 
@@ -49,7 +79,7 @@ The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `a6mx` / `a6xh` / `a6h` / `a6m` / `a6l` | GPT-6 Astra (`gpt-6-astra`) | max / xhigh / high / medium / low | Most capable Codex model; no `ultra` profile |
+| `a6mx` / `a6xh` / `a6h` / `a6m` / `a6l` | GPT-6 Astra (`gpt-6-astra`) | max / xhigh / high / medium / low | Most capable Codex model; no `ultra` profile. `codex/a6h` is the fallback of the shipped default target list |
 | `solu` / `solmx` / `solxh` / `solh` / `solm` / `soll` | GPT-5.6 Sol (`gpt-5.6-sol`) | ultra / max / xhigh / high / medium / low | GPT-5.6 flagship — strongest 5.6 coding/agent work |
 | `teru` / `termx` / `terxh` / `terh` / `term` / `terl` | GPT-5.6 Terra (`gpt-5.6-terra`) | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse, lower cost than Sol |
 | `lunmx` / `lunxh` / `lunh` / `lunm` / `lunl` | GPT-5.6 Luna (`gpt-5.6-luna`) | max / xhigh / high / medium / low | Fast/affordable; no `ultra` (model does not support it) |
@@ -57,7 +87,7 @@ The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort
 ### `gemini`
 
 > [!warning] Profiles exist, the runtime does not
-> `gemini` profiles are still in the registry, but `gemini` is **not** a registered runtime — `flint orbh runtimes` lists `agy, claude, codex, droid, grok, kimi, opencode` only, and `launch --help`'s target list omits it. There is no working path to Gemini models on this machine today (the `agy` runtime that used to carry them is not installed). Do not recommend `gemini/*`.
+> `gemini` profiles are still in the registry, but `gemini` is **not** a registered runtime — `flint orbh runtimes` lists `agy, claude, codex, cursor, droid, grok, kimi, muse, opencode` only, and `launch --help`'s target list omits it. There is no working path to Gemini models on this machine today (the `agy` runtime that used to carry them is not installed). Do not recommend `gemini/*`.
 
 | Code | Model | Notes |
 |------|-------|-------|
@@ -83,7 +113,7 @@ These are the only non-Claude, non-OpenAI, non-Grok models reachable on this mac
 
 ### Runtimes without profiles
 
-`agy` (Antigravity CLI), `kimi` (Kimi Code CLI), and `droid` are registered runtime names — they appear in every target list — but `flint orbh runtimes` shows all three unavailable on this machine and the shared layer defines no profiles for them. Their former profile codes (`agy/f36h`, `agy/p31h`, `agy/o46t`, `kimi/k3`, `kimi/k3mx`, …) no longer resolve.
+`agy` (Antigravity CLI), `kimi` (Kimi Code CLI), `droid`, `cursor` (Cursor Agent CLI, command `cursor-agent`), and `muse` (command `muse`) are registered runtime names — they appear in every target list — but the shared layer defines no profiles for them. `flint orbh runtimes` shows `cursor` installed and the other four unavailable on this machine. A bare `cursor` target launches with no profile args. Their former profile codes (`agy/f36h`, `agy/p31h`, `agy/o46t`, `kimi/k3`, `kimi/k3mx`, …) no longer resolve.
 
 ## Choosing a Profile
 

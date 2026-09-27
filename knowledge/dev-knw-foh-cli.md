@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, accounts, store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, accounts, store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -7,6 +7,7 @@ orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
+  - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -17,7 +18,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 
 | File | Load when you need |
 |------|--------------------|
-| [[dev-knw-foh-profiles]] | Exact `runtime/profile` selection |
+| [[dev-knw-foh-profiles]] | Exact `runtime/profile` selection, and the default target list |
 | [[dev-knw-foh-coordination]] | Peers, collected subagents, turn-correlated results, messages, rooms, and intervention |
 | [[dev-knw-foh-page]] | Page, the one-shot pager and wake delivery, procedures, jobs, group barriers, scheduled wakes |
 | [[dev-knw-foh-machinery]] | Stations, cron sessions, workers, procedures, workflow chaining, updates, approvals, `improve` |
@@ -33,6 +34,24 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 - A session may return many turn-level results. Collectors correlate to initiated runs, not session terminality.
 - An exit without return is re-prompted at most twice; exhaustion becomes `failed-unreturned` and `awaiting`.
 - Abandonment covers explicit operator verdicts (discard/kill) and liveness reconciliation of confirmed-dead working runs (`flint orbh reconcile`, `endReason: lost`).
+
+## Targets and the Default Target List
+
+A target is `runtime/profile` (`claude/o55h`) or a bare runtime (`claude`). `i`, `launch`, and `request` take it as the first argument, and each can omit it:
+
+```bash
+flint orbh i                                   # Interactive, on the first available target of the default target list
+flint orbh launch "<prompt>"                   # A headless peer on the default target
+flint orbh request -q "<prompt>"               # A collected subagent on the default target
+flint orbh i claude                            # A bare runtime: the first target of the list for that runtime (claude/o55h)
+flint orbh i codex/a6h                         # An explicit target: it never falls back
+flint orbh profiles default [--json]           # The list, the layer of each entry, and the state of each target
+flint orbh profiles default set <target>...    # Write the machine layer (defaultTargets in ~/.nuucognition/orbh/settings.json)
+flint orbh profiles default set --flint <target>...   # Write the Flint layer ([orbh] default in flint.toml)
+flint orbh profiles default unset [--flint]    # Remove a layer
+```
+
+The shipped list is `claude/o55h`, then `codex/a6h`. The Flint layer wins over the machine layer, and the machine layer wins over the shipped list; a higher layer replaces the list. The launch prints `Target: <target> (default list)` and one `<target> skipped: <reason>` line for each target before it. A target is skipped when its CLI is not installed, its profile does not exist, the account of the launch (`--account`, else a dispatcher of the same runtime) does not exist or has an active limit marker, or its login is known to be expired. With no available target, the launch refuses (exit 1) with one `Next:` command. The selection happens only at launch: a running or resumed session keeps its target. A `-p` value that starts with `-` is refused. Full rules: [[dev-knw-foh-profiles]].
 
 ## Session Commands
 
