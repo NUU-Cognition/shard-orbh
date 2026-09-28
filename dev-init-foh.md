@@ -31,6 +31,23 @@ Each rule prevents a failure that the NUU Flint session audit (Report 051) found
 
 Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], and the broadcast and `kill` rules in [[dev-knw-foh-coordination]].
 
+## Pin Relevant Files
+
+Each session has a list of pinned Markdown files. The human opens the Markdown finder of your session with `Ctrl-]` then `o`. The finder shows your pins above all other files. Keep this list correct, so that the human can find the files of your work quickly.
+
+- **Pin the files of your work.** A relevant file is a Flint file that you work on, create, or discuss with the human: the task, the spec, the plan, the report, the note, or the shard file.
+- **Pin when the work starts.** Pin a file when you start to work on it, or right after you create it. Do not wait for a workflow to tell you. A workflow step that pins a file is an addition to this rule, not a replacement.
+- **Do not pin every file that you read.** Pin a file only when the human is likely to open it.
+- **Keep the pins.** Keep a pin after the work on the file is done. Remove a pin only when the file is no longer relevant. After a rename, remove the old path and add the new path.
+
+```bash
+flint helper pins add "Mesh/Types/Tasks/(Task) NNN Title.md"   # Append one or more paths; the current pins stay
+flint helper pins list                                         # Show the pins of this session
+flint helper pins remove "Mesh/Old Title.md"                    # Remove a path
+```
+
+Use `add`, not `set`: `set` replaces the full list. Give each path relative to the Flint root, in quotes. The helper targets your session through `ORBH_SESSION_ID`. It accepts only readable `.md` or `.markdown` files inside the Flint. The full reference is "Session Markdown Pins" in [[knw-f-cli]].
+
 ## The Pager and Wake Delivery
 
 `flint orbh page` renders your session's introspection Page: procedures, unread coordination, jobs, awaiting provenance, CONTEXT occupancy, and hygiene warnings. Read it at meaningful seams: first action on resume, before ending a long turn, after a subagent batch.
