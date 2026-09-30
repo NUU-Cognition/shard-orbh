@@ -7,6 +7,7 @@ orbh-sessions:
   - "[[f5bc64b0-3b0a-4b22-a079-866934fc9c24]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
+  - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
 ---
 
 # Knowledge: Orbh Orchestration
@@ -107,6 +108,38 @@ flint orbh launch <runtime/profile> "<standing duty>"
 
 That creates a root **peer** with a manager-flavored prompt and await-default duty. It is not delegation and never belongs to the launcher's tree. Coordinate through messages/rooms; do not use a peer when you need an owned result now.
 
+## Moving Another Session to a Different Account
+
+A manager or an operator can move a session that it did not start to another account of the same runtime. Add `--session` to `auth migrate`:
+
+```bash
+flint orbh auth migrate <account> --session <id> [--force]
+```
+
+Without `--session`, the command moves the session that runs it, and that turn ends. With `--session`, the command moves the named session. Your own run does not end.
+
+Use the command in these cases:
+
+- The account of a session has no quota left, and another account of the same runtime has quota. Check with `flint orbh auth usage`.
+- A fleet child runs on the account of a live interactive session. Move the child to another account. See "Manager Rules".
+
+What the command does to the target session:
+
+- **Interactive session with a live manager.** The manager ends the run at a turn boundary, moves the conversation files, flips the account, and resumes the same native session in the new account. The command waits for the result.
+- **Headless session with no live turn.** The command moves the files and flips the account. The session uses the new account at its next wake. The command prints `Not relaunched`.
+- **Headless session with a live turn.** Orbh kills the turn, then moves the files. The turn in flight is lost. The conversation is not lost. Collect the result first with `flint orbh wait <id>` when you need it.
+
+Rules:
+
+- **Same runtime only.** A claude session cannot move to a codex account.
+- **Credentials.** The destination account must have usable credentials. Use `--force` only when you accept a login screen.
+- **Only the session travels.** Memory, config, and credentials stay with the old account.
+- **Human sessions.** Do not move an interactive session that a person uses, unless the person or your prompt asks for it. The move restarts the child process in the pane.
+- **Old managers.** A pane whose manager is older than the migrate verb refuses the move and moves nothing. Run `flint orbh resume <id>`, then try again.
+- **Verify.** After the command, read the `Account` line of `flint orbh inspect <id>`. Report the new account only when it shows there.
+
+To change the model or the effort, use `profiles switch` inside that session. To change the runtime, use `compact handoff --into`. See [[dev-knw-foh-cli]] and [[dev-knw-foh-profiles]].
+
 ## Resume Hygiene: Re-Collect Before Re-Dispatch
 
 Children survive your death and results are durable — so a resume (an orchestrator wake, rescue after a crash or `failed-unreturned` turn, operator revival) often lands you in a session whose previous turn already dispatched work. **Inventory before dispatching anything:**
@@ -125,7 +158,7 @@ Adopt every result that already exists; re-dispatch only work with **no correlat
 
 Each rule prevents a failure that the NUU Flint session audit (Report 051) found.
 
-- **Check the accounts before a fan-out.** Run `flint orbh auth usage`. Find the account of each live interactive session with `flint orbh inspect <id>` (the `Account` line). Do not put a fleet on the account of a live interactive session: when the fleet uses up the quota, the human's sessions stop too. Spread a large fleet over more than one account with `--account <name>`.
+- **Check the accounts before a fan-out.** Run `flint orbh auth usage`. Find the account of each live interactive session with `flint orbh inspect <id>` (the `Account` line). Do not put a fleet on the account of a live interactive session: when the fleet uses up the quota, the human's sessions stop too. Spread a large fleet over more than one account with `--account <name>`. To move a running session to another account, see "Moving Another Session to a Different Account".
 - **Collect through the result stream.** Run each `request -q` in background execution. After a standing child returns `--await`, run `flint orbh wait --next <id>` in background execution to get its next result, or read the `CHILD RESULT` block of your Page. Do not watch log files for a "final state" line, and do not wait in `sleep` loops.
 - **Give each builder its own worktree.** When two or more builders change the same repository, give each one a worktree and a branch. Tell each builder to commit with explicit paths (`git commit -- <path>...`).
 - **Close out before you finish.** Before your final `return --finish`:

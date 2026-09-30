@@ -7,6 +7,7 @@ orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[1ac0e8bb-a7d6-47b6-983d-d40af40b06f8]]"
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
+  - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -188,7 +189,7 @@ flint orbh compact handoff --into <runtime/profile> [--account <name>]
 
 ### `profiles switch` — same runtime, conversation preserved
 
-A self-target verb, the sibling of `auth migrate`. It closes the run at a turn boundary, commits the new profile (and the model that profile pins), and **resumes the same native session id** under the new model/effort. Nothing on disk moves; the account home is unchanged.
+A self-target verb, the sibling of `auth migrate` (which also takes `--session <id>` for another session; `profiles switch` does not). It closes the run at a turn boundary, commits the new profile (and the model that profile pins), and **resumes the same native session id** under the new model/effort. Nothing on disk moves; the account home is unchanged.
 
 - **Interactive**: the pane swaps its child in place and you keep talking.
 - **Headless / subagent**: nothing is respawned — the stored profile is reapplied at every spawn, so the switch lands at the session's next wake. A live turn is **killed** at a deliberate boundary (`endReason: profile-switched`) rather than refused: a running child's argv is already fixed, so leaving it alive would record a profile it is not using.

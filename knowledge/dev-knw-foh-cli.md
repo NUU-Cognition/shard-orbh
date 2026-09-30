@@ -8,6 +8,7 @@ orbh-sessions:
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
+  - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -166,7 +167,7 @@ flint orbh auth remove <runtime> <name> [--yes] # remove an isolated account hom
 flint orbh auth usage [runtime] [name]          # live quota / rate-limit windows, read-only
 flint orbh auth ccusage [--dry-run] [args…]     # run ccusage across Orbh account homes + vanilla defaults
 flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via one throwaway session each
-flint orbh auth migrate <account> [--force]     # move THIS session to another account
+flint orbh auth migrate <account> [--session <id>] [--force]   # move THIS session (or --session <id>) to another account
 ```
 
 `auth add` assigns an immutable UUID to the account. The runtime registry is at `~/.nuucognition/orbh/accounts/<runtime>/registry.json`. A new session stores this account ID.
@@ -186,10 +187,10 @@ The old account path remains as a hidden compatibility alias. Thus, an existing 
 ### `auth migrate` — change account, keep the conversation
 
 ```bash
-flint orbh auth migrate <account> [--force]
+flint orbh auth migrate <account> [--session <id>] [--force]
 ```
 
-A **self-target** verb: it must run inside the session it moves, because the thing being migrated is the conversation you are having. What happens:
+By default the verb **self-targets**: it moves the session that runs it, because the thing being migrated is the conversation you are having, and that turn ends. With `--session <id>` (full or partial ID) it moves another session and your own run is untouched. A manager can use this to move a child. See [[dev-knw-foh-orchestrator]]. What happens:
 
 1. The run ends at a deliberate turn boundary (end reason `migrated`). The **session never ends** — runs are cheap, the spool is durable.
 2. The session's transcript and sidecar files are **moved** (renamed, not copied) into the destination account home.
@@ -200,7 +201,7 @@ So this is the deliberate opposite of compaction: compaction relaunches into a *
 
 | Want to change | Verb | Native context |
 |---|---|---|
-| account | `auth migrate <account>` | preserved |
+| account | `auth migrate <account> [--session <id>]` | preserved |
 | profile, same runtime | `profiles switch <runtime/profile>` | preserved |
 | runtime (± profile, ± account) | `compact handoff --into <runtime/profile>` | fresh, carried by your handoff |
 
