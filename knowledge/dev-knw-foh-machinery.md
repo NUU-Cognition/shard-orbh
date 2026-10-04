@@ -2,6 +2,7 @@
 description: "Durable Orbh machinery beyond the session — stations, cron schedules, workers, procedures, cross-session workflow chaining, and the update/approval/improve reporting channels"
 orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
+  - "[[ffb27033-03e2-4fb2-850c-a9f83a880880]]"
 ---
 
 # Knowledge: Durable Orbh Machinery
@@ -42,9 +43,11 @@ flint orbh station bind <name> [<sessionId>] | --release
 
 If you are bound to a station, queued items appear on your Page and wake you while awaiting. Treat an unclaimed item as work you owe.
 
+**The station `dm`.** `[modules.dms]` in `flint.toml` turns on direct messages to the Flint (the Flint module `dms`). `flint sync` then keeps the station `dm` with the managed metadata `{ flintId, module: "dms", key: "dm", declHash }`, and `station show dm` marks it as managed. Each DM of `flint dm send` is one item of this station, and the answer is `respond-item`. Sync never takes a local station `dm`, and a removed declaration pauses the station ([[knw-f-cli]] § Direct Messages).
+
 ## Cron — scheduled sessions
 
-Minute-resolution 5-field cron expressions, stored per flint. The per-machine orchestrator sweeps schedules every **60 s** and launches a fresh headless session with the schedule's prompt on its target; **no server is required**. Records the fire before launching, so a crash is findable rather than silent.
+Minute-resolution 5-field cron expressions, stored in the Orb store of the flint. The per-machine orchestrator sweeps schedules every **60 s** and launches a fresh headless session with the schedule's prompt on its target; **no server is required**. Records the fire before launching, so a crash is findable rather than silent.
 
 ```bash
 flint orbh cron create <name> --expr "*/30 * * * *" --prompt "<complete prompt>" --target claude/o5h \
@@ -55,6 +58,29 @@ flint orbh cron list | show <name> | pause <name> | resume <name> | run-now <nam
 - `--misfire` decides what a missed window means; `--overlap skip` suppresses a fire while the previous session is still `working`/`needs-input`.
 - `run-now` does **not** fire immediately — it requests a fire on the next sweep.
 - The launched session shares none of your context. Write the prompt as a complete brief.
+
+**Local and declared schedules.** The cron store is in the Orb store `.orb/` of the Flint, and Git ignores `.orb/`. So a schedule of `flint orbh cron create` is local to one machine: it does not travel with the Flint. To share a schedule, a Flint declares it in `[modules.crons]` of `flint.toml` (the Flint module `crons`). Git carries `flint.toml` to each machine, and `flint sync` makes the schedule only on its owner machine. A person manages the declared schedules with `flint cron list|add|remove|own|run` ([[knw-f-cli]] § Crons).
+
+```toml
+[modules.crons]
+machine = "katana"                       # the default owner: a machine slug, or a machine id (UUID)
+
+[modules.crons.schedules.morning-brief]
+expr     = "0 7 * * 1-5"
+timezone = "Australia/Sydney"            # optional; default: the clock of the owner machine
+prompt   = "Write the brief of the day."  # or prompt-file = "<path in the Flint>"
+```
+
+**Managed schedules.** A schedule that `flint sync` makes carries the managed metadata `{ flintId, module: "crons", key, declHash }`.
+
+- `flint orbh cron list` shows `crons` in the column `MANAGED`. `flint orbh cron show` names the table of `flint.toml`.
+- `flint orbh cron delete` refuses a managed schedule and names `flint cron remove <name>`.
+- Change a managed schedule in `flint.toml`, then run `flint sync`. Do not pause or resume it with `flint orbh cron`: the next sync sets the state from the declaration again.
+- Sync never deletes a schedule. When the declaration is removed, has `enabled = false`, or names another machine or no machine, sync pauses the schedule on this machine and clears its pending manual fire. The fire history stays. A new declaration with the same key resumes the schedule.
+- Sync never changes a local schedule. A declaration with the name of a local schedule or of a deleted schedule gets a report, and sync does not apply it.
+- When sync leaves an enabled schedule on this machine and the orchestrator does not run, sync starts the orchestrator. `FLINT_CRONS_NO_ORCHESTRATOR=1` stops this (for a test world).
+
+**Fire-time check.** Before each fire of a managed schedule, the cron sweep reads `flint.toml` again. It skips the fire when the declaration is absent, disabled, owned by another machine or by no machine, or does not parse. The skip has the reason `ineligible`, and its detail names the cause (`declaration-absent`, `declaration-disabled`, `other-machine`, `unowned`, `declaration-invalid`). So a change of `flint.toml` stops a schedule at once, also before the next sync. The check does not compare the prompt: an edit of a prompt file with no sync does not stop a schedule.
 
 ## Workers — one object, one unit of work
 
