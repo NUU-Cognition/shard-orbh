@@ -3,6 +3,7 @@ description: "Discard the current Orbh session — tombstone its history entry a
 orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
+  - "[[1d490a0f-e91e-4f57-930e-350f5cbd0f18]]"
 ---
 
 > [!important] THIS FILE IS AN INSTRUCTION. WHEN REFERENCED IT IS MEANT TO BE TAKEN AS AN ACTION.
@@ -21,7 +22,7 @@ By default `flint orbh discard` records the tombstone, terminates the harness, a
 
 1. If useful, briefly tell the human you are discarding the session and that no summary record will be written.
 
-2. **Discard the session.** This is an explicit terminal abandonment verdict: it appends an `orbh.session.discarded` tombstone, drops the entry out of `orbh list`, terminates the harness, and clears any pager state. It self-targets through `ORBH_SESSION_ID`; do nothing after.
+2. **Discard the session.** This is an explicit terminal abandonment verdict: it appends an `orbh.session.discarded` tombstone, drops the entry out of `flint orbh list`, terminates the harness, and clears any pager state. It self-targets through `ORBH_SESSION_ID`; do nothing after.
 
    ```bash
    flint orbh discard
@@ -31,6 +32,6 @@ By default `flint orbh discard` records the tombstone, terminates the harness, a
 
 # Output
 
-- An `orbh.session.discarded` tombstone appended to the Orb control log (session hidden from `orbh list`).
+- An `orbh.session.discarded` tombstone appended to the Orb control log (session hidden from `flint orbh list`).
 - Harness terminated and any pager state cleared.
 - The bound Obsidian terminal tab closed (with `--no-leaf`, the terminal returns to the shell).

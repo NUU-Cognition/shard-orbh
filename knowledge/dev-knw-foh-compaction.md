@@ -5,6 +5,7 @@ orbh-sessions:
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
   - "[[b906e3ea-30d1-48f6-827a-89c5553e49c8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
+  - "[[1d490a0f-e91e-4f57-930e-350f5cbd0f18]]"
 ---
 
 # Knowledge: Self-Compaction at 80%
@@ -72,7 +73,7 @@ Use it when the work ahead has a different shape than the work behind: escalatin
 
 ## Compaction is visible: `[Compacting...]`
 
-From `compact start` until the relaunched context runs `compact finish`, every title surface prefixes the session with `[Compacting...]` — the pane title, `orbh list`, the cockpit, and Orbit. It is **derived, never stored**: the marker is the compaction pager hold read through `isSessionCompacting`. Nothing writes it into `session.title`, so a compaction that dies mid-flight cannot leave a polluted title behind.
+From `compact start` until the relaunched context runs `compact finish`, every title surface prefixes the session with `[Compacting...]` — the pane title, `flint orbh list`, the cockpit, and Orbit. It is **derived, never stored**: the marker is the compaction pager hold read through `isSessionCompacting`. Nothing writes it into `session.title`, so a compaction that dies mid-flight cannot leave a polluted title behind.
 
 The window deliberately spans the relaunch. What a human wants to know is not "is a process being killed" — that takes about a second — but "is this session doing something other than my work", and that includes the successor's bootstrap, where a fresh context reads a handoff and every file it names before it can act. `finish` is the successor declaring that done, and it is the only thing that ends the window (besides `abort`, or ending the turn with `return`).
 
