@@ -231,7 +231,7 @@ The account autoswitch moves headless work off an account whose usage ran out. I
 
 ```bash
 flint orbh auth fallback set claude gmail nuu-gmail nuu-nathan   # each account must exist
-flint orbh auth fallback check claude --account gmail            # dry run; writes nothing
+flint orbh auth fallback check claude --account gmail            # dry run; writes nothing, not even the removal of an expired marker
 flint orbh auth fallback show claude                             # the list, and good or limited for each account
 ```
 
@@ -247,9 +247,9 @@ flint orbh auth fallback show claude                             # the list, and
 Orbh: the account claude/gmail is limited (the 5-hour window is at 96%). This launch uses claude/nuu-gmail from the fallback list.
 ```
 
-An explicit `--account` in the list can switch; an explicit `--account` outside the list never switches. When no account of the list is good, the notice says `This launch stays on claude/gmail.`, and the usual limit check then refuses a launch on a marker. An interactive launch never switches. A default target whose account is limited stays available when the rule finds a good account for it.
+An explicit `--account` in the list can switch; an explicit `--account` outside the list never switches. When no account of the list is good, the notice says `This launch stays on claude/gmail.`, and the usual limit check then refuses a launch on a marker. An interactive launch never switches. The default target list applies the same rule: a target whose account is limited stays available when the rule finds a good account for it, and the login check of the target reads that chosen account.
 
-**A headless session that stopped on a limit.** The orchestrator moves such a session to a good account of the list with the headless path of `auth migrate`, only when all of these are true: the session is headless or a subagent (never interactive); it has no live run and it is awaiting (it is between turns); its last run stopped on a provider usage or rate limit; its account is in the list and still limited; and a good account of the list exists. Then it moves a later scheduled wake to now, so the session continues on the new account. A failed move is tried again after 30 minutes. The orchestrator log has one `account switch — moved …` line for each move. Verify the move with the `Account` line of `flint orbh inspect <id>`. Without a list, or for any other session, the manual path stays `flint orbh auth migrate <account> --session <id>`.
+**A headless session that stopped on a limit.** The orchestrator moves such a session to a good account of the list with the headless path of `auth migrate`, only when all of these are true: the session is headless or a subagent (never interactive); it has no live run and it is awaiting (it is between turns); its last run stopped on a provider usage or rate limit; its account is in the list and still limited; and a good account of the list exists. The sweep can read an old copy of the session, so the migration compares the stored session with that copy (its account and its current run) and checks the whole rule again under its claim; any change refuses the move, and nothing moves. While a migration holds its claim, no run of that session can start (the run start checks the claim; only the respawn of an interactive migration carries the claim token), so the move never happens during a turn. Then it moves a later scheduled wake to now, so the session continues on the new account. A failed move is tried again after 30 minutes. The orchestrator log has one `account switch — moved …` line for each move. Verify the move with the `Account` line of `flint orbh inspect <id>`. Without a list, or for any other session, the manual path stays `flint orbh auth migrate <account> --session <id>`.
 
 ## Page, Pager, and List Hygiene
 
