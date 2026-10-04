@@ -9,6 +9,7 @@ orbh-sessions:
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
+  - "[[de92a197-8d6d-4af9-8883-127de32460ee]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -168,6 +169,11 @@ flint orbh auth usage [runtime] [name]          # live quota / rate-limit window
 flint orbh auth ccusage [--dry-run] [args…]     # run ccusage across Orbh account homes + vanilla defaults
 flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via one throwaway session each
 flint orbh auth migrate <account> [--session <id>] [--force]   # move THIS session (or --session <id>) to another account
+flint orbh auth fallback show [runtime] [--json]               # the fallback lists and the state of each listed account
+flint orbh auth fallback set <runtime> <account...>            # the ordered fallback list of one runtime (turns the autoswitch on)
+flint orbh auth fallback unset <runtime>                       # remove the list (Orbh never switches that runtime)
+flint orbh auth fallback check <runtime> [--account <name>] [--model <m>]   # dry run: the account a new headless launch uses now
+flint orbh auth fallback settings [--percent <n>] [--refresh-minutes <n>]   # the switch percent and the usage refresh interval
 ```
 
 `auth add` assigns an immutable UUID to the account. The runtime registry is at `~/.nuucognition/orbh/accounts/<runtime>/registry.json`. A new session stores this account ID.
@@ -218,6 +224,32 @@ Only the session's own files travel. **Auto-memory, harness config, and credenti
 **Verify the change before you report it.** A switch or a move can fail and leave the session on the old profile or account. After the relaunch, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
 
 Orb agents get the same operation, plus the durable declaration, through `flint orbh agent migrate <name> <account>` (Orb Agents shard).
+
+### The account autoswitch: usage snapshots and the fallback list
+
+The account autoswitch moves headless work off an account whose usage ran out. It is **off by default**. It works only for a runtime that has a **fallback list**: an ordered list of accounts that the operator declares interchangeable. Orbh never chooses an account outside the list, and never moves away from an account outside the list. So keep a work account and the account of a live interactive session of a person out of the list.
+
+```bash
+flint orbh auth fallback set claude gmail nuu-gmail nuu-nathan   # each account must exist
+flint orbh auth fallback check claude --account gmail            # dry run; writes nothing
+flint orbh auth fallback show claude                             # the list, and good or limited for each account
+```
+
+**The config.** The key `accountUsage` of the Orbh machine settings file (`~/.nuucognition/orbh/settings.json`, or `ORBH_SETTINGS_PATH`) holds the lists (`fallback`), the switch percent (`switchPercent`, default 90), and the refresh interval (`refreshMinutes`, default 5; 0 turns the refresh off). The `auth fallback` commands write it and keep the other keys of the file. The owner module is `packages/orbh/src/usage/account-switch.ts`.
+
+**The usage snapshot.** Each account home has `usage-state.json`: the windows of the last usage read (5-hour, weekly, weekly per model) and the read time. `auth usage` writes it. The orchestrator also refreshes it in the background for each account of a fallback list: at most once per `refreshMinutes` for each account, one account at a time, with a 10-second bound, also when a read fails. An account outside every list gets no background read. Other code reads the snapshot with `readLastKnownAccountUsage`.
+
+**When an account is limited.** An account is limited when it has a live usage-limit marker (`limit-state.json`, written when a run stops on a provider usage or rate limit), or when its snapshot is younger than 15 minutes and has a window at or above the switch percent that has not reset. A model window (for example "weekly (Fable)") counts only for a launch on that model. An account with no fresh snapshot is good unless it has a marker.
+
+**The rule at launch.** It applies to a new headless, subagent, or ping launch, after the normal account choice (`--account`, else the account of the dispatcher, else the default). When that account is in the list and limited, the launch uses the first account of the list, in list order, that exists and is good. It prints one line on stderr and records the key `orbh:account-switch` in the session metadata:
+
+```
+Orbh: the account claude/gmail is limited (the 5-hour window is at 96%). This launch uses claude/nuu-gmail from the fallback list.
+```
+
+An explicit `--account` in the list can switch; an explicit `--account` outside the list never switches. When no account of the list is good, the notice says `This launch stays on claude/gmail.`, and the usual limit check then refuses a launch on a marker. An interactive launch never switches. A default target whose account is limited stays available when the rule finds a good account for it.
+
+**A headless session that stopped on a limit.** The orchestrator moves such a session to a good account of the list with the headless path of `auth migrate`, only when all of these are true: the session is headless or a subagent (never interactive); it has no live run and it is awaiting (it is between turns); its last run stopped on a provider usage or rate limit; its account is in the list and still limited; and a good account of the list exists. Then it moves a later scheduled wake to now, so the session continues on the new account. A failed move is tried again after 30 minutes. The orchestrator log has one `account switch — moved …` line for each move. Verify the move with the `Account` line of `flint orbh inspect <id>`. Without a list, or for any other session, the manual path stays `flint orbh auth migrate <account> --session <id>`.
 
 ## Page, Pager, and List Hygiene
 
