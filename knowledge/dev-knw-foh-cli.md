@@ -159,12 +159,14 @@ flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
 Accounts are isolated harness login homes, per runtime.
 
 ```bash
-flint orbh auth list [runtime]
+flint orbh auth list [runtime] [--all]          # --all also lists each deactivated account, with a STATE column
 flint orbh auth add <runtime> <name> [--no-login]
 flint orbh auth rename <runtime> <old-name> <new-name> # rename an isolated account home
 flint orbh auth default <runtime> <name>        # Flint-local inside a Flint, else machine-global
 flint orbh auth default <runtime> --clear       # clear the default (name required unless --clear)
 flint orbh auth remove <runtime> <name> [--yes] # remove an isolated account home
+flint orbh auth deactivate <runtime> <name>     # hide an account whose subscription lapsed; the home stays
+flint orbh auth reactivate <runtime> <name>     # bring a deactivated account back
 flint orbh auth usage [runtime] [name]          # live quota / rate-limit windows, read-only
 flint orbh auth ccusage [--dry-run] [args…]     # run ccusage across Orbh account homes + vanilla defaults
 flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via one throwaway session each
@@ -189,6 +191,15 @@ An account can return to an old name. Orbh recognizes that the old alias has the
 The old account path remains as a hidden compatibility alias. Thus, an existing process can use the absolute path that it stored before the rename. A resumed legacy session receives the account ID. A new child session uses the current name and stable home.
 
 `auth list` shows only the current account name and a short account ID. `auth remove` removes all name aliases. It also keeps an ID tombstone for a clear session error.
+
+### `auth deactivate` — hide an account, keep its home
+
+Use `auth deactivate` when the subscription of an account lapses for a period. Do not use `auth remove` for this: `remove` deletes the home. `deactivate` writes `deactivatedAt` on the record of the account in `registry.json`. The registry stays at version 1. The home folder, its credentials, and its conversations stay.
+
+- **Hidden.** `auth list`, `auth usage`, `auth refresh`, the launcher account stage, the fallback autoswitch, and the Strike launch modal skip the account. `auth list` prints how many accounts it hid. `auth list --all` shows every known account with the state `active` or `deactivated <date>`.
+- **Refused as a new choice.** A new launch with `--account <name>`, a launch whose default names the account, `auth default`, `auth fallback set`, `auth migrate` to the account, and `agent migrate` to the account refuse it. The error names `flint orbh auth reactivate <runtime> <name>`.
+- **Still resolved as a stored reference.** A resume of a session that ran on the account, a subagent that inherits the account of its parent, `auth account` (the passthrough to the home), bundle restore, and `auth ccusage` still use the account.
+- **Defaults.** `deactivate` clears the machine default and the default of the current Flint when they name the account. A default in another Flint stays, and a launch there refuses with the next command. `reactivate` does not restore a default.
 
 ### `auth migrate` — change account, keep the conversation
 
