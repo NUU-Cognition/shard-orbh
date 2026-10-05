@@ -94,7 +94,7 @@ flint orbh job wait <id> [--poll <ms>]
 flint orbh job clear [--all]
 ```
 
-An agent job wraps `request -q`; the subagent's correlated result becomes job output. `job result` can read retained output while running, and `job wait` blocks until terminal. The reaper marks dead wrappers and expired jobs failed. Groups are all-terminal barriers: failure resolves the barrier too, and retries remain explicit.
+An agent job wraps `request -q`; the subagent's correlated result becomes job output. `job result` can read retained output while running, and `job wait` blocks until terminal. The reaper marks expired jobs failed. An agent job follows its child session when the wrapper ends without a result: when the child stops on a usage limit, the job stays `running` and `job list` shows it as `blocked` until Orbh resumes the child after its reset or an account move; then the job ends with the result of the resumed turn. Do not re-dispatch a blocked job: the second session would do the same work. When the wrapper dies while the child works, the job also follows the child; a dead wrapper with no child fails the job. Groups are all-terminal barriers: failure resolves the barrier too, and retries remain explicit.
 
 `job run` and the other job verbs accept `--session <id>` for explicit cross-session mutation; use it only when you own orchestration of the target. `job complete <id>` is registered but **internal** — it is how the background wrapper records a terminal status. Do not call it.
 
@@ -111,7 +111,7 @@ flint orbh session return --await --until-group fan "Fan-out dispatched; awaitin
 
 `flint orbh park [id] --until-group <g> [--barrier-timeout <s>]` is the legacy/operator spelling. It carries no turn result. `--barrier-timeout <s>` force-resolves the barrier: it marks the group jobs that still run as failed, so a session can never be stranded. `session return --await --until-group <g> --barrier-timeout <s>` accepts it too.
 
-The barrier is additional, not exclusive: messages, requests, subscribed room activity, station items, and individual terminal-job events can still wake you before the whole group is terminal. On wake, inspect `job list` and use `job result <id>` for full output. Plain `park`/`--await` clears a stale barrier directive.
+The barrier holds the per-job wakes of its own group: you wake one time, when every job of the group is terminal. Messages, requests, subscribed room activity, station items, a job of another group, and a child notice that needs a decision (for example `failed-unreturned`, or a usage limit whose reset is more than 5 h away) still wake you before the whole group is terminal. A usage-limit notice with a nearer reset does not wake you: the child resumes by itself. After an early wake the barrier stays, and its `--barrier-timeout` still holds: at the timeout Orbh fails the jobs of the group that still run and signals their process groups. On wake, inspect `job list` and use `job result <id>` for full output. Plain `park`/`--await` clears a stale barrier directive.
 
 Note which sweep does what: the orchestrator's **barrier sweep is enforcement-only** — it fails timed-out jobs and never resumes a session. The awaiting-wake sweep is what actually wakes you when the barrier is satisfied.
 
