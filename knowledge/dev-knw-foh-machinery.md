@@ -3,6 +3,7 @@ description: "Durable Orbh machinery beyond the session — stations, cron sched
 orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[ffb27033-03e2-4fb2-850c-a9f83a880880]]"
+  - "[[5e7386c8-d7ac-4fbb-886d-6f9e5a41023b]]"
 ---
 
 # Knowledge: Durable Orbh Machinery
@@ -43,7 +44,9 @@ flint orbh station bind <name> [<sessionId>] | --release
 
 If you are bound to a station, queued items appear on your Page and wake you while awaiting. Treat an unclaimed item as work you owe.
 
-**The station `dm`.** `[modules.dms]` in `flint.toml` turns on direct messages to the Flint (the Flint module `dms`). `flint sync` then keeps the station `dm` with the managed metadata `{ flintId, module: "dms", key: "dm", declHash }`, and `station show dm` marks it as managed. Each DM of `flint dm send` is one item of this station, and the answer is `respond-item`. Sync never takes a local station `dm`, and a removed declaration pauses the station ([[knw-f-cli]] § Direct Messages).
+**Stations of a module.** A Flint module can desire a station (`flint module install <spec>`, then `flint sync`). Flint makes the station with the managed metadata `{ flintId, module: <record name>, key, declHash }`, and `station show` names the module, the key, and the settings file of the module (`Modules/<Name>.settings.toml`). Sync never takes a local station or a station of another module with the same name: that is a report. When the module no longer desires the station, or the module is uninstalled, sync pauses the station. It never deletes it.
+
+**The station `dm`.** The module `dms` (`@nuucognition/module/dms`) desires the station `dm`: direct messages to the Flint. Its target, mode, and duty come from `Modules/DMs.settings.toml`. Each DM of `flint module dms send` is one item of this station, and the answer is `respond-item`. A DM needs the record of the module `dms` in the receiver Flint and a station `dm` with the marker of that record ([[knw-f-cli]] § Direct Messages).
 
 ## Cron — scheduled sessions
 
@@ -59,28 +62,28 @@ flint orbh cron list | show <name> | pause <name> | resume <name> | run-now <nam
 - `run-now` does **not** fire immediately — it requests a fire on the next sweep.
 - The launched session shares none of your context. Write the prompt as a complete brief.
 
-**Local and declared schedules.** The cron store is in the Orb store `.orb/` of the Flint, and Git ignores `.orb/`. So a schedule of `flint orbh cron create` is local to one machine: it does not travel with the Flint. To share a schedule, a Flint declares it in `[modules.crons]` of `flint.toml` (the Flint module `crons`). Git carries `flint.toml` to each machine, and `flint sync` makes the schedule only on its owner machine. A person manages the declared schedules with `flint cron list|add|remove|own|run` ([[knw-f-cli]] § Crons).
+**Local and module schedules.** The cron store is in the Orb store `.orb/` of the Flint, and Git ignores `.orb/`. So a schedule of `flint orbh cron create` is local to one machine: it does not travel with the Flint. To share a schedule, a Flint uses a module that desires it. The first-party module `crons` (`@nuucognition/module/crons`) desires one schedule for each table of its settings file `Modules/Crons.settings.toml`. Git carries the record and the settings file to each machine, and `flint sync` makes the schedule only on its owner machine. A person manages these schedules with the settings file and `flint module crons list|own|run|result` ([[knw-f-cli]] § Crons).
 
 ```toml
-[modules.crons]
+# Modules/Crons.settings.toml
 machine = "katana"                       # the default owner: a machine slug, or a machine id (UUID)
 
-[modules.crons.schedules.morning-brief]
+[schedules.morning-brief]
 expr     = "0 7 * * 1-5"
 timezone = "Australia/Sydney"            # optional; default: the clock of the owner machine
 prompt   = "Write the brief of the day."  # or prompt-file = "<path in the Flint>"
 ```
 
-**Managed schedules.** A schedule that `flint sync` makes carries the managed metadata `{ flintId, module: "crons", key, declHash }`.
+**Managed schedules.** A schedule that `flint sync` makes for a module carries the managed metadata `{ flintId, module: <record name>, key, declHash, machine }`. `machine` is the owner that sync stored; it is outside `declHash`, and a change of the owner writes a new definition.
 
-- `flint orbh cron list` shows `crons` in the column `MANAGED`. `flint orbh cron show` names the table of `flint.toml`.
-- `flint orbh cron delete` refuses a managed schedule and names `flint cron remove <name>`.
-- Change a managed schedule in `flint.toml`, then run `flint sync`. Do not pause or resume it with `flint orbh cron`: the next sync sets the state from the declaration again.
-- Sync never deletes a schedule. When the declaration is removed, has `enabled = false`, or names another machine or no machine, sync pauses the schedule on this machine and clears its pending manual fire. The fire history stays. A new declaration with the same key resumes the schedule.
-- Sync never changes a local schedule. A declaration with the name of a local schedule or of a deleted schedule gets a report, and sync does not apply it.
-- When sync leaves an enabled schedule on this machine and the orchestrator does not run, sync starts the orchestrator. `FLINT_CRONS_NO_ORCHESTRATOR=1` stops this (for a test world).
+- `flint orbh cron list` shows the record name of the module (`crons`) in the column `MANAGED`. `flint orbh cron show` names the module, the key, the owner, and the settings file.
+- `flint orbh cron delete` refuses a managed schedule: change the settings of the module and run `flint sync`, or remove the module with `flint module uninstall <name>`.
+- Change a managed schedule in the settings file of its module, then run `flint sync`. Do not pause or resume it with `flint orbh cron`: the next sync sets the state from the plan of the module again.
+- Sync never deletes a schedule. When the module no longer desires it (a removed table, `enabled = false`), when it names another machine or no machine, or when the module is uninstalled, sync pauses the schedule on this machine and clears its pending manual fire. The fire history stays. A desired schedule with the same key resumes it.
+- Sync never changes a local schedule. A desired schedule with the name of a local schedule, of a deleted schedule, or of a schedule of another module gets a report, and sync does not apply it.
+- When sync leaves an enabled schedule on this machine and the orchestrator does not run, sync starts the orchestrator. `FLINT_CRONS_NO_ORCHESTRATOR=1` stops this, and every other automatic orchestrator start, the Blacksmith daemon included (for a test world).
 
-**Fire-time check.** Before each fire of a managed schedule, the cron sweep reads `flint.toml` again. It skips the fire when the declaration is absent, disabled, owned by another machine or by no machine, or does not parse. The skip has the reason `ineligible`, and its detail names the cause (`declaration-absent`, `declaration-disabled`, `other-machine`, `unowned`, `declaration-invalid`). So a change of `flint.toml` stops a schedule at once, also before the next sync. The check does not compare the prompt: an edit of a prompt file with no sync does not stop a schedule.
+**Fire-time check.** Before each fire of a managed schedule, the cron sweep checks three facts of the Flint, with no module process: `flint.toml` has the record of the module that the marker names (a legacy table `[modules.<id>]` is not a record), the module is installed (a build in `Modules/` whose manifest parses), and the owner in the marker is this machine. Else it skips the fire with the reason `ineligible`, and the detail names the cause (`declaration-absent`, `declaration-invalid`, `other-machine`, `unknown-machine`, `unowned`). So an uninstall of the module stops its schedules at once, also before the next sync. A marker with no owner (made before Flint stored the owner) is `unowned`: run `flint sync` on the owner machine. The check does not read the settings file: a change of the settings takes effect at the next sync, and an edit of a prompt file with no sync does not stop a schedule.
 
 ## Workers — one object, one unit of work
 
