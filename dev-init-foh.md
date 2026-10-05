@@ -116,7 +116,7 @@ flint orbh session ask "<question>"                           # blocking; suspen
 | `knowledge/dev-knw-foh-compaction.md` | Self-compaction doctrine: CONTEXT occupancy, the 80% threshold, compact start/handoff/finish, the agent-authored handoff, relaunched-context duty, and compacting into a different runtime/profile/account. |
 | `knowledge/dev-knw-foh-internals.md` | Orb spool model and store layout, five work states, run/result correlation, pager/delivery slices, spaces, bundles, and repair. |
 | `knowledge/dev-knw-foh-orchestrator.md` | Delegation shapes and manager patterns, plus the orchestrator's supervisor/reaper/wake-engine role. Read before delegating. |
-| `knowledge/dev-knw-foh-fleets.md` | Declared fleets: the fleet verbs, when to declare and how to name, the charter and the voice, the `orbh-fleet` Mesh field and the commit trailers, accounts and load before each wave, the shared checkout, review and deploy, the fleet recipes, and the close-out. Read before you run a program of many sessions. |
+| `knowledge/dev-knw-foh-fleets.md` | Declared fleets: the fleet verbs, when to declare and how to name, the charter and the voice, the `orbh-fleet` Mesh field and the commit trailers, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out. Read before you run a program of many sessions. |
 
 ## Loading on Demand
 

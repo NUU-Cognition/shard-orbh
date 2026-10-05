@@ -1,5 +1,5 @@
 ---
-description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh field and commit trailers, peers and stations, accounts and load before each wave, the shared checkout, review and deploy, the fleet recipes, and the close-out"
+description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh field and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
 orbh-sessions:
   - "[[528386a9-3de4-4ffb-9f92-dc12e4e6dcda]]"
 ---
@@ -177,28 +177,36 @@ A wave that runs on one account stops when that account reaches its limit. Repor
 - When a `request -q` exits 1, read `flint orbh list` before you dispatch again. The child can exist and run. Collect it with `flint orbh wait <id>`; do not start a second copy.
 - Each headless session costs about 150 MB of memory for its host and collector. Count it in the wave size.
 
-## The Shared Checkout
+## Many Builders on One Checkout
 
 By default, all builders of a fleet work on the machine branch (for example `nathan-main`) in the primary checkout. A worktree is used only when the operator names one. Many builders in one checkout need these rules:
 
 - **One owner for each file.** Give each builder its own files in its prompt. Keep a FILE OWNERSHIP table in the room context (`flint orbh room context append <room> "<table>"`). A builder posts in the room before it edits a file outside its package.
-- **Commit only your own paths:** `git commit -m "<message>" -- <path>...`. Never `git add -A`, `git add .`, or `git commit -a`.
-- **A shared file with hunks of two builders.** The owner of each hunk commits only that hunk, with a private index, so the shared index stays as it is:
+- **Whole files: commit only your own paths.** `git commit -m "<message>" -- <path>...`. Git checks that the branch did not move. Add a new file with `git add <path>` first. Never `git add -A`, `git add .`, or `git commit -a`.
+- **Hunks in a shared file: one fixed base and a compare-and-swap.** When a file holds hunks of two builders, the owner of each hunk commits only that hunk. Build the tree from one fixed `BASE`, refuse a tree that changes a path outside your list, and move the branch with `git update-ref` from `BASE` (a compare-and-swap). When the branch moved, start again from the new `BASE`:
 
   ```bash
-  git diff -- <path> > /tmp/mine.patch      # then delete the hunks of the other builder from the patch
-  export GIT_INDEX_FILE="$(mktemp -u)"      # a private index
-  git read-tree HEAD
-  git apply --cached /tmp/mine.patch
-  git commit -m "<message>"
-  unset GIT_INDEX_FILE
-  git reset -q -- <path>                     # the shared index entry of <path> follows the new HEAD
+  git diff -- <path>... > /tmp/mine.patch     # then delete the hunks of the other builders from the patch
+  branch=$(git symbolic-ref --short HEAD)
+  base=$(git rev-parse HEAD)
+  idx=$(mktemp)
+  GIT_INDEX_FILE=$idx git read-tree "$base"
+  GIT_INDEX_FILE=$idx git apply --cached /tmp/mine.patch
+  tree=$(GIT_INDEX_FILE=$idx git write-tree); rm -f "$idx"
+  git diff-tree -r --name-only "$base" "$tree"  # must list only your paths; else stop
+  commit=$(git commit-tree "$tree" -p "$base" -F /tmp/message.txt)
+  git update-ref "refs/heads/$branch" "$commit" "$base" && git reset -q -- <path>...   # fails when the branch moved: start again
   ```
 
+- **Never run `git commit` with a private `GIT_INDEX_FILE`.** HEAD can move between `git read-tree HEAD` and `git commit`. The commit then gets the new parent and the old tree, and it silently reverts the commits of other builders. This occurred two times in the overnight program of 2026-10-06.
+- **Check each commit.** After a commit, `git show --stat HEAD` must list only your paths. If your commit reverted the lines of another builder, restore them at once and tell that builder.
+- **A revert scan before each deploy.** The manager reads `git log --stat <last deploy>..HEAD`. Each commit must list only the paths of its task. For a commit that lists a path of another task, read `git diff <sha>^ <sha> -- <path>`, and restore the lost lines before the build.
 - **The build lock.** Run one package build at a time under the lock of the program (for example `mkdir /tmp/<program>-build.lock`, and `rmdir` when done). Do not run `pnpm install`, a full monorepo build, or a build that cleans `dist` while other builders work.
+- **No `pnpm --filter @nuucognition/flint-cli dev`.** Its `predev` step runs `turbo build` of about 37 workspace packages outside the build lock. Run the CLI from source with `pnpm exec tsx src/index.ts` in `apps/flint-cli`, or run `node apps/orbh-cli/dist/index.js` after a locked build of `apps/orbh-cli`.
 - **The load gate.** Before a heavy step (a package build, a full typecheck, a test run of more than one spec), read the 1-minute load average. Wait while it is above 2 per CPU. On an 18-CPU Mac: `until [ "$(sysctl -n vm.loadavg | awk '{print int($2)}')" -lt 36 ]; do sleep 10; done`. Run one test spec at a time. Before a full build, read the free memory (`memory_pressure | tail -1` on macOS).
 - **Show a gate wait.** Set `phase gate-wait` and `blockers "<the gate>"` while you wait (Agent Rule 4 of the init).
-- **Run the code from source.** A builder does not rebuild the live CLI bundle and does not restart the orchestrator or a server. Only the manager deploys.
+- **Only the manager deploys.** A builder does not rebuild the live CLI bundle and does not restart the orchestrator or a server.
+- **A scratch store is not the live store.** Each agent shell has `ORBH_CWD` (the Flint of the session), and the CLI resolves the store from it. Before you run the CLI against a scratch Flint, unset `ORBH_CWD` and `ORBH_SESSION_ID`, or give `--orb-root <dir> --create-store`.
 - Do not use glob deletes in a shared temp folder. Do not kill a process that you did not start. Keep scratch files in the `scratch/` folder of your spool.
 
 ## Review and Fix Rounds
