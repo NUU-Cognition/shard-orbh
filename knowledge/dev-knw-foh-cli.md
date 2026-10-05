@@ -26,6 +26,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 | [[dev-knw-foh-machinery]] | Stations, cron sessions, workers, procedures, workflow chaining, updates, approvals, `improve` |
 | [[dev-knw-foh-internals]] | Orb spool and store layout, lifecycle derivation, result streams, delivery slices, spaces, bundles, and repair |
 | [[dev-knw-foh-orchestrator]] | Delegation shapes, recursive managers, and the orchestrator's supervisor/reaper/wake-engine role |
+| [[dev-knw-foh-fleets]] | Declared fleets: the doctrine of a program of many sessions, the Mesh field `orbh-fleet`, and the commit trailers |
 
 ## Lifecycle Orientation
 
@@ -271,12 +272,41 @@ An explicit `--account` in the list can switch; an explicit `--account` outside 
 
 **A headless session that stopped on a limit.** Only with `autoMigrate` on, the orchestrator moves such a session to a good account of the list with the headless path of `auth migrate`, only when all of these are true: the session is headless or a subagent (never interactive); it has no live run and it is awaiting (it is between turns); its last run stopped on a provider usage or rate limit; its account is in the list and still limited; and a good account of the list exists. The sweep can read an old copy of the session, so the migration compares the stored session with that copy (its account and its current run) and checks the whole rule again under its claim; any change refuses the move, and nothing moves. While a migration holds its claim, no run of that session can start (the run start checks the claim and its lease; only the respawn of an interactive migration carries the claim token), so the move never happens during a turn. Then it moves a later scheduled wake to now, so the session continues on the new account. A failed move is tried again after 30 minutes. The orchestrator log has one `account switch — moved …` line for each move. Verify the move with the `Account` line of `flint orbh inspect <id>`. Without a list, or for any other session, the manual path stays `flint orbh auth migrate <account> --session <id>`.
 
+## Declared Fleets
+
+A declared fleet is a named group of sessions with one handle, one name, one charter, and one root. A child of a member is a member from its first event. The full doctrine, with when to declare and the close-out, is in [[dev-knw-foh-fleets]].
+
+```bash
+flint orbh fleet declare <handle> (--charter "<text>" | --charter-file <path>) [--name "<name>"] [--charter-ref "<Mesh path>"] \
+    [--root <id>] [--room <room>] [--avatar <url>] [--max-members <n>] [--budget <usd>] [--deadline <iso|+duration>] [--no-backfill] [--json]
+flint orbh fleet declare <handle> --backfill-only           # stamp each unstamped session under the root; no declare
+flint orbh fleet show [<handle>] [--members] [--json]       # default: the fleet of this session
+flint orbh fleet list [--all] [--json]
+flint orbh fleet join <handle> [--session <id> | --station <name>]
+flint orbh fleet leave [--session <id> | --station <name>] [--reason "<why>"]
+flint orbh fleet set <handle> name|charter|charter-ref|room|avatar|limits <value...>
+flint orbh fleet updates [<handle>] [--limit <n>] [--json]  # the updates of all members in time order
+flint orbh fleet close [<handle>] "<outcome>" [--report "<Mesh path>"] [--abandon] [--force]
+flint orbh actor show [--session <id>] [--json]             # the actor of an act now: fleet, agent, session, or person
+
+flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]
+flint orbh launch <target> "<duty>" --fleet <handle>        # a member peer
+flint orbh worker spawn "<brief>" --fleet <handle>          # for a worker whose parent is in no fleet
+flint orbh message send fleet:<handle> "<text>"             # to the root of the fleet; also message request
+flint orbh message broadcast --fleet <handle> "<text>"      # to the live members
+flint orbh list --fleet <handle>
+flint orbh timeline fleet:<handle>
+flint orbh update list --fleet <handle>                     # --all for every session
+```
+
+A member's run has `ORBH_FLEET_ID`, `ORBH_FLEET_HANDLE`, and `ORBH_FLEET_NAME`. `list` puts a fleet header line above the root row of a fleet. `inspect`, `peek`, and the Page show the membership.
+
 ## Page, Pager, and List Hygiene
 
 ```bash
 flint orbh page
 flint orbh page arm [id] [--max-wait <seconds>]
-flint orbh list [--print] [--wide] [--subagents] [--json] [-a|--all] [-s|--stats] [--detached]
+flint orbh list [--print] [--wide] [--subagents] [--json] [-a|--all] [-s|--stats] [--detached] [--fleet <handle>]
 flint orbh list --status awaiting
 ```
 
@@ -292,3 +322,4 @@ flint orbh list --status awaiting
 - Verify/repair commands and current caveats live in [[dev-knw-foh-internals]].
 - Bare `launch` creates a peer; `request` creates a collected subagent. Do not interchange them.
 - Durable machinery beyond the session — stations, cron, workers, procedures, workflow chaining, `update`/`approval`/`improve` — is in [[dev-knw-foh-machinery]].
+- Declared fleets — the verbs above, the doctrine, the `orbh-fleet` Mesh field, and the commit trailers — are in [[dev-knw-foh-fleets]].

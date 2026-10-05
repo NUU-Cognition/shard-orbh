@@ -162,7 +162,7 @@ The old per-session `workflow start / advance / check` surface was removed. Use 
 
 ```bash
 flint orbh update "<text>" [--kind finding|decision|completed|blocker]
-flint orbh update list [<sessionId>] [--fleet] [--limit 20]
+flint orbh update list [<sessionId>] [--all | --fleet <handle>] [--limit 20] [--json]   # --all: every session of this Flint
 flint orbh update flush [<sessionId>]                # bypass the 60s coalesce window
 
 flint orbh approval request "<title>" [--body "<proposal>"]
@@ -172,6 +172,10 @@ flint orbh improve "<what is wrong>" [--title <t>] [--category bug|improvement] 
 ```
 
 Updates are appended to your session spool and mirrored outward on a ~60 s coalesce window; `update flush` bypasses it. An approval verdict queues a wake message back to the requesting session, so you learn about it at your next wake without polling.
+
+**The actor of an update.** An update stores its actor at write. The update of a member of an open fleet stores the fleet (`actor.kind: fleet`, the id, the handle, and the name), and `update` prints `Update recorded — <id> (as ⛵ <handle>)`. An update of a session in no fleet, of an Orb Agent, or of a former member of a closed fleet stores no actor, and it speaks as the session. A later rename, leave, or close does not change a stored update. `flint orbh actor show [--session <id>] [--json]` prints the actor that an update would store now. `flint orbh fleet updates [<handle>]` and `update list --fleet <handle>` read the updates of all members of one fleet. A bare `update list --fleet` is the deprecated name of `--all`, and it prints a notice.
+
+**The Discord mirror of a fleet update.** With an updates webhook, the post of a fleet update has the fleet name (and the avatar of the fleet, when it has one) as its author. With no webhook, the bot posts it with a fleet heading that names the fleet and the member. The mirror stamp keeps `channel: humanchannel` and records `transport: webhook` or `bot`. Only the operator configures the webhook: `flint orbh humanchannel webhook ensure` (the bot needs the Discord permission "Manage Webhooks"), `webhook set <url>`, or `webhook clear`. The token of the webhook is a secret: it is never printed. See [[dev-knw-foh-fleets]].
 
 ## Where to go next
 

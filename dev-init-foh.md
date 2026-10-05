@@ -23,13 +23,13 @@ Each rule prevents a failure that the NUU Flint session audit (Report 051) found
 
 1. **Do not end a headless turn while a background task runs.** The process exits at the end of the turn and kills the task. Wait inside the turn, or `return --await`. See "Waiting Inside a Turn" in [[dev-knw-foh-page]].
 2. **Collect results through Orbh.** Use `flint orbh result <id>`, `flint orbh wait <id>`, or the `CHILD RESULT` block of a Page. Do not grep log files for results. Do not wait in `sleep` loops, and do not block the foreground in a poll loop.
-3. **Commit only your own paths.** Work in your own worktree when you have one. Commit with `git commit -m "<message>" -- <path>...`. Do not use `git add -A`, `git add .`, or `git commit -a`, and do not commit the whole shared index: it can contain the staged changes of another session.
+3. **Commit only your own paths.** Work on the machine branch of this machine (for example `nathan-main`) in the primary checkout of the repository. Use a worktree only when the operator or your prompt names one. Commit with `git commit -m "<message>" -- <path>...`. Do not use `git add -A`, `git add .`, or `git commit -a`, and do not commit the whole shared index: it can contain the staged changes of another session.
 4. **Show a gate wait.** Before you wait on a machine gate (build slot, free memory, quota reset), run `flint orbh session set phase gate-wait` and `flint orbh session set blockers "<the gate>"`. Set `blockers` to `none` after the wait.
 5. **Verify before you report.** After `profiles switch` or `auth migrate`, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
 6. **Follow the reporting contract of your prompt.** Send each message that your prompt requires, to the session that it names. When a third session gives you orders, tell your dispatcher too.
 7. **Read the full output of Orbh verbs.** Do not cut it with `cut`, `head`, `tail`, or `grep -v`. A refusal or a notice such as `target … has ended` can be on any line.
 
-Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], and the broadcast and `kill` rules in [[dev-knw-foh-coordination]].
+Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], the broadcast and `kill` rules in [[dev-knw-foh-coordination]], and the fleet doctrine in [[dev-knw-foh-fleets]].
 
 ## Pin Relevant Files
 
@@ -116,7 +116,8 @@ flint orbh session ask "<question>"                           # blocking; suspen
 | `knowledge/dev-knw-foh-compaction.md` | Self-compaction doctrine: CONTEXT occupancy, the 80% threshold, compact start/handoff/finish, the agent-authored handoff, relaunched-context duty, and compacting into a different runtime/profile/account. |
 | `knowledge/dev-knw-foh-internals.md` | Orb spool model and store layout, five work states, run/result correlation, pager/delivery slices, spaces, bundles, and repair. |
 | `knowledge/dev-knw-foh-orchestrator.md` | Delegation shapes and manager patterns, plus the orchestrator's supervisor/reaper/wake-engine role. Read before delegating. |
+| `knowledge/dev-knw-foh-fleets.md` | Declared fleets: the fleet verbs, when to declare and how to name, the charter and the voice, the `orbh-fleet` Mesh field and the commit trailers, accounts and load before each wave, the shared checkout, review and deploy, the fleet recipes, and the close-out. Read before you run a program of many sessions. |
 
 ## Loading on Demand
 
-Load the close/discard skill only when performing that operator lifecycle action. Load orchestrator knowledge before delegation, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load the close/discard skill only when performing that operator lifecycle action. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.

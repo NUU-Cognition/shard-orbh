@@ -60,6 +60,8 @@ Subagents default to `return --finish`. Grant `--await` only when you genuinely 
 
 For a small fan-out, start several background `request -q` calls. Each completion is independently correlated and delivered. For wide fan-out or a manager that should release its harness between waves, use agent jobs:
 
+> **Temporary rule (Report 076, defect D1).** Until Task 712 is done and its build is the live CLI, do not start many concurrent `request -q` calls from one parent. They fail on the lock `<parent>.dispatch-reservations.lock` after 15 to 55 seconds, and a child can start while its collector exits 1 with no child id. Dispatch parallel children with `job run --agent` and a group barrier (below), or start one `request -q` at a time, about 15 seconds apart. When a `request -q` exits 1, read `flint orbh list` before you dispatch again: collect a child that exists with `flint orbh wait <id>`.
+
 ```bash
 flint orbh job run --agent codex/solxh "<prompt A>" --group wave-1
 flint orbh job run --agent codex/solxh "<prompt B>" --group wave-1
@@ -96,7 +98,7 @@ flint orbh session return --finish "<final synthesis>"
 
 This is a **result stream**, not one collector spanning the whole standing duty. The caller's turn-N collector receives the checkpoint return. It can inspect later results with `result --run`, use `wait --next` for the turn after the one it has already read, or issue `request -q -c` when it wants to initiate and collect a specific follow-up turn. The interior manager's child awaits, crashes, resumes, and rescue runs do not accidentally resolve collectors; only correlated results or explicit failure outcomes do.
 
-Ancestry `{rootSessionId, depth}` and immediate parent edges make recursive trees visible in `orbh list`. Default safety caps are depth 5 (`ORBH_DISPATCH_DEPTH_CAP`) and live fan-out 16 (`ORBH_DISPATCH_FANOUT_CAP`).
+Ancestry `{rootSessionId, depth}` and immediate parent edges make recursive trees visible in `orbh list`. Default safety caps are depth 5 (`ORBH_DISPATCH_DEPTH_CAP`) and live fan-out 16 (`ORBH_DISPATCH_FANOUT_CAP`). The fan-out cap counts every live child of the parent, also an awaiting child. For a larger program, use sub-leads (a two-level fan-out), or raise the cap for one dispatch: `ORBH_DISPATCH_FANOUT_CAP=32 flint orbh request ...`.
 
 ## Peers
 
@@ -160,36 +162,56 @@ Each rule prevents a failure that the NUU Flint session audit (Report 051) found
 
 - **Check the accounts before a fan-out.** Run `flint orbh auth usage`. Find the account of each live interactive session with `flint orbh inspect <id>` (the `Account` line). Do not put a fleet on the account of a live interactive session: when the fleet uses up the quota, the human's sessions stop too. Spread a large fleet over more than one account with `--account <name>`. To move a running session to another account, see "Moving Another Session to a Different Account".
 - **Collect through the result stream.** Run each `request -q` in background execution. After a standing child returns `--await`, run `flint orbh wait --next <id>` in background execution to get its next result, or read the `CHILD RESULT` block of your Page. Do not watch log files for a "final state" line, and do not wait in `sleep` loops.
-- **Give each builder its own worktree.** When two or more builders change the same repository, give each one a worktree and a branch. Tell each builder to commit with explicit paths (`git commit -- <path>...`).
+- **Keep the builders on the machine branch.** By default, every builder works on the machine branch of this machine (for example `nathan-main`) in the primary checkout, also when two or more builders change the same repository. Give each builder its own files, and tell each builder to commit only its own paths (`git commit -- <path>...`). Give a builder a worktree and a branch only when the operator names one.
+- **Declare a fleet for a program.** When you dispatch 3 or more sessions, plan 2 or more waves, or run a program that the operator named, declare a fleet before the first dispatch: `flint orbh fleet declare <handle> --charter "<goal, boundary, done condition>" --charter-ref "<Mesh path>"`. See [[dev-knw-foh-fleets]].
+- **Close the fleet before your last return.** As the root of a fleet, do the close-out steps below, write the report, and then run `flint orbh fleet close "<outcome>" --report "<Mesh path>"` before your last `return --finish`. Use `--abandon` when the operator stops the program. A close does not stop a session.
 - **Close out before you finish.** Before your final `return --finish`:
   1. Read the `DISPATCHES` block of your Page. Collect each open entry with `flint orbh wait <id>`, or write in your result why you drop it.
   2. Close each child that you told to `return --await` and that has no more work: `flint orbh close <id>`. An awaiting child whose parent has ended has no wake path. Do not use `discard` for a child that finished its work: `discard` records it as `abandoned`.
 
 ## Infrastructure: Supervisor, Reaper, Wake Engine
 
-The per-machine orchestrator provides supervision, recovery and wake delivery — not task planning. It is not a waiter janitor; there are no per-session waiter processes to keep alive. Its sweeps, with their cadences:
+The per-machine orchestrator provides supervision, recovery and wake delivery — not task planning. It is not a waiter janitor; there are no per-session waiter processes to keep alive. The source is `packages/orbh/src/orchestrator/` (`supervisor.ts`, `tick.ts`, `sweeps/`) of the Flint monorepo.
 
-| Sweep | Cadence | What it does |
-|---|---|---|
-| loop heartbeat | ~1 s | Lease heartbeat and manager supervision only; business sweeps run on their own interval. |
-| **awaiting-wake** | ~15 s (the business-sweep interval), after a ~6 s settling grace | The wake engine. Resumes an `awaiting` session with one coalesced digest for messages, child results, group-barrier completion, station items, due scheduled wakes, terminal jobs, liveness notices, and request/room activity. Skips any session holding a live `page arm` lease, or one whose lease belongs to another machine. |
-| scheduled-wake retry | 15 s, 60 s overdue grace | Retry net for `--wake-at` timers the primary path missed. |
-| station ensure | 60 s | Re-triggers a station with queued work and no live bound session, under a locked claim. |
-| cron | 60 s | Fires due cron schedules as fresh headless sessions. |
-| barrier | — | **Enforcement only**: fails timed-out jobs. It never resumes a session; the awaiting-wake sweep does the waking. |
-| job / liveness | 60 s | Reaps dead job wrappers, expired jobs, and stale dispatch stamps. |
-| un-returned-turn reaper | — | At most two return-discipline resumes, then `failed-unreturned` + awaiting. Defers a dead parent whose delegated work is still in flight, but no longer without bound. |
-| waiter reap | — | Retirement cleanup: kills any leftover legacy persistent-waiter process still running on this machine. It spawns nothing. |
-| manager supervision | — | Supervises manager processes and reaps dead managers and orphaned runtime groups. |
+**The supervisor** heartbeats its lease each second and starts one sweep tick every 15 s. It also supervises the manager processes: it reaps dead managers and orphaned runtime groups. That is not a step of the tick. After each tick it compares the build stamp that it loaded with the stamp on disk (`dist/.build-stamp.json` or `dist-dev/.build-stamp.json`). When a newer build is on disk for at least 10 s, it hands off between ticks to a successor that loads the new build, so no tick and no resume is cut (Task 723). A source run (`tsx`) never reloads.
 
-Recovery is retried from durable spool facts, so failures delay delivery rather than lose it, and idle exit is deferred while awaiting sessions, barriers, retry work or reaper work remain. The orchestrator never performs agent-level `interrupt` decisions.
+**The tick** runs these steps in this order. "Each tick" means every 15 s; a step with a cadence runs when that time has passed since it last completed.
+
+| # | Step | Cadence | What it does |
+|---|---|---|---|
+| 1 | sweep-pass | each tick | Lists the sweep-index markers of every scope and reads each marked spool projection whose file changed (a full pass every 5 min). The other steps read this pass from memory. |
+| 2 | process-reap | each tick | Probes every row of the process registry; reaps dead and orphaned auxiliary processes. |
+| 3 | change-feed-service | each tick | Starts the machine change-feed socket service on the first tick; a no-op after. |
+| 4 | process-log-gc | 1 h | Deletes expired process logs that no registered process uses. |
+| 5 | waiter-reap | each tick | Kills any leftover legacy persistent-waiter process. It spawns nothing. |
+| 6 | human-channel | each tick | Keeps the human-channel Discord bot running where a scope enables it. |
+| 7 | agent-discord | each tick | Keeps the agent-discord bridge running while it is configured. |
+| 8 | job-barrier | each tick | **Enforcement only**: fails the timed-out jobs of a group barrier. It never resumes a session. |
+| 9 | stale-job | 60 s | Reaps dead job wrappers and expired jobs. |
+| 10 | account-usage | 60 s | Starts the usage refresh of the accounts of the fallback lists in the background. |
+| 11 | account-switch | 60 s | Moves a headless session that stopped on a provider limit to a good account of the fallback list (only with a list and `autoMigrate` on). |
+| 12 | limit-resume | each tick | Clears the limit wake of a limited child whose parent is gone or dispatched the same work again, so that step 13 does not resume it. |
+| 13 | **awaiting-wake** | each tick; 6 s settling grace for a message, a barrier, and the other facts; no grace for a due scheduled wake | The wake engine. Resumes an `awaiting` session with one coalesced digest for messages, child results, group-barrier completion, station items, due scheduled wakes (`--wake-at`), terminal jobs, notices, and request and room activity. Skips a session with a live `page arm` lease or a lease of another machine. A change gate skips a session whose spool, children, and rooms did not change since a pass that found no wake. |
+| 14 | dispatch | each tick | Clears stale dispatch stamps and the dispatch ledger (obligations, claims, children) that a dead collector or a Page delivery left. These writes are not wakes. |
+| 15 | awaiting-dormancy | 1 h | Marks an awaiting session with no wake source for 30 days (the default) as dormant. A message or another wake source restores it. |
+| 16 | station-ensure | 60 s | Triggers a station with queued work and no live bound session, under a locked claim. |
+| 17 | cron | 60 s | Fires due cron schedules as new headless sessions. |
+| 18 | workflow-reporter | 300 s; off unless `ORBH_WORKFLOW_HEAL=1` | Reports workflow clauses that fired with no result (report only). |
+| 19 | spool-archive | 6 h and at the first tick; on unless `ORBH_SPOOL_ARCHIVE_SWEEP=0` | Moves old terminal session spools into the archive tier. |
+| 20 | liveness | 60 s | Reconciles stranded runs of sessions that are `working` with no running run. |
+| 21 | compaction | 60 s | Runs the pending compaction requests. |
+| 22 | un-returned-reaper | each tick | Return discipline: at most two resumes of a turn that ended with no `return`, then `failed-unreturned` and awaiting. |
+| 23 | stall | 60 s | Finds alive-but-stuck sessions from the new bytes of each live transcript and sends one advisory notice for each stall episode. It never kills. |
+
+There is no separate scheduled-wake retry sweep: step 13 delivers a due `--wake-at` wake with no grace. Recovery is retried from durable spool facts, so a failure delays a delivery and does not lose it. The orchestrator does not exit while a keep-alive reason holds: a headless or subagent session that is not terminal, a configured human channel or agent-discord bridge, pending station work, an enabled cron schedule, or a connected change-feed client. It never makes an agent-level `interrupt` decision.
 
 ```bash
 flint orbh orchestrator status [--json]
 flint orbh orchestrator processes [--json]   # alias: ps — auxiliary-process registry + unregistered ghosts
 flint orbh orchestrator launcher show|adopt|clear   # the machine-canonical launcher aux processes spawn through
 flint orbh orchestrator ensure
+flint orbh orchestrator restart             # hand off to a successor that loads the current build, between ticks
 flint orbh orchestrator reap [--json]
 ```
 
-See [[dev-knw-foh-coordination]] for the full command surface, [[dev-knw-foh-page]] for the pager, jobs and barriers, [[dev-knw-foh-machinery]] for stations/cron/workers/workflows, and [[dev-knw-foh-profiles]] for live targets.
+See [[dev-knw-foh-fleets]] for declared fleets, [[dev-knw-foh-coordination]] for the full command surface, [[dev-knw-foh-page]] for the pager, jobs and barriers, [[dev-knw-foh-machinery]] for stations/cron/workers/workflows, and [[dev-knw-foh-profiles]] for live targets.
