@@ -43,6 +43,8 @@ flint orbh request -q codex/solxh "<complete, self-contained prompt>"
 
 `request` creates a subagent, anchors collection to the initiated turn, and prints only that turn's correlated result in quiet mode. Run it in the background because the shell call intentionally blocks; do not poll it or add a routine timeout.
 
+**Never discard the output of `flint orbh request -q`** (for example with `>/dev/null`). The collector is the channel that gives you the result. Run it with your harness background execution, so that its output reaches you. A collector whose output goes to `/dev/null` leaves the result waiting for the Page.
+
 Prompts must carry the goal, exact targets, relevant decisions, boundaries, verification commands, and required result shape. A child shares none of the manager's conversational context.
 
 ```bash
