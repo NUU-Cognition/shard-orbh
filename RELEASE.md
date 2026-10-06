@@ -1,3 +1,11 @@
+# 0.5.0
+
+- **Fleets**: new knowledge `knw-foh-fleets` — the fleet verbs, when to declare a fleet, the charter, the `orbh-fleet` Mesh field, the commit trailers, accounts and load before each wave, the fan-out cap, and many builders on one checkout. The orchestrator knowledge says never to discard the output of `flint orbh request -q`. NUU Orbh Task 717.
+- **Delivery**: headless Codex has managed delivery through the Orbh Codex host (Task 702). An agent job follows its child through a usage limit and a dead wrapper; an `--until-group` await wakes one time at group completion (Task 721).
+- **Accounts**: `flint orbh auth deactivate | reactivate` and `auth list --all` (Task 700); the account usage monitor and the autoswitch with its migration claim (NUU Flint Task 1114); `flint orbh auth migrate <account> --session <id>` for another session (Task 699).
+- **Machinery**: the station `dm` and the managed cron schedules now come from Flint module packages; the managed marker names the module record and stores the owner machine; a local schedule stays local (NUU Flint Tasks 1110 and 1125).
+- **Init**: every session pins the Flint files of its work with `flint helper pins add` (Task 695). The docs call `flint orbh`, never the bare `orbh` binary (NUU Flint Task 1107). The default target list and the profiles of Opus 5.5, `cursor`, and `muse` in `knw-foh-profiles`.
+
 # 0.4.0
 
 Full end-to-end accuracy pass against the live CLI (Mission-007 style), audited independently until clean.
