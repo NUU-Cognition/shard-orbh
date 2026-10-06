@@ -10,6 +10,7 @@ orbh-sessions:
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
   - "[[de92a197-8d6d-4af9-8883-127de32460ee]]"
+  - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -20,7 +21,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 
 | File | Load when you need |
 |------|--------------------|
-| [[dev-knw-foh-profiles]] | Exact `runtime/profile` selection, and the default target list |
+| [[dev-knw-foh-profiles]] | Exact `runtime/profile` selection, the default target list, and the machine config |
 | [[dev-knw-foh-coordination]] | Peers, collected subagents, turn-correlated results, messages, rooms, and intervention |
 | [[dev-knw-foh-page]] | Page, the one-shot pager and wake delivery, procedures, jobs, group barriers, scheduled wakes |
 | [[dev-knw-foh-machinery]] | Stations, cron sessions, workers, procedures, workflow chaining, updates, approvals, `improve` |
@@ -55,6 +56,17 @@ flint orbh profiles default unset [--flint]    # Remove a layer
 ```
 
 The shipped list is `claude/o55h`, then `codex/a6h`. The Flint layer wins over the machine layer, and the machine layer wins over the shipped list; a higher layer replaces the list. The launch prints `Target: <target> (default list)` and one `<target> skipped: <reason>` line for each target before it. A target is skipped when its CLI is not installed, its profile does not exist, the account of the launch (`--account`, else a dispatcher of the same runtime) does not exist or has an active limit marker, or its login is known to be expired. With no available target, the launch refuses (exit 1) with one `Next:` command. The selection happens only at launch: a running or resumed session keeps its target. A `-p` value that starts with `-` is refused. Full rules: [[dev-knw-foh-profiles]].
+
+### The Machine Config (`machine-config`)
+
+`flint orbh machine-config` shows the Orbh config of this machine as one read model: the runtimes (each with `available`), the profiles, the accounts (a deactivated account is left out), the default target list of the machine with its selected target, and the launcher allow-list (`sessionProfiles`). It reads only local files. It starts no runtime and uses no network.
+
+```bash
+flint orbh machine-config            # The config of this machine, for a person
+flint orbh machine-config --json     # One JSON document: schema orbh-machine-config/1, with readAt and hash
+```
+
+The Flint server serves the same JSON at `GET /orbh/machine-config`. The NUU Network daemon publishes it (`machineConfig:publish`), and a person with trust on the machine reads it in an app. The document never holds a path, an email, a token, a usage number, or an account home id. The fields are in [[dev-knw-foh-profiles]] § The Machine Config.
 
 ## Session Commands
 

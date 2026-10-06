@@ -8,6 +8,7 @@ orbh-sessions:
   - "[[1ac0e8bb-a7d6-47b6-983d-d40af40b06f8]]"
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
+  - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -56,6 +57,21 @@ Rules:
 - **Launch only (v1).** The selection happens once, when a session launches. A running or resumed session keeps its target; a limit in the middle of a turn does not switch it.
 - `flint orbh agent`, `flint orbh worker`, the workflow `--target default` (the default), and the NUU Flint plugin (an empty profile) use the list too.
 - Skip reasons and their next commands: `<cli> is not installed` → `npm install -g @anthropic-ai/claude-code` / `npm install -g @openai/codex`; `the profile <t> does not exist` → `flint orbh profiles <runtime>`; an unknown account → `flint orbh auth list <runtime>`; `the account <runtime>/<name> is limited until <time>` → `flint orbh auth usage <runtime>`; an expired Claude login → `claude auth login` (with `CLAUDE_CONFIG_DIR` of the account home for an account).
+
+## The Machine Config
+
+The machine config (schema `orbh-machine-config/1`) is the read model of the profiles, the accounts, and the default targets of one machine. `flint orbh machine-config --json` prints it, and `GET /orbh/machine-config` of the Flint server serves the same JSON. An app reads it to show the targets that this machine can start (for example the Generic Launcher, `@nuucognition/orbh-launcher`). It reads only local files and holds no path, email, token, usage number, or account home id.
+
+| Field | What it holds |
+|-------|---------------|
+| `machine` | `name` and `displayName` (the NUU config), `platform`, `arch`, `flintVersion` |
+| `runtimes` | Each runtime of a harness, and each runtime that has profiles but no harness: `runtime`, `label`, `available` (its CLI is found; never a path) |
+| `profiles` | The effective profile set (`profiles.json` over `default.json`): `runtime`, `name`, `target`, and `title`, `description`, `model`, `effort`, `isDefault` when set |
+| `accounts` | The accounts of each runtime with account homes: `runtime`, `name`, `isDefault` (the default of the machine), `manualOnly`. A deactivated account is left out |
+| `defaultTargets` | The machine layer, else the shipped list (`layer`: `machine` or `shipped`; never the Flint layer), each target with `available`, and `selected`: the first available target, or null |
+| `launcher.sessionProfiles` | The ordered allow-list of the launcher (`sessionProfiles` in `~/.nuucognition/orbh/settings.json`). Empty means all profiles |
+
+`hash` is the sha256 of the canonical JSON of every field except `readAt` and `hash`. The same config gives the same hash. A change of a profile, an account, the default target list, or the allow-list changes it.
 
 ## The Live Profile Set (verify with `flint orbh profiles`)
 
