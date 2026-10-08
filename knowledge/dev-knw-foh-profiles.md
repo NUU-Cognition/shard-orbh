@@ -9,6 +9,7 @@ orbh-sessions:
   - "[[65e535a9-3f77-404f-80b7-32bd43e9ca77]]"
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
+  - "[[419ba025-bf1e-4db4-b74a-79f0f862cf19]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -75,7 +76,7 @@ The machine config (schema `orbh-machine-config/1`) is the read model of the pro
 
 ## The Live Profile Set (verify with `flint orbh profiles`)
 
-As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The Opus 5.5 row was added on 2026-09-27. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o55` = Opus 5.5, `o5` = Opus 5, `o48` = Opus 4.8, `s5` = Sonnet 5, `a6` = GPT-6 Astra, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g46`/`g45` = Grok 4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
+As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The Opus 5.5 row was added on 2026-09-27. The Haiku 5.5, Sonnet 5.5, GPT-6.1 Sol, and Grok 4.7 rows were added on 2026-10-08 from the shared `default.json`. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o55` = Opus 5.5, `o5` = Opus 5, `o48` = Opus 4.8, `s55` = Sonnet 5.5, `s5` = Sonnet 5, `h55` = Haiku 5.5, `a6` = GPT-6 Astra, `s61` = GPT-6.1 Sol, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g47`/`g46`/`g45` = Grok 4.7/4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
 
 Runtime availability on this machine (`flint orbh runtimes`, 2026-09-27): `claude`, `codex`, `cursor`, `grok`, `opencode` are installed. `agy`, `droid`, `kimi`, `muse` are registered names but are **not installed**. `agy`, `cursor`, `droid`, `kimi`, and `muse` have **no profiles** in the shared layer — do not target them with a profile.
 
@@ -88,7 +89,9 @@ Runtime availability on this machine (`flint orbh runtimes`, 2026-09-27): `claud
 | `o55uc` / `o55mx` / `o55xh` / `o55h` / `o55m` / `o55l` | Opus 5.5 (`claude-opus-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Opus. `claude/o55h` is the first target of the shipped default target list |
 | `o5uc` / `o5mx` / `o5xh` / `o5h` / `o5m` / `o5l` | Opus 5 (`claude-opus-5`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus. The workflow child target (`workflow after` / `after-procedure` `--target`) is now `default`: the default target list |
 | `o48uc` / `o48mx` / `o48xh` / `o48h` / `o48m` / `o48l` | Opus 4.8 (`claude-opus-4-8`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus; strong agentic coding & enterprise work |
+| `s55uc` / `s55mx` / `s55xh` / `s55h` / `s55m` / `s55l` | Sonnet 5.5 (`claude-sonnet-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Sonnet. The API default effort is `high` |
 | `s5uc` / `s5mx` / `s5xh` / `s5h` / `s5m` / `s5l` | Sonnet 5 (`claude-sonnet-5`) | ultracode / max / xhigh / high / medium / low | Best speed/intelligence balance; everyday default |
+| `h55uc` / `h55mx` / `h55xh` / `h55h` / `h55m` / `h55l` | Haiku 5.5 (`claude-haiku-5-5`) | ultracode / max / xhigh / high / medium / low | Smallest and fastest Claude (released 2026-10-07). 1M context, 128K output. The API default effort is `medium`. Use it for classification, routing, extraction, and wide subagent fan-outs |
 
 The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort xhigh`.
 
@@ -97,6 +100,7 @@ The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
 | `a6mx` / `a6xh` / `a6h` / `a6m` / `a6l` | GPT-6 Astra (`gpt-6-astra`) | max / xhigh / high / medium / low | Most capable Codex model; no `ultra` profile. `codex/a6h` is the fallback of the shipped default target list |
+| `s61mx` / `s61xh` / `s61h` / `s61m` / `s61l` | GPT-6.1 Sol (`gpt-6.1-sol`) | max / xhigh / high / medium / low | Mid-tier, Astra-class model of GPT-6.1; no `ultra` profile |
 | `solu` / `solmx` / `solxh` / `solh` / `solm` / `soll` | GPT-5.6 Sol (`gpt-5.6-sol`) | ultra / max / xhigh / high / medium / low | GPT-5.6 flagship — strongest 5.6 coding/agent work |
 | `teru` / `termx` / `terxh` / `terh` / `term` / `terl` | GPT-5.6 Terra (`gpt-5.6-terra`) | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse, lower cost than Sol |
 | `lunmx` / `lunxh` / `lunh` / `lunm` / `lunl` | GPT-5.6 Luna (`gpt-5.6-luna`) | max / xhigh / high / medium / low | Fast/affordable; no `ultra` (model does not support it) |
@@ -115,7 +119,8 @@ The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `g46xh` / `g46h` / `g46m` / `g46l` | Grok 4.6 (`grok-4.6`) | xhigh / high / medium / low | Current Grok; `g46xh` is the highest-effort Grok profile |
+| `g47xh` / `g47h` / `g47m` / `g47l` | Grok 4.7 (`grok-4.7`) | xhigh / high / medium / low | Newest Grok (Grok Build) |
+| `g46xh` / `g46h` / `g46m` / `g46l` | Grok 4.6 (`grok-4.6`) | xhigh / high / medium / low | Previous generation |
 | `g45h` / `g45m` / `g45l` | Grok 4.5 (`grok-4.5`) | high / medium / low | Previous generation |
 | `c25` | Grok Composer 2.5 Fast (`grok-composer-2.5-fast`) | — | Fast composition |
 
@@ -142,9 +147,9 @@ Pick by task, not by habit. Workspace guidance:
 | Research, design, review, Mesh artifacts | `claude/f51xh` (or `claude/o5mx` / `claude/f5mx`) | Strongest Claude reasoning; Fable 5.1 tops out at xhigh |
 | Long standing multi-stage coding session | `claude/f5uc` / `claude/o5uc` / `claude/s5uc` | Ultracode: xhigh effort + standing dynamic-workflow orchestration (no Fable 5.1 ultracode yet) |
 | Everyday balanced Claude work | `claude/s5h` or `claude/s5xh` | Sonnet 5 — speed + intelligence |
-| Fast / lightweight / cheap | `claude/s5l`, `claude/s5m`, `codex/lunl` / `codex/soll` | Lower cost, quick turnaround |
+| Fast / lightweight / cheap | `claude/h55m` / `claude/h55l`, `claude/s5l`, `claude/s5m`, `codex/lunl` / `codex/soll` | Lower cost, quick turnaround. Haiku 5.5 is the cheapest Claude model |
 | Very large context (whole-repo reads, long transcripts) | Fable / Opus / Sonnet 5 all ship 1M context | No special `[1m]` suffix needed on current models |
-| Parallel batch throughput (wide fan-outs) | `codex/solm` / `codex/term` / `codex/lunm` / `claude/s5m` | Good throughput per dollar |
+| Parallel batch throughput (wide fan-outs) | `claude/h55m`, `codex/solm` / `codex/term` / `codex/lunm` / `claude/s5m` | Good throughput per dollar |
 | Hardest single-task reasoning | `codex/a6mx` / `codex/a6xh`, `claude/f51xh`, `codex/solu` | GPT-6 Astra or Fable 5.1 at max depth, or Sol ultra (Codex auto task delegation) |
 | Second opinion / cross-model review | `grok/g46xh` / `grok/g46h`, `opencode/fireworks-kimi`, `opencode/fireworks-minimax` | Different model family, different failure modes (prefer these over `gemini/*` — see the runtime caveat above) |
 
