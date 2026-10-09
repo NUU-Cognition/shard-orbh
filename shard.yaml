@@ -3,7 +3,7 @@ id: d41b221d-2bf5-4b6b-abc4-136635209275
 org: nuucognition
 source:
   id: 4a6bc928-0ab4-43ac-aa27-97557795d539
-version: "0.5.0"
+version: "0.5.1"
 name: Orbh
 shorthand: foh
 description: Headless agent identity and operating rules for orbh-launched sessions using flint orbh commands
