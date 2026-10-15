@@ -1,3 +1,12 @@
+# 0.6.0
+
+- **Shard invocations, the session side** (NUU Orbh Tasks 743 and 744). Orbh does not know shards; the Flint layer adds invocations through seams, and the docs say so. Links go to `knw-f-invocations` (the use side) and `knw-knap-invocations` (the authoring side) for the details.
+- **CLI**: `flint orbh close` and `flint orbh session return` accept `--with <id>[=<value>]` and `--no-behaviours`. An unknown name refuses and lists the valid names; a `before` behaviour can refuse the verb; a refused return stores nothing. An agent passes a `by: person` behaviour only when the person asks for it in the current message. After `close` and `return --finish`, the open frames of the session close.
+- **Page**: the block `flint/invocations` (`INVOCATIONS`): the stack, the current step, `read:`, `next:`, and the `--with` names. Managed delivery sends a Page on a wake, at the 80% advisory, and one time after each compaction of the harness, never while the pager is held.
+- **Compaction**: the invocations stay with the session. The Page of `compact start` has no INVOCATIONS block, so the handoff names the open frames from `flint shard invocations stack`. After either kind of compaction, the agent continues from `read:` and `next:`.
+- **Coordination**: a child session of a session with an open frame gets `FLINT_PARENT_INVOCATION` and a durable launch record, so its first `flint shard invoke` nests, also after a resume. A bare peer `launch` gets no parent.
+- **Procedures**: a shard workflow opens no Orbh procedure; its steps are in the invocation record (`flint shard step`). `enforced: true` of an invocation file refuses `session return --finish` while a step is open; `--no-behaviours` passes it.
+
 # 0.5.0
 
 - **Fleets**: new knowledge `knw-foh-fleets` — the fleet verbs, when to declare a fleet, the charter, the `orbh-fleet` Mesh field, the commit trailers, accounts and load before each wave, the fan-out cap, and many builders on one checkout. The orchestrator knowledge says never to discard the output of `flint orbh request -q`. NUU Orbh Task 717.

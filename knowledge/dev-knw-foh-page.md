@@ -1,5 +1,5 @@
 ---
-description: "The Page family — introspection, the one-shot pager and wake delivery, awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
+description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the INVOCATIONS block of shard invocations, awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[521efa86-61d9-4156-92ba-c40ef56d9e3d]]"
@@ -8,6 +8,7 @@ orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[79de8b0a-567e-459f-a720-182c53f09b46]]"
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
+  - "[[7becb153-fc6a-4037-a359-23744241a409]]"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -30,6 +31,14 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 **During a live turn — managed delivery or the pager.** Run `flint orbh page status` first. `MODE managed` means the manager holds a harness event connection and submits every Page to you as native tool output (Codex through the App Server, Claude through its inbox socket, Muse through its host; interactive and headless alike since Task 682, and headless Codex through the Orbh Codex host since Task 702 unless `ORBH_EVENT_DELIVERY=off` keeps it on `codex exec`): do not arm a shell pager. In any other mode, run `flint orbh page arm` through your harness's background execution. It is a one-shot long-poll owned by your *current run*: it claims a run-scoped lease in `core:page-arm`, watches your spool, and exits with a full Page render the moment a message, terminal job, child result, request answer, room event, station item, group-barrier completion, due scheduled wake, or 80% context advisory lands. Your harness surfaces that as a background-task notification. It fires once — arm again after it fires while latency matters. It expires after 2 h by default (`ORBH_PAGE_ARM_TTL_SECONDS`; unbounded for interactive sessions), and exits early with `page arm superseded by a newer arm` or `session ended — pager exiting`. If it says the latter, or you are about to return, do not arm again. A second arm for the same run is refused as `page arm already active for this session (pid N); not starting a second` — that is correct, not an error.
 
 `--max-wait <seconds>` bounds *your* latency rather than the pager's usefulness: at the deadline it emits a heartbeat Page render and exits instead of erroring. Omit it to wait until the TTL.
+
+**What the manager sends.** In `MODE managed`, the manager sends a Page in three cases:
+
+1. **A wake.** A Page-worthy event lands: the same events that end `page arm`.
+2. **The context advisory.** The context of the run is at 80% or more. The manager sends this Page one time for each run.
+3. **A compaction of the harness.** The harness replaced its context in place, for example Claude Code at the limit of its context or after `/compact`. The manager sends one Page after each such compaction. Its first line is `Context compacted: this is your Page. Read INVOCATIONS to continue where you are.` (or `… Read it to continue where you are.` when the Page has no INVOCATIONS block). Read the Page first, then continue from its `read:` and `next:` lines. See [[dev-knw-foh-compaction]].
+
+The manager never sends a Page while the pager is held (from `compact start` to `compact finish`). An Orbh compaction thus gets no Page from the manager: the relaunched context reads the Page itself. A harness that writes no compaction record (for example Grok, Kimi, or Cursor) gets no Page after its compaction. When no Page comes, run `flint orbh page` yourself.
 
 **With no arm on a working turn, nothing is watching you.** Events are not held by any process; they accumulate as durable spool state and surface at your next Page read or at your turn boundary. A missed re-arm costs latency, never events: the delivery cursor lives in `core:waiter-state` and only advances when a Page is actually rendered.
 
@@ -64,9 +73,44 @@ Self Page reads may mutate Page counters and drain inbox state; observer reads d
 
 Other env knobs on this surface: `ORBH_PAGE_SELF_CHECK_GAP_MS`, `ORBH_PAGE_STALE_DESC_READS`, `ORBH_PAGE_RETURN_DISCIPLINE_READS`.
 
+## The INVOCATIONS Block (`flint/invocations`)
+
+The block `flint/invocations` shows the **stack** of the session: its open shard workflow invocations (the frames), from the root to the top. It is a Flint page function. Orbh runs it as it runs each shard Page function, and Orbh does not read it. The block is absent when the session has no open frame. A load (`flint shard start`, or `flint shard invoke <ref>` with no workflow) is not a frame.
+
+```
+INVOCATIONS  you are in: rpt create · (Task) 744 Nested Invocations
+  proj do_task · (Task) 744 Nested Invocations · step report          inv-fb060af91e0d · 40m
+  └─ rpt create · (Task) 744 Nested Invocations · step 1/2 create ●   inv-8ca539af73bf · 2m
+       read:  Stage 1: Report Creation of Shards/Reports/workflows/wkfl-rpt-create.md
+       next:  Create the report. Then set the output: flint shard invocations set-output 'inv-8ca539af73bf' report='(Report) NNN Title'.
+              flint shard step done create --evidence '<…>'
+       close: --with task-confirm · --with task-defer
+       return: --with task-confirm · --with task-defer
+```
+
+| Line | Meaning |
+|------|---------|
+| `you are in:` | The top of the stack: the innermost open frame of this session. `●` marks its row. |
+| A frame row | One open frame: the shard and the workflow, the subject, the current step (`step n/total <id>`), the invocation id, and the age. A child is under its parent (`└─`). |
+| `part of:` | The frame has its parent in another session (or the parent is closed). The line names the parent frame and the first 8 characters of its session. |
+| `read:` | The stage of the Markdown workflow to read again for the current step. |
+| `next:` | What to do for the current step: the hint text of the step, then the exact commands. Each value in a command is in POSIX single quotes. Run a command as it is, and replace only `<…>`. |
+| `close:` / `return:` | The opt-in behaviours of all open frames, as the `--with` flags of `flint orbh close` and `flint orbh session return` ([[dev-knw-foh-cli]] § Behaviours of Shard Invocations). |
+| `✘ <behaviour> failed` | The last run of that behaviour failed. The reason follows. |
+
+How to use it:
+
+- Read INVOCATIONS first after a wake, a resume, or a compaction. It tells you where you are with no memory of the earlier context.
+- Read the stage in `read:`. Then do `next:`. `flint shard step` prints the same lines for the top frame, and `flint shard invocations stack` prints the whole stack.
+- Each write to a record (`flint shard invoke`, `flint shard step done|skip`, `flint shard invocations set-input|set-output|close`) ends with the same `now:`, `read:`, `next:`, and `part of:` lines. After a child closes, the first line is `back in:` and names the parent. One pure function makes the text for the CLI, the Page, and Steel, so they agree.
+
+The steps, the hints, and the record are in [[knw-f-invocations]] (Flint shard).
+
 ## Procedures: Durable Step State
 
 A **procedure** is the per-session step register — ordered steps, a cursor, forced evidence check-ins — and it renders on the Page, so it survives context loss.
+
+A shard workflow does not use a procedure. Its steps are in its invocation record, and the INVOCATIONS block shows them. Use a procedure only for work that is not a shard workflow. See [[dev-knw-foh-machinery]] § Procedures.
 
 ```bash
 flint orbh procedure start --title "<t>" (--steps "read spec;implement;verify?" | --from <file>) [--enforced]

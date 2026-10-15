@@ -1,9 +1,10 @@
 ---
-description: "Durable Orbh machinery beyond the session — stations, cron schedules, workers, procedures, cross-session workflow chaining, and the update/approval/improve reporting channels"
+description: "Durable Orbh machinery beyond the session — stations, cron schedules, workers, procedures (and why a shard workflow does not use one), the `enforced` return guard of an invocation file, cross-session workflow chaining, and the update/approval/improve reporting channels"
 orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[ffb27033-03e2-4fb2-850c-a9f83a880880]]"
   - "[[5e7386c8-d7ac-4fbb-886d-6f9e5a41023b]]"
+  - "[[7becb153-fc6a-4037-a359-23744241a409]]"
 ---
 
 # Knowledge: Durable Orbh Machinery
@@ -124,6 +125,18 @@ flint orbh procedure show | list [--all] | finish | abandon --reason "<why>"
 - **`--enforced` has teeth**: a session with outstanding required steps cannot run `session return --finish`, and cannot `flint orbh end` itself. `--await` is unaffected, and an operator can still end it from outside.
 - `step`, `skip`, `finish`, and `abandon` fire the workflow chokepoint (`start` does not), which is what `workflow after-procedure --step <n>` hangs off.
 
+**Shard workflows do not open a procedure.** Since NUU Orbh Task 744, `flint shard invoke <ref> <workflow>` opens no Orbh procedure. The steps of a shard workflow are in its invocation record: one step register for each frame of the stack, so the one-procedure rule does not limit them. Use the Flint verbs for these steps ([[knw-f-invocations]]):
+
+```bash
+flint shard step                                       # where you are: the top frame, its steps, and the hints
+flint shard step done <step> --evidence '<what you did>'
+flint shard step skip <step> --reason '<why>'
+```
+
+Use a procedure only for work that is not a shard workflow. An older invocation record (Task 743) can name a procedure. When the session closes or returns `--finish`, the Flint layer also ends that procedure.
+
+**`enforced` of an invocation file.** An invocation file with `"enforced": true` gives a guard like `procedure start --enforced`, but only on `flint orbh session return --finish`. While an open frame of the session with `enforced` has a step that is not done or skipped, the return refuses. A `repeat` step counts as not done. The refusal lists the open steps and gives the commands that settle the current step, for example `flint shard step done report --invocation inv-fb060af91e0d`. Nothing is stored, and the turn stays live. `--await` and `flint orbh close` do not check the guard. `--no-behaviours` passes it, and the record keeps that choice ([[dev-knw-foh-cli]] § Behaviours of Shard Invocations).
+
 ## Workflow chaining — declarative continuation across sessions
 
 `workflow` means **durable cross-session chaining**, not per-session state. You arm a **clause** on a subject — a session's *next* return, or a procedure step / finish — and a chokepoint fires it, launching the clause's prompt as a child.
@@ -149,7 +162,7 @@ What matters when you use it:
 - **`manage` attaches a pure consumer.** The manager is woken with a digest; it never collects children and never advances clauses. Do not write one that tries to.
 - `close` discharges the duty and `cancel` abandons it; either way armed clauses stop matching.
 
-The old per-session `workflow start / advance / check` surface was removed. Use a **procedure** for step state on your own session.
+The old per-session `workflow start / advance / check` surface was removed. Use a **procedure** for step state on your own session, and `flint shard step` for the steps of a shard workflow.
 
 ## Reporting: `update`, `approval`, `improve`, `humanchannel`
 

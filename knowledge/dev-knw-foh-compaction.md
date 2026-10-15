@@ -1,16 +1,17 @@
 ---
-description: "Self-compaction doctrine — the agent authors its own handoff into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id"
+description: "Self-compaction doctrine — the agent authors its own handoff into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id, and the shard invocation stack after an Orbh compaction or a compaction of the harness"
 orbh-sessions:
   - "[[411171be-587b-44fd-8c74-43f5700bb512]]"
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
   - "[[b906e3ea-30d1-48f6-827a-89c5553e49c8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[1d490a0f-e91e-4f57-930e-350f5cbd0f18]]"
+  - "[[7becb153-fc6a-4037-a359-23744241a409]]"
 ---
 
 # Knowledge: Self-Compaction at 80%
 
-Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, and every external reference stay valid by construction. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
+Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, the shard invocations of the session, and every external reference stay valid by construction. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
 
 **You write your own handoff.** There is no distiller. Nothing resurrects your dead context to reconstruct what you meant — you are alive and holding the whole thing at the moment you compact, so you write the successor note yourself, and the system validates it while you can still fix it.
 
@@ -48,6 +49,21 @@ The successor collects only what the handoff lists. An obligation that you leave
 - a message or a result that you owe: the target session and what you must send.
 
 Write `- none` only when the Page shows no open obligation.
+
+## Shard Invocations Stay With the Session
+
+A shard invocation is a Flint record of the session (`.flint/invocations/`), keyed to the session id. Both kinds of compaction keep the session id. Thus each open frame stays open, at the same step, and the stack is the same after the compaction.
+
+**Name the open frames in the handoff.** The Page that `compact start` prints has only the core blocks: it has no INVOCATIONS block. Thus run `flint shard invocations stack` before you write the handoff. Then:
+
+- in OPEN OBLIGATIONS, write one line for each open frame: its id, its label, its current step, and the command that continues it (`flint shard step`, or the `next:` command of the top frame);
+- in FILES, list the Markdown workflow of the top frame and the artifact of each frame, each as an absolute path with ` :: <reason>`.
+
+**After an Orbh compaction.** The relaunched context runs `flint orbh page` first. That Page has the INVOCATIONS block ([[dev-knw-foh-page]]). Read the stage in `read:` again, and continue from `next:`. `flint shard step` prints the same lines for the top frame.
+
+**After a compaction of the harness.** A harness can replace its context in place, for example Claude Code at the limit of its context or after `/compact`. This is not an Orbh compaction: the run and the session id stay, and you write no handoff. With managed delivery, the manager sends one Page after each such compaction. Its first line is `Context compacted: this is your Page. Read INVOCATIONS to continue where you are.` Read INVOCATIONS, read the stage in `read:` again, and continue from `next:`. Do not trust the summary of the harness for the step: the record is the truth. When no Page comes (no managed delivery, or a harness that writes no compaction record), run `flint orbh page` yourself.
+
+The steps and the hints are in [[knw-f-invocations]] (Flint shard).
 
 ## Compacting into a different profile
 
@@ -100,7 +116,7 @@ There is **no operator-driven compaction**. `flint orbh session compact <id>` is
 
 ## The relaunched context's duty
 
-The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
+The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. When the Page has an INVOCATIONS block, continue each open frame from its `read:` and `next:` lines. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
 
 ## Failure shape
 

@@ -1,5 +1,5 @@
 ---
-description: "Operating on other sessions — peers, collector-backed subagents, turn-correlated results, trees/caps, inspection (peek/timeline), messages, rooms, interrupt, respond, kill, and the ping/switch/fork one-shots"
+description: "Operating on other sessions — peers, collector-backed subagents, turn-correlated results, trees/caps, the parent shard invocation of a child session, inspection (peek/timeline), messages, rooms, interrupt, respond, kill, and the ping/switch/fork one-shots"
 orbh-sessions:
   - "[[45853056-d24f-4891-b46b-aeebd82cbad1]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -8,6 +8,7 @@ orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
+  - "[[7becb153-fc6a-4037-a359-23744241a409]]"
 ---
 
 # Knowledge: Orbh Session Coordination
@@ -108,6 +109,19 @@ Subagents may dispatch subagents. Orbh records ancestry as `{rootSessionId, dept
 - Cap failures report the chain and requested depth/fan-out.
 
 Use `request -q` for owned, collected work. Use bare `launch` only for a **peer** whose duty should outlive the caller or belongs to no one. A peer is not in the caller's dispatch tree; coordinate with it, do not treat it as a subagent.
+
+## Shard Invocations Across Sessions
+
+Orbh does not know shards. The Flint layer adds a pre-launch hook, so that a child session continues the shard invocation stack of the session that launched it.
+
+- **The launcher.** The launcher is the dispatcher of a subagent (`request`), or else the session of the process that runs the launch (for example a worker). When the launcher has an open frame, the child gets `FLINT_PARENT_INVOCATION`: the id of the top of the stack of the launcher.
+- **The launch record.** The hook also writes a durable launch record for the child, one time: `.flint/invocation-launches/<child session id>.json`. The first launch wins, and a later write never changes it.
+- **The first invoke nests.** The first `flint shard invoke <ref> <workflow>` of the child, when the child has no open frame of its own, uses that frame as its parent. After that, the top of the child's own stack is the parent of its next invoke. `--parent <id>` names another open frame, in any session. `--root` starts a new chain with no parent.
+- **Also after a resume.** A later run of the child (a resume after `return --await`, or a relaunch after a compaction) starts with no pre-launch hook. The launch record still gives the parent, so the nesting holds.
+- **A bare peer gets no parent.** The launch host of a bare `launch` has no launcher session. When a peer must nest under your frame, give it the frame id in its prompt, and tell it to run `flint shard invoke <ref> <workflow> --parent <id>`.
+- **Close order.** A parent frame cannot close while a child frame is open: `flint shard invocations close` refuses, and `--abandon-children '<why>'` closes the children first. When a child frame closes, the parent record gets its outcome and its outputs. When the launcher session closes or finishes first, its own frames close, and a child frame in another session stays open with a warning. Thus collect the child before you close.
+
+`flint orbh page <id>` and `flint shard invocations stack --session <id>` show the stack of a child. A frame whose parent is in another session shows `part of: <frame> · session <id>`. The details are in [[knw-f-invocations]] (Flint shard).
 
 ## The Orchestrator Singleton
 

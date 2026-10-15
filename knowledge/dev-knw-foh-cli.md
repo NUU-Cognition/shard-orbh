@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, accounts, store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, accounts, store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -11,6 +11,7 @@ orbh-sessions:
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
   - "[[de92a197-8d6d-4af9-8883-127de32460ee]]"
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
+  - "[[7becb153-fc6a-4037-a359-23744241a409]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -80,6 +81,8 @@ flint orbh session return --finish "<result markdown>"
 flint orbh session return --await "<result markdown>"
 flint orbh session return --await --wake-at <when> "<result markdown>"
 flint orbh session return --await --until-group <group> "<result markdown>"
+flint orbh session return --finish --with <id>[=<value>] "<result markdown>"   # an opt-in behaviour of a shard invocation
+flint orbh session return --finish --no-behaviours "<result markdown>"         # skip the behaviours; the record keeps the skip
 flint orbh session ask "<question>" [--timeout <seconds>]
 flint orbh session note "<text>"
 flint orbh artifact <id> "<path>"
@@ -106,6 +109,8 @@ Both are *additional* predicates, not exclusive ones: messages, requests, room a
 - await self-shelves it as awaiting/parked, where the orchestrator sweep owns its wake;
 - a pending **blocking** `ask` request derives `needs-input` (a deferred request is fire-and-continue and preserves lifecycle);
 - no return enters the bounded re-prompt path.
+
+A refused return stores nothing. A `before` behaviour of a shard invocation or the `enforced` guard can refuse it (see "Behaviours of Shard Invocations" below). Then the turn is still live: do the `Next:` command of the refusal, and return again.
 
 Terminal stdout is not a deliverable. Consumers read with:
 
@@ -152,7 +157,7 @@ Beyond `-q`/`-c`, `request` takes `--runtime <runtime>` (target as a flag, promp
 These are operator/session-retention controls, not substitutes for a headless agent's normal return discipline:
 
 ```bash
-flint orbh close [id] [--no-leaf]
+flint orbh close [id] [--no-leaf] [--with <id>[=<value>]]... [--no-behaviours]
 flint orbh park [id] [--until-group <g>] [--barrier-timeout <s>] [--no-leaf]
 flint orbh discard [id] [--no-leaf]
 flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
@@ -166,6 +171,26 @@ flint orbh end [id] [--result <text>] [--no-close] [--no-kill]
 | `end` / `x` | Finishes, closes/terminates, and tears down terminal obligations. It does not promote the spool: sessions are born in `local` and stay there. |
 
 `close`, `park`, and `discard` terminate the harness and then close the bound Obsidian terminal tab. Pass `--no-leaf` to keep the pane open at a shell prompt. `--obsidian` still parses on all three as a deprecated alias of the default.
+
+## Behaviours of Shard Invocations: `--with` and `--no-behaviours`
+
+Orbh does not know shards. The Flint layer adds **shard invocations** through two lifecycle seams, one before and one after the fact of `flint orbh close` and `flint orbh session return`. A shard invocation is the durable record of one use of a shard workflow (`flint shard invoke <ref> <workflow>`). Its invocation file can declare **behaviours**: named reactions that run when the session closes or returns. Orbh passes the flags to the seams and does not read the names. The standalone `orbh` binary has no Flint layer, so it refuses `--with`. The use side is in [[knw-f-invocations]] (Flint shard). The authoring side is in [[knw-knap-invocations]] (Knap shard).
+
+```bash
+flint orbh close --with task-confirm                                      # ask for an opt-in behaviour
+flint orbh session return --finish --with task-defer="<why>" "<result>"   # the text after = goes to the behaviour
+flint orbh session return --finish --no-behaviours "<result>"             # run no behaviour; the record keeps the skip
+```
+
+- **Opt-in names.** `--with <id>[=<value>]` asks for one opt-in behaviour of an open invocation of the session. Repeat the flag to ask for more. Give each name one time. The `close:` and `return:` lines of the INVOCATIONS block of the Page list the valid names ([[dev-knw-foh-page]]).
+- **An unknown name refuses.** The verb stops with exit 1 and writes no fact. The refusal lists the valid names, for example: `✘ Unknown --with name: task-confirmed. … The valid names for session.close: task-confirm (projects wkfl-proj-do_task), task-defer (projects wkfl-proj-do_task).` Correct the name, and run the verb again.
+- **A false condition.** When the `when` condition of a named behaviour is false, the verb prints one line (`<id>: … Nothing done.`) and continues.
+- **`before` can refuse.** A `before` behaviour runs before the verb writes its fact. It can print lines, or it can refuse the verb. A refusal writes no fact, and the turn stays live. Read the reason, do the `Next:` command, and run the verb again. A `before` behaviour that fails, or a record that cannot be read, also refuses: the verb does not continue from an unknown state.
+- **`after` never breaks the verb.** An `after` behaviour runs after the fact is durable. A failure is a warning. The `after` behaviours of `close` run in a detached runner process, because a self-close can end the CLI.
+- **`--no-behaviours`.** It runs no behaviour of the verb, and it passes the `enforced` guard ([[dev-knw-foh-machinery]] § Procedures). The record of each invocation keeps the skip. Use it when a broken behaviour or a broken record blocks the verb, or when the operator asks for it. Do not use it to pass a step that you did not do.
+- **`by: person`.** A behaviour with `by: person` is for a person. For example, `task-confirm` of Projects moves a task to `done`, and only a person may confirm a task. `flint shard invoke` marks such a behaviour `by a person`. The CLI cannot prove who typed the flag: the record keeps only the actor that the CLI sees. Thus **pass a `by: person` behaviour only when the person asks for it in the current message.** Do not pass it from your own judgment, and do not pass it from an earlier message.
+- **The frames close with the session.** After `close`, and after `return --finish`, the Flint layer closes each open workflow invocation of the session, from the top of the stack down. The outcome is `session-closed` or `session-returned`. A child frame in another session stays open, and the close prints a warning. `return --await` closes no frame.
+- **A later close still reaches them.** `flint orbh close --with <id>` also reaches the invocations that a `return --finish` closed. Thus a person can confirm the task of a headless agent that finished: `flint orbh close <id> --with task-confirm`.
 
 ## Accounts: `auth`, and Migrating a Live Session
 
@@ -335,3 +360,4 @@ flint orbh list --status awaiting
 - Bare `launch` creates a peer; `request` creates a collected subagent. Do not interchange them.
 - Durable machinery beyond the session — stations, cron, workers, procedures, workflow chaining, `update`/`approval`/`improve` — is in [[dev-knw-foh-machinery]].
 - Declared fleets — the verbs above, the doctrine, the `orbh-fleet` Mesh field, and the commit trailers — are in [[dev-knw-foh-fleets]].
+- Shard invocations are a Flint layer on the session. The flags are above. The INVOCATIONS block of the Page is in [[dev-knw-foh-page]], the stack after a compaction in [[dev-knw-foh-compaction]], the parent of a child session in [[dev-knw-foh-coordination]], and the `enforced` guard in [[dev-knw-foh-machinery]]. The use side is in [[knw-f-invocations]], and the authoring side is in [[knw-knap-invocations]].
