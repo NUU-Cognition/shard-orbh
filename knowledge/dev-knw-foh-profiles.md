@@ -10,6 +10,7 @@ orbh-sessions:
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
   - "[[419ba025-bf1e-4db4-b74a-79f0f862cf19]]"
+  - "[[7105ef37-eaed-41b3-9485-2d04ebef1905]]"
 ---
 
 # Knowledge: Orbh Profiles
@@ -21,8 +22,22 @@ Profiles are pre-configured runtime targets — a bundle of model + reasoning ef
 - Profile resolution is **exact** — there is no fuzzy matching; an unknown profile name **errors**.
 - Profile names are **short codes**, not `runtime/tier` slugs. WRONG names like `claude/opus-max`, `codex/high`, `claude/sonnet`, `codex/medium` **do not resolve** and will error.
 - **No target** (`flint orbh i`, `flint orbh launch "<prompt>"`, `flint orbh request "<prompt>"`) selects the first available target of the **default target list** (see below).
-- A **bare runtime** (`flint orbh launch claude "<prompt>"`) selects the first target of the default target list for that runtime (`claude` → `claude/o55h`). When the list has no target of that runtime, the session gets no profile args.
+- A **bare runtime** (`flint orbh launch claude "<prompt>"`) selects the first target of the default target list for that runtime (`claude` → `claude/o55h`). When the list has no target of that runtime, the launch uses the profile `<runtime>/default`. When that profile does not exist, the session gets no profile args.
+- `flint orbh ping <runtime>` and the library launches (`ping` of `@nuucognition/orbh`) do not read the default target list: a bare runtime uses `<runtime>/default` directly.
 - The set evolves as model families ship — **always confirm live** with `flint orbh profiles`.
+
+## The `default` and `small-default` Profiles
+
+Two profile names have a fixed use. Each is an ordinary profile entry of a runtime, so `profiles.json` can override it per runtime.
+
+| Profile | Used by |
+|---------|---------|
+| `<runtime>/default` | A bare runtime target with no default-list target of that runtime, `flint orbh ping <runtime>`, and every library launch on a bare runtime |
+| `<runtime>/small-default` | Small utility launches. Now: the throwaway ping of `flint orbh auth refresh` |
+
+A small utility launch uses `<runtime>/small-default`. When that profile does not exist, it uses the bare runtime, so `<runtime>/default`, then no profile. `resolveSmallDefaultTarget(runtime, profiles)` of `@nuucognition/orbh` gives that target. The shared `default.json` defines both profiles for `claude`, `codex`, and `muse`. The maintainer of the shared layer chooses their models.
+
+`flint orbh auth refresh` pings all stale accounts in parallel. Each account has its own home and its own refresh token, so two pings never trade the same token. The progress line and the `target` field of `--json` name the target of each ping.
 
 ```bash
 flint orbh profiles                              # List all profiles, grouped by runtime
@@ -135,7 +150,7 @@ These are the only non-Claude, non-OpenAI, non-Grok models reachable on this mac
 
 ### Runtimes without profiles
 
-`agy` (Antigravity CLI), `kimi` (Kimi Code CLI), `droid`, `cursor` (Cursor Agent CLI, command `cursor-agent`), and `muse` (command `muse`) are registered runtime names — they appear in every target list — but the shared layer defines no profiles for them. `flint orbh runtimes` shows `cursor` installed and the other four unavailable on this machine. A bare `cursor` target launches with no profile args. Their former profile codes (`agy/f36h`, `agy/p31h`, `agy/o46t`, `kimi/k3`, `kimi/k3mx`, …) no longer resolve.
+`agy` (Antigravity CLI), `kimi` (Kimi Code CLI), `droid`, `cursor` (Cursor Agent CLI, command `cursor-agent`), and `muse` (command `muse`) are registered runtime names — they appear in every target list — but the shared layer defines no profiles for them, except `muse/default` and `muse/small-default`. `flint orbh runtimes` shows `cursor` installed and the other four unavailable on this machine. A bare `cursor` target launches with no profile args. Their former profile codes (`agy/f36h`, `agy/p31h`, `agy/o46t`, `kimi/k3`, `kimi/k3mx`, …) no longer resolve.
 
 ## Choosing a Profile
 
