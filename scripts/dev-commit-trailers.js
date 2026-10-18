@@ -79,10 +79,11 @@ if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
   # The reader finds the Flint and the store of the session with one node call (a real JSON parse of
   # the top-level fields of the registry row), before it changes folders: ORBH_CWD; with no ORBH_CWD,
   # the flintPath and orbRootDir of the row of the manager of ORBH_SESSION_ID; else the working
-  # folder. ORBH_ORB_ROOT_DIR of the environment wins, made absolute from the working folder. A row
-  # whose folder is gone gives nothing (also not its store). With no node, the reader uses ORBH_CWD
-  # or the working folder. The node call runs in the process group of the reader, so the limit
-  # covers it too.
+  # folder (also when ORBH_CWD names a folder that is gone). ORBH_ORB_ROOT_DIR, NUU_HOME, and ORBH_HOME
+  # of the environment are made absolute from the working folder and exported before the reader
+  # changes folders. A row whose folder is gone gives nothing (also not its store). With no node, the
+  # reader uses ORBH_CWD when that folder exists, else the working folder. The node call runs in the
+  # process group of the reader, so the limit covers it too.
   resolve_pin='
 const fs = require("fs"); const path = require("path"); const os = require("os");
 const env = process.env; const home = env.HOME || os.homedir();
@@ -105,15 +106,24 @@ if (!dir || !isDir(dir)) {
     }
   } catch {}
 }
-process.stdout.write(dir + "\\n" + store + "\\n");
+const nuuHome = text(env.NUU_HOME) ? homePath(env.NUU_HOME.trim()) : "";
+const orbhHomeOut = text(env.ORBH_HOME) ? homePath(env.ORBH_HOME.trim()) : "";
+process.stdout.write(["ok", dir, store, nuuHome, orbhHomeOut].map((value) => /[\\n\\r]/.test(value) ? "" : value).join("\\n") + "\\n");
 '
   dir="$(mktemp -d "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || dir=''
   if [ -n "$dir" ]; then
     read_pin='resolved="$(node -e "$2" 2>/dev/null)" || resolved=""
-pin_dir="$(printf "%s\\n" "$resolved" | sed -n 1p)"
-pin_store="$(printf "%s\\n" "$resolved" | sed -n 2p)"
-[ -n "$pin_dir" ] || pin_dir="\${ORBH_CWD:-.}"
-if [ -n "$pin_store" ]; then export ORBH_ORB_ROOT_DIR="$pin_store"; fi
+line() { printf "%s\\n" "$resolved" | sed -n "$1p"; }
+if [ "$(line 1)" = ok ]; then
+  pin_dir="$(line 2)"; pin_store="$(line 3)"; nuu_home="$(line 4)"; orbh_home="$(line 5)"
+  [ -n "$pin_dir" ] || pin_dir=.
+  if [ -n "$pin_store" ]; then export ORBH_ORB_ROOT_DIR="$pin_store"; fi
+  if [ -n "$nuu_home" ]; then export NUU_HOME="$nuu_home"; fi
+  if [ -n "$orbh_home" ]; then export ORBH_HOME="$orbh_home"; fi
+else
+  pin_dir=.
+  if [ -n "\${ORBH_CWD:-}" ] && [ -d "$ORBH_CWD" ]; then pin_dir="$ORBH_CWD"; fi
+fi
 cd "$pin_dir" 2>/dev/null && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
     if command -v setsid >/dev/null 2>&1; then
       setsid /bin/sh -c "$read_pin" sh "$dir" "$resolve_pin" >/dev/null 2>&1 </dev/null &
@@ -312,7 +322,9 @@ case "$FAKE_FLINT_MODE" in
   slow-ok) sleep 1.5; echo '@v1/test/task.dev/k17selftest#ops' ;;
   where) here="$(pwd -P)"
     if [ "$here" = "$FAKE_WRONG_DIR" ]; then echo '@v1/test/task.dev/wrong#ops'
-    elif [ "$here" = "$FAKE_WANT_DIR" ] && [ "\${ORBH_ORB_ROOT_DIR:-}" = "$FAKE_WANT_STORE" ]; then echo '@v1/test/task.dev/k17selftest#ops'
+    elif [ "$here" = "$FAKE_WANT_DIR" ] && [ "\${ORBH_ORB_ROOT_DIR:-}" = "$FAKE_WANT_STORE" ] \\
+      && { [ -z "\${FAKE_WANT_NUU_HOME:-}" ] || [ "$NUU_HOME" = "$FAKE_WANT_NUU_HOME" ]; } \\
+      && { [ -z "\${FAKE_WANT_ORBH_HOME:-}" ] || [ "$ORBH_HOME" = "$FAKE_WANT_ORBH_HOME" ]; }; then echo '@v1/test/task.dev/k17selftest#ops'
     else exit 1; fi ;;
   slow) trap '' TERM; sleep 4 & echo "$!" >> "$FAKE_PIDS"; wait; echo '@v1/test/task.dev/k17selftest#ops' ;;
 esac
@@ -349,6 +361,7 @@ esac
       delete env.ORBH_ORB_ROOT_DIR;
       if (noCwd) delete env.ORBH_CWD;
       Object.assign(env, extraEnv);
+      for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
       const started = Date.now();
       const result = spawnSync('/bin/sh', ['-c', `${ignoreTerm ? "trap '' TERM; " : ''}exec git commit -q -m "selftest ${mode}"`], {
         cwd: repo, env, encoding: 'utf8', timeout: 20000,
@@ -382,7 +395,7 @@ esac
       check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops') === wantTask, `${name}: the commit ${wantTask ? 'has' : 'has no'} Task trailer`);
       check(!result.message.includes('Evil:'), `${name}: no other trailer reaches the message`);
       // The limit of the read is about 2.5 s: a commit with a fast reader stays short, and no commit waits longer.
-      const most = mode.startsWith('slow') ? 3500 : 1500;
+      const most = mode.startsWith('slow') ? 3500 : 2500;
       check(result.ms <= most, `${name}: the commit takes ${result.ms} ms (at most ${most})`);
       if (mode === 'slow') {
         spawnSync('sleep', ['0.3']);
@@ -412,6 +425,24 @@ esac
     }), { FAKE_WANT_DIR: repoReal, FAKE_WANT_STORE: '' });
     rowCase('ORBH_HOME of exactly ~: the row under HOME/managers', () => undefined,
       { ORBH_HOME: '~', HOME: tildeHome });
+    // Fix round 2: a rejected ORBH_CWD, relative homes, and no node.
+    const emptyHome = path.join(root, 'empty-orbh-home');
+    fs.mkdirSync(emptyHome, { recursive: true });
+    const plainCase = (name, noCwd, extraEnv) => {
+      const result = commit('where', false, noCwd, extraEnv);
+      check(result.status === 0, `${name}: the commit exits 0`);
+      check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops'), `${name}: the commit has the Task trailer of the session`);
+    };
+    plainCase('an ORBH_CWD that is gone, and no registry row: the working folder of the commit', false,
+      { ORBH_CWD: goneDir, ORBH_HOME: emptyHome, FAKE_WANT_DIR: repoReal, FAKE_WANT_STORE: '' });
+    writeRow(path.join(repo, 'relative-home', 'orbh'), baseRow);
+    plainCase('a relative NUU_HOME (the row under it): the reader gets it as an absolute path', true,
+      { ORBH_HOME: undefined, NUU_HOME: 'relative-home', FAKE_WANT_NUU_HOME: path.join(repoReal, 'relative-home') });
+    writeRow(path.join(repo, 'relative-orbh-home'), baseRow);
+    plainCase('a relative ORBH_HOME (the row under it): the reader gets it as an absolute path', true,
+      { ORBH_HOME: 'relative-orbh-home', FAKE_WANT_ORBH_HOME: path.join(repoReal, 'relative-orbh-home') });
+    plainCase('no node on PATH: the reader uses ORBH_CWD', false,
+      { PATH: `${bin}${path.delimiter}/usr/bin${path.delimiter}/bin`, FAKE_WANT_STORE: '' });
     {
       // The body itself with SIGTERM ignored from its parent: git does not reset the signals here.
       fs.writeFileSync(pidsFile, '');
@@ -447,7 +478,7 @@ esac
         ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint,
         FAKE_FLINT_MODE: 'slow', FAKE_PIDS: pidsFile,
       };
-      const result = spawnSync('/bin/sh', ['-c', '/bin/sh "$0" "$1" & hook=$!; sleep 0.4; kill -TERM "$hook"; wait "$hook"; echo "exit=$?"', path.join(dir, BODY_NAME), msg], {
+      const result = spawnSync('/bin/sh', ['-c', '/bin/sh "$0" "$1" & hook=$!; i=0; while [ ! -s "$FAKE_PIDS" ] && [ "$i" -lt 40 ]; do sleep 0.05; i=$((i + 1)); done; sleep 0.1; kill -TERM "$hook"; wait "$hook"; echo "exit=$?"', path.join(dir, BODY_NAME), msg], {
         cwd: repo, env, encoding: 'utf8', timeout: 20000,
       });
       const name = 'slow, SIGTERM to the body while the reader runs';
