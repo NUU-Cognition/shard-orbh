@@ -141,6 +141,7 @@ flint shard orbh commit-trailers install --repo <repo>    # the hook body and a 
 flint shard orbh commit-trailers install --repo <repo> --append   # add the call to a prepare-commit-msg hook of another owner
 flint shard orbh commit-trailers uninstall --repo <repo>
 flint shard orbh commit-trailers show                     # print the hook body
+flint shard orbh commit-trailers selftest                 # commit in a scratch repository with fake readers and check the body
 ```
 
 The hook body has a version. Version 2 adds the `Task` trailer. `status` shows an older body, and `install` replaces it. Version 1 adds only `Orbh-Fleet` and `Orbh-Session`.
@@ -149,7 +150,9 @@ What the hook does:
 
 - It adds `Orbh-Fleet` when `ORBH_FLEET_HANDLE` is a valid handle, and `Orbh-Session` when `ORBH_SESSION_ID` is a session id. A value of another shape is ignored.
 - It adds `Task` when the session has a task pin. It reads the pin with `flint orbh session get core:task` in the Flint of the session (`ORBH_CWD`). The value must be one line in the shape of an Ops address of a task or a task group (`@v1/<org>/task/<id>#ops`, `@v1/<org>/task.<subtype>/<id>#ops`, or `@v1/<org>/taskgroup/<id>#ops`). Another value is ignored.
-- The read of the pin gets at most 1 second; usually it takes less than 0.5 seconds. When the read is slower, fails, or finds no pin, the commit gets no `Task` trailer.
+- The read of the pin gets at most 1 second; usually it takes less than 0.5 seconds. The reader runs in its own process group. At the limit, the hook stops the whole group with `SIGKILL`, so no reader outlives the hook, also a reader that ignores `SIGTERM`.
+- Only a read that exits 0 gives a `Task` trailer. When the read is slower, fails, or finds no pin, the commit gets no `Task` trailer.
+- `selftest` checks these rules on the hook body in a scratch repository: a good read, a read that fails, a value of two lines, and a slow reader that ignores `SIGTERM`. It exits 1 when a check fails. Run it before you install a new body.
 - It changes only the message. It never changes the author, the committer, or the subject. It always exits 0, so it never stops a commit.
 - It does not add a trailer that the message already has with the same value (`--amend` adds no copy).
 - A message with no text stays empty, so an empty message still aborts the commit.

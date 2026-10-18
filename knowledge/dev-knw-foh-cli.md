@@ -145,6 +145,8 @@ flint orbh task sync                                   # Attach the session in O
 - A second pin replaces the first pin. The first pin goes to the list of earlier pins, and its Ops attachment stays. A pin of the same address again keeps its pin time.
 - `unpin` makes no Ops call. The Ops attachment stays as history.
 - `show` reads Ops when Ops answers. When Ops does not answer, it prints the stored values and says so.
+- `sync` also refreshes the pin from Ops before the attach: the title, the status, the stage, and the count of tasks of a task group.
+- A verb never overwrites a pin that another verb changed while it waited for Ops. Each write expects the values that the verb read (a guarded write: the manager message `set-if`, or one compare-and-swap of the store). A refresh of `show` or `sync` that is too late is not stored, and the verb says so. `pin` and `unpin` read the keys again and try again, at most 3 times.
 - `ops` is the command in `NUU_OPS_CLI`, default `ops`. A value that names a file runs that file; another value runs in `/bin/sh` (for example `NUU_OPS_CLI="node /path/to/cli.js"`).
 - Each verb targets your own session (`ORBH_SESSION_ID`). `--session <id>` targets another session. Do not pin a task to a session of another person.
 
