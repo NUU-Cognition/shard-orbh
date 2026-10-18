@@ -49,8 +49,10 @@ cc="$(git config --get core.commentChar 2>/dev/null)"
 case "$cc" in ''|auto) cc='#' ;; esac
 grep -v "^$cc" "$msg_file" | grep -q '[^[:space:]]' || exit 0
 
-# The task pin of the session: the key core:task, read in the Flint of the session. The reader runs
-# in its own process group. After at most about 1 second, the hook stops the whole group with
+# The task pin of the session: the key core:task, read in the Flint of the session (ORBH_CWD; with no
+# ORBH_CWD, the Flint and the store that the registry row of the manager of the session names; else
+# the working folder). The reader runs in its own process group. After at most about 2.5 seconds,
+# the hook stops the whole group with
 # SIGKILL (a signal that no process can ignore), reaps it, and removes its files, so no reader
 # outlives the hook. The traps do the same when the hook exits early or gets a signal; they are in
 # place before the temporary folder and the reader exist. Only a read that exits 0 gives a Task
@@ -74,19 +76,35 @@ remove_reader_dir() {
 trap 'stop_reader; remove_reader_dir' EXIT
 trap 'stop_reader; remove_reader_dir; exit 0' HUP INT TERM
 if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
+  pin_dir="\${ORBH_CWD:-}"
+  pin_store="\${ORBH_ORB_ROOT_DIR:-}"
+  if [ -z "$pin_dir" ] || [ ! -d "$pin_dir" ]; then
+    # No ORBH_CWD: the registry row of the manager of the session names its Flint and its store.
+    orbh_home="\${ORBH_HOME:-\${NUU_HOME:-$HOME/.nuucognition}/orbh}"
+    case "$orbh_home" in "~/"*) orbh_home="$HOME/\${orbh_home#"~/"}" ;; esac
+    row="$orbh_home/managers/$session.json"
+    pin_dir=''
+    if [ -f "$row" ]; then
+      pin_dir="$(sed -n 's/^[[:space:]]*"flintPath":[[:space:]]*"\\(.*\\)",*[[:space:]]*$/\\1/p' "$row" 2>/dev/null | head -n 1)"
+      [ -n "$pin_store" ] || pin_store="$(sed -n 's/^[[:space:]]*"orbRootDir":[[:space:]]*"\\(.*\\)",*[[:space:]]*$/\\1/p' "$row" 2>/dev/null | head -n 1)"
+      # A JSON escape in a path is not read here: then the hook reads in the working folder.
+      case "$pin_dir$pin_store" in *\\\\*) pin_dir=''; pin_store='' ;; esac
+    fi
+    [ -n "$pin_dir" ] && [ -d "$pin_dir" ] || pin_dir='.'
+  fi
   dir="$(mktemp -d "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || dir=''
   if [ -n "$dir" ]; then
-    read_pin='cd "$2" 2>/dev/null && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
+    read_pin='cd "$2" 2>/dev/null && { [ -z "$3" ] || export ORBH_ORB_ROOT_DIR="$3"; } && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
     if command -v setsid >/dev/null 2>&1; then
-      setsid /bin/sh -c "$read_pin" sh "$dir" "\${ORBH_CWD:-.}" >/dev/null 2>&1 </dev/null &
+      setsid /bin/sh -c "$read_pin" sh "$dir" "$pin_dir" "$pin_store" >/dev/null 2>&1 </dev/null &
     else
       set -m
-      /bin/sh -c "$read_pin" sh "$dir" "\${ORBH_CWD:-.}" >/dev/null 2>&1 </dev/null &
+      /bin/sh -c "$read_pin" sh "$dir" "$pin_dir" "$pin_store" >/dev/null 2>&1 </dev/null &
       set +m
     fi
     reader=$!
     tries=0
-    while [ ! -f "$dir/status" ] && [ "$tries" -lt 9 ]; do sleep 0.1; tries=$((tries + 1)); done
+    while [ ! -f "$dir/status" ] && [ "$tries" -lt 25 ]; do sleep 0.1; tries=$((tries + 1)); done
     stop_reader
     [ "$(cat "$dir/status" 2>/dev/null)" = 0 ] && task="$(cat "$dir/out" 2>/dev/null)"
     remove_reader_dir
@@ -220,8 +238,11 @@ function uninstall(repo) {
  *   ok         prints a task address and exits 0: the commit gets the Task trailer
  *   error      prints a task address and exits 1: no Task trailer
  *   two-lines  prints two lines: no Task trailer
- *   slow       ignores SIGTERM, starts a child, and sleeps 3 s: no Task trailer, the commit takes
- *              about 1 second at most, and no process of the reader is alive after the commit; one
+ *   cwd-check  prints a task address only in the Flint and the store of the registry row of the
+ *              session: with no ORBH_CWD, the commit gets the Task trailer
+ *   slow-ok    sleeps 1.5 s, then prints a task address: the commit still gets the Task trailer
+ *   slow       ignores SIGTERM, starts a child, and sleeps 4 s: no Task trailer, the commit takes
+ *              about 2.5 seconds at most, and no process of the reader is alive after the commit; one
  *              commit runs with SIGTERM ignored from its parent, one without
  * Git can reset the signals of a hook, so the slow mode also runs the body directly with SIGTERM
  * ignored. A last run sends SIGTERM to the body while its slow reader runs: the body must exit 0,
@@ -266,19 +287,31 @@ case "$FAKE_FLINT_MODE" in
   ok) echo '@v1/test/task.dev/k17selftest#ops' ;;
   error) echo '@v1/test/task.dev/k17selftest#ops'; exit 1 ;;
   two-lines) printf '@v1/test/task/k17selftest#ops\\nEvil: yes\\n' ;;
-  slow) trap '' TERM; sleep 3 & echo "$!" >> "$FAKE_PIDS"; wait; echo '@v1/test/task.dev/k17selftest#ops' ;;
+  slow-ok) sleep 1.5; echo '@v1/test/task.dev/k17selftest#ops' ;;
+  cwd-check) if [ "$(pwd -P)" = "$FAKE_FLINT_DIR" ] && [ "$ORBH_ORB_ROOT_DIR" = "$FAKE_FLINT_DIR/.orb" ]; then echo '@v1/test/task.dev/k17selftest#ops'; else exit 1; fi ;;
+  slow) trap '' TERM; sleep 4 & echo "$!" >> "$FAKE_PIDS"; wait; echo '@v1/test/task.dev/k17selftest#ops' ;;
 esac
 `);
     const session = '00000000-0000-4000-8000-00000000c0de';
-    const commit = (mode, ignoreTerm) => {
+    // The registry row of the manager of the session, in a scratch Orbh home: it names the Flint and the store.
+    const orbhHome = path.join(root, 'orbh-home');
+    const flintReal = fs.realpathSync(flint);
+    fs.mkdirSync(path.join(orbhHome, 'managers'), { recursive: true });
+    fs.writeFileSync(path.join(orbhHome, 'managers', `${session}.json`), `${JSON.stringify({
+      id: session, pid: process.pid, pgid: null, socketPath: path.join(root, 'none.sock'), runtime: 'claude',
+      flintPath: flintReal, orbRootDir: path.join(flintReal, '.orb'), startedAt: new Date().toISOString(),
+    }, null, 2)}\n`);
+    const commit = (mode, ignoreTerm, noCwd = false) => {
       fs.writeFileSync(pidsFile, '');
       fs.writeFileSync(path.join(repo, 'file.txt'), `${mode} ${Date.now()}\n`);
       git('add', 'file.txt');
       const env = {
         ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
-        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint,
-        FAKE_FLINT_MODE: mode, FAKE_PIDS: pidsFile,
+        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint, ORBH_HOME: orbhHome,
+        FAKE_FLINT_MODE: mode, FAKE_PIDS: pidsFile, FAKE_FLINT_DIR: flintReal,
       };
+      delete env.ORBH_ORB_ROOT_DIR;
+      if (noCwd) delete env.ORBH_CWD;
       const started = Date.now();
       const result = spawnSync('/bin/sh', ['-c', `${ignoreTerm ? "trap '' TERM; " : ''}exec git commit -q -m "selftest ${mode}"`], {
         cwd: repo, env, encoding: 'utf8', timeout: 20000,
@@ -287,7 +320,7 @@ esac
       const message = git('log', '-1', '--format=%B').stdout;
       return { status: result.status, ms, message };
     };
-    const label = (mode, ignoreTerm) => `${mode}${ignoreTerm ? ' (SIGTERM ignored by the parent)' : ''}`;
+    const label = (mode, ignoreTerm, noCwd) => `${mode}${ignoreTerm ? ' (SIGTERM ignored by the parent)' : ''}${noCwd ? ' (no ORBH_CWD: the Flint of the registry row)' : ''}`;
     fs.writeFileSync(path.join(repo, 'file.txt'), 'warm up\n');
     git('add', 'file.txt');
     git('commit', '-q', '-m', 'warm up');
@@ -300,14 +333,20 @@ esac
         }
       }
     };
-    for (const [mode, ignoreTerm, wantTask] of [['ok', false, true], ['error', false, false], ['two-lines', false, false], ['slow', false, false], ['slow', true, false]]) {
-      const result = commit(mode, ignoreTerm);
-      const name = label(mode, ignoreTerm);
+    const cases = [
+      ['ok', false, true], ['error', false, false], ['two-lines', false, false], ['cwd-check', false, true, true],
+      ['slow-ok', false, true], ['slow', false, false], ['slow', true, false],
+    ];
+    for (const [mode, ignoreTerm, wantTask, noCwd = false] of cases) {
+      const result = commit(mode, ignoreTerm, noCwd);
+      const name = label(mode, ignoreTerm, noCwd);
       check(result.status === 0, `${name}: the commit exits 0`);
       check(result.message.includes(`Orbh-Session: ${session}`), `${name}: the commit has the Orbh-Session trailer`);
       check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops') === wantTask, `${name}: the commit ${wantTask ? 'has' : 'has no'} Task trailer`);
       check(!result.message.includes('Evil:'), `${name}: no other trailer reaches the message`);
-      check(result.ms <= 1500, `${name}: the commit takes ${result.ms} ms (at most 1500)`);
+      // The limit of the read is about 2.5 s: a commit with a fast reader stays short, and no commit waits longer.
+      const most = mode.startsWith('slow') ? 3500 : 1500;
+      check(result.ms <= most, `${name}: the commit takes ${result.ms} ms (at most ${most})`);
       if (mode === 'slow') {
         spawnSync('sleep', ['0.3']);
         const left = pids().filter(alive);
@@ -334,7 +373,7 @@ esac
       const message = read(msg) || '';
       check(result.status === 0, `${name}: the body exits 0`);
       check(message.includes(`Orbh-Session: ${session}`) && !message.includes('Task:'), `${name}: the message has the Orbh-Session trailer and no Task trailer`);
-      check(ms <= 1500, `${name}: the body takes ${ms} ms (at most 1500)`);
+      check(ms <= 3500, `${name}: the body takes ${ms} ms (at most 3500)`);
       spawnSync('sleep', ['0.3']);
       const left = pids().filter(alive);
       check(left.length === 0, `${name}: no process of the reader is alive after the body (alive: ${left.join(', ') || 'none'})`);
