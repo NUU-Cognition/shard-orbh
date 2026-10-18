@@ -147,6 +147,9 @@ flint orbh task sync                                   # Attach the session in O
 - `show` reads Ops when Ops answers. When Ops does not answer, it prints the stored values and says so.
 - `sync` also refreshes the pin from Ops before the attach: the title, the status, the stage, and the count of tasks of a task group.
 - A verb never overwrites a pin that another verb changed while it waited for Ops. Each write expects the values that the verb read (a guarded write: the manager message `set-if`, or one compare-and-swap of the store). A refresh of `show` or `sync` that is too late is not stored, and the verb says so. `pin` and `unpin` read the keys again and try again, at most 3 times.
+- Each task verb also holds one advisory lock for each session (the folder `interface.lock` in the scratch folder of the spool) across the read, the comparison, and the writes of the two keys. A verb waits at most 15 seconds for the lock; a lock of an ended process, or one older than 120 seconds, is removed. The lock matters while the manager of the session is of an older build (until the session restarts): that manager has no `set-if`, so the verb reads, compares, and writes with a plain `set`.
+- Limit: a write of these keys that does not go through the task verbs (for example `flint orbh session set core:task …`) takes no lock, so on a manager of an older build it is not held back. Write the keys only with the task verbs.
+- `unpin` reports success only when the pin went to the list of earlier pins. A manager of an older build clears `core:task` with an empty value; every reader treats an empty value as no pin.
 - `ops` is the command in `NUU_OPS_CLI`, default `ops`. A value that names a file runs that file; another value runs in `/bin/sh` (for example `NUU_OPS_CLI="node /path/to/cli.js"`).
 - Each verb targets your own session (`ORBH_SESSION_ID`). `--session <id>` targets another session. Do not pin a task to a session of another person.
 

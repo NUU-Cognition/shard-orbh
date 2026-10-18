@@ -52,9 +52,27 @@ grep -v "^$cc" "$msg_file" | grep -q '[^[:space:]]' || exit 0
 # The task pin of the session: the key core:task, read in the Flint of the session. The reader runs
 # in its own process group. After at most about 1 second, the hook stops the whole group with
 # SIGKILL (a signal that no process can ignore), reaps it, and removes its files, so no reader
-# outlives the hook. Only a read that exits 0 gives a Task trailer. A missing key, a missing flint
-# command, an error, or a slow read gives no Task trailer.
+# outlives the hook. The traps do the same when the hook exits early or gets a signal; they are in
+# place before the temporary folder and the reader exist. Only a read that exits 0 gives a Task
+# trailer. A missing key, a missing flint command, an error, or a slow read gives no Task trailer.
 task=''
+reader=''
+dir=''
+stop_reader() {
+  if [ -n "$reader" ]; then
+    kill -KILL -- "-$reader" 2>/dev/null || kill -KILL "$reader" 2>/dev/null
+    wait "$reader" 2>/dev/null
+    reader=''
+  fi
+}
+remove_reader_dir() {
+  if [ -n "$dir" ]; then
+    rm -rf "$dir"
+    dir=''
+  fi
+}
+trap 'stop_reader; remove_reader_dir' EXIT
+trap 'stop_reader; remove_reader_dir; exit 0' HUP INT TERM
 if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
   dir="$(mktemp -d "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || dir=''
   if [ -n "$dir" ]; then
@@ -69,10 +87,9 @@ if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
     reader=$!
     tries=0
     while [ ! -f "$dir/status" ] && [ "$tries" -lt 9 ]; do sleep 0.1; tries=$((tries + 1)); done
-    kill -KILL -- "-$reader" 2>/dev/null || kill -KILL "$reader" 2>/dev/null
-    wait "$reader" 2>/dev/null
+    stop_reader
     [ "$(cat "$dir/status" 2>/dev/null)" = 0 ] && task="$(cat "$dir/out" 2>/dev/null)"
-    rm -rf "$dir"
+    remove_reader_dir
   fi
 fi
 # Only one line in the shape of an Ops address of a task or a task group reaches the message.
@@ -207,8 +224,10 @@ function uninstall(repo) {
  *              about 1 second at most, and no process of the reader is alive after the commit; one
  *              commit runs with SIGTERM ignored from its parent, one without
  * Git can reset the signals of a hook, so the slow mode also runs the body directly with SIGTERM
- * ignored. Each commit must exit 0 and keep the Orbh-Session trailer, and the hook must leave no
- * files. A first commit with no Orbh variables warms up the repository, so that the times compare.
+ * ignored. A last run sends SIGTERM to the body while its slow reader runs: the body must exit 0,
+ * stop the reader, and remove its folder. Each commit must exit 0 and keep the Orbh-Session
+ * trailer, and the hook must leave no files. A first commit with no Orbh variables warms up the
+ * repository, so that the times compare.
  */
 function selftest(bodyFile) {
   const body = bodyFile ? fs.readFileSync(bodyFile, 'utf8') : BODY;
@@ -320,6 +339,28 @@ esac
       const left = pids().filter(alive);
       check(left.length === 0, `${name}: no process of the reader is alive after the body (alive: ${left.join(', ') || 'none'})`);
       stopLeftovers(left);
+    }
+    {
+      // SIGTERM to the body while its slow reader runs: the traps stop the reader and remove its folder.
+      fs.writeFileSync(pidsFile, '');
+      const msg = path.join(root, 'message-term.txt');
+      fs.writeFileSync(msg, 'selftest term\n');
+      const env = {
+        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
+        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint,
+        FAKE_FLINT_MODE: 'slow', FAKE_PIDS: pidsFile,
+      };
+      const result = spawnSync('/bin/sh', ['-c', '/bin/sh "$0" "$1" & hook=$!; sleep 0.4; kill -TERM "$hook"; wait "$hook"; echo "exit=$?"', path.join(dir, BODY_NAME), msg], {
+        cwd: repo, env, encoding: 'utf8', timeout: 20000,
+      });
+      const name = 'slow, SIGTERM to the body while the reader runs';
+      check(result.stdout.includes('exit=0'), `${name}: the body exits 0 (${result.stdout.trim() || 'no output'})`);
+      spawnSync('sleep', ['0.3']);
+      const left = pids().filter(alive);
+      check(pids().length > 0 && left.length === 0, `${name}: the reader started, and no process of it is alive after the body (alive: ${left.join(', ') || 'none'})`);
+      stopLeftovers(left);
+      const folders = fs.readdirSync(tmp).filter((entry) => entry.startsWith('orbh-task.'));
+      check(folders.length === 0, `${name}: the body removed its folder (found: ${folders.join(', ') || 'none'})`);
     }
     const leftFiles = fs.readdirSync(tmp);
     check(leftFiles.length === 0, `the hook leaves no files in TMPDIR (found: ${leftFiles.join(', ') || 'none'})`);
