@@ -76,30 +76,50 @@ remove_reader_dir() {
 trap 'stop_reader; remove_reader_dir' EXIT
 trap 'stop_reader; remove_reader_dir; exit 0' HUP INT TERM
 if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
-  pin_dir="\${ORBH_CWD:-}"
-  pin_store="\${ORBH_ORB_ROOT_DIR:-}"
-  if [ -z "$pin_dir" ] || [ ! -d "$pin_dir" ]; then
-    # No ORBH_CWD: the registry row of the manager of the session names its Flint and its store.
-    orbh_home="\${ORBH_HOME:-\${NUU_HOME:-$HOME/.nuucognition}/orbh}"
-    case "$orbh_home" in "~/"*) orbh_home="$HOME/\${orbh_home#"~/"}" ;; esac
-    row="$orbh_home/managers/$session.json"
-    pin_dir=''
-    if [ -f "$row" ]; then
-      pin_dir="$(sed -n 's/^[[:space:]]*"flintPath":[[:space:]]*"\\(.*\\)",*[[:space:]]*$/\\1/p' "$row" 2>/dev/null | head -n 1)"
-      [ -n "$pin_store" ] || pin_store="$(sed -n 's/^[[:space:]]*"orbRootDir":[[:space:]]*"\\(.*\\)",*[[:space:]]*$/\\1/p' "$row" 2>/dev/null | head -n 1)"
-      # A JSON escape in a path is not read here: then the hook reads in the working folder.
-      case "$pin_dir$pin_store" in *\\\\*) pin_dir=''; pin_store='' ;; esac
-    fi
-    [ -n "$pin_dir" ] && [ -d "$pin_dir" ] || pin_dir='.'
-  fi
+  # The reader finds the Flint and the store of the session with one node call (a real JSON parse of
+  # the top-level fields of the registry row), before it changes folders: ORBH_CWD; with no ORBH_CWD,
+  # the flintPath and orbRootDir of the row of the manager of ORBH_SESSION_ID; else the working
+  # folder. ORBH_ORB_ROOT_DIR of the environment wins, made absolute from the working folder. A row
+  # whose folder is gone gives nothing (also not its store). With no node, the reader uses ORBH_CWD
+  # or the working folder. The node call runs in the process group of the reader, so the limit
+  # covers it too.
+  resolve_pin='
+const fs = require("fs"); const path = require("path"); const os = require("os");
+const env = process.env; const home = env.HOME || os.homedir();
+const homePath = (value) => value === "~" ? home : value.startsWith("~/") ? path.join(home, value.slice(2)) : path.resolve(value);
+const isDir = (value) => { try { return fs.statSync(value).isDirectory(); } catch { return false; } };
+const text = (value) => typeof value === "string" && value.trim() !== "" && !/[\\n\\r]/.test(value) ? value : "";
+let dir = text(env.ORBH_CWD) ? path.resolve(env.ORBH_CWD) : "";
+let store = text(env.ORBH_ORB_ROOT_DIR) ? path.resolve(env.ORBH_ORB_ROOT_DIR) : "";
+if (!dir || !isDir(dir)) {
+  dir = "";
+  const orbhHome = text(env.ORBH_HOME) ? homePath(env.ORBH_HOME.trim())
+    : path.join(text(env.NUU_HOME) ? homePath(env.NUU_HOME.trim()) : path.join(home, ".nuucognition"), "orbh");
+  try {
+    const row = JSON.parse(fs.readFileSync(path.join(orbhHome, "managers", env.ORBH_SESSION_ID + ".json"), "utf8"));
+    const rowDir = row && typeof row === "object" ? text(row.flintPath) : "";
+    if (rowDir && path.isAbsolute(rowDir) && isDir(rowDir)) {
+      dir = rowDir;
+      const rowStore = text(row.orbRootDir);
+      if (!store && rowStore && path.isAbsolute(rowStore)) store = rowStore;
+    }
+  } catch {}
+}
+process.stdout.write(dir + "\\n" + store + "\\n");
+'
   dir="$(mktemp -d "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || dir=''
   if [ -n "$dir" ]; then
-    read_pin='cd "$2" 2>/dev/null && { [ -z "$3" ] || export ORBH_ORB_ROOT_DIR="$3"; } && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
+    read_pin='resolved="$(node -e "$2" 2>/dev/null)" || resolved=""
+pin_dir="$(printf "%s\\n" "$resolved" | sed -n 1p)"
+pin_store="$(printf "%s\\n" "$resolved" | sed -n 2p)"
+[ -n "$pin_dir" ] || pin_dir="\${ORBH_CWD:-.}"
+if [ -n "$pin_store" ]; then export ORBH_ORB_ROOT_DIR="$pin_store"; fi
+cd "$pin_dir" 2>/dev/null && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
     if command -v setsid >/dev/null 2>&1; then
-      setsid /bin/sh -c "$read_pin" sh "$dir" "$pin_dir" "$pin_store" >/dev/null 2>&1 </dev/null &
+      setsid /bin/sh -c "$read_pin" sh "$dir" "$resolve_pin" >/dev/null 2>&1 </dev/null &
     else
       set -m
-      /bin/sh -c "$read_pin" sh "$dir" "$pin_dir" "$pin_store" >/dev/null 2>&1 </dev/null &
+      /bin/sh -c "$read_pin" sh "$dir" "$resolve_pin" >/dev/null 2>&1 </dev/null &
       set +m
     fi
     reader=$!
@@ -238,8 +258,10 @@ function uninstall(repo) {
  *   ok         prints a task address and exits 0: the commit gets the Task trailer
  *   error      prints a task address and exits 1: no Task trailer
  *   two-lines  prints two lines: no Task trailer
- *   cwd-check  prints a task address only in the Flint and the store of the registry row of the
- *              session: with no ORBH_CWD, the commit gets the Task trailer
+ *   where      prints the task address only in the expected folder with the expected store (a wrong
+ *              address in a wrong Flint): with no ORBH_CWD, the commit gets the Task trailer from
+ *              the top-level fields of the registry row; also a nested field of the same name, a
+ *              relative or an absolute ORBH_ORB_ROOT_DIR, a row whose Flint is gone, and ORBH_HOME=~
  *   slow-ok    sleeps 1.5 s, then prints a task address: the commit still gets the Task trailer
  *   slow       ignores SIGTERM, starts a child, and sleeps 4 s: no Task trailer, the commit takes
  *              about 2.5 seconds at most, and no process of the reader is alive after the commit; one
@@ -288,30 +310,45 @@ case "$FAKE_FLINT_MODE" in
   error) echo '@v1/test/task.dev/k17selftest#ops'; exit 1 ;;
   two-lines) printf '@v1/test/task/k17selftest#ops\\nEvil: yes\\n' ;;
   slow-ok) sleep 1.5; echo '@v1/test/task.dev/k17selftest#ops' ;;
-  cwd-check) if [ "$(pwd -P)" = "$FAKE_FLINT_DIR" ] && [ "$ORBH_ORB_ROOT_DIR" = "$FAKE_FLINT_DIR/.orb" ]; then echo '@v1/test/task.dev/k17selftest#ops'; else exit 1; fi ;;
+  where) here="$(pwd -P)"
+    if [ "$here" = "$FAKE_WRONG_DIR" ]; then echo '@v1/test/task.dev/wrong#ops'
+    elif [ "$here" = "$FAKE_WANT_DIR" ] && [ "\${ORBH_ORB_ROOT_DIR:-}" = "$FAKE_WANT_STORE" ]; then echo '@v1/test/task.dev/k17selftest#ops'
+    else exit 1; fi ;;
   slow) trap '' TERM; sleep 4 & echo "$!" >> "$FAKE_PIDS"; wait; echo '@v1/test/task.dev/k17selftest#ops' ;;
 esac
 `);
     const session = '00000000-0000-4000-8000-00000000c0de';
     // The registry row of the manager of the session, in a scratch Orbh home: it names the Flint and the store.
     const orbhHome = path.join(root, 'orbh-home');
+    const tildeHome = path.join(root, 'tilde-home');
     const flintReal = fs.realpathSync(flint);
-    fs.mkdirSync(path.join(orbhHome, 'managers'), { recursive: true });
-    fs.writeFileSync(path.join(orbhHome, 'managers', `${session}.json`), `${JSON.stringify({
+    const repoReal = fs.realpathSync(repo);
+    const wrongReal = path.join(fs.realpathSync(root), 'wrong-flint');
+    const goneDir = path.join(fs.realpathSync(root), 'gone-flint');
+    fs.mkdirSync(wrongReal, { recursive: true });
+    const baseRow = {
       id: session, pid: process.pid, pgid: null, socketPath: path.join(root, 'none.sock'), runtime: 'claude',
       flintPath: flintReal, orbRootDir: path.join(flintReal, '.orb'), startedAt: new Date().toISOString(),
-    }, null, 2)}\n`);
-    const commit = (mode, ignoreTerm, noCwd = false) => {
+    };
+    const writeRow = (home, row) => {
+      fs.mkdirSync(path.join(home, 'managers'), { recursive: true });
+      fs.writeFileSync(path.join(home, 'managers', `${session}.json`), `${JSON.stringify(row, null, 2)}\n`);
+    };
+    writeRow(orbhHome, baseRow);
+    writeRow(tildeHome, baseRow);
+    const commit = (mode, ignoreTerm, noCwd = false, extraEnv = {}) => {
       fs.writeFileSync(pidsFile, '');
       fs.writeFileSync(path.join(repo, 'file.txt'), `${mode} ${Date.now()}\n`);
       git('add', 'file.txt');
       const env = {
         ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
         ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint, ORBH_HOME: orbhHome,
-        FAKE_FLINT_MODE: mode, FAKE_PIDS: pidsFile, FAKE_FLINT_DIR: flintReal,
+        FAKE_FLINT_MODE: mode, FAKE_PIDS: pidsFile, FAKE_WANT_DIR: flintReal, FAKE_WANT_STORE: path.join(flintReal, '.orb'),
+        FAKE_WRONG_DIR: wrongReal,
       };
       delete env.ORBH_ORB_ROOT_DIR;
       if (noCwd) delete env.ORBH_CWD;
+      Object.assign(env, extraEnv);
       const started = Date.now();
       const result = spawnSync('/bin/sh', ['-c', `${ignoreTerm ? "trap '' TERM; " : ''}exec git commit -q -m "selftest ${mode}"`], {
         cwd: repo, env, encoding: 'utf8', timeout: 20000,
@@ -334,7 +371,7 @@ esac
       }
     };
     const cases = [
-      ['ok', false, true], ['error', false, false], ['two-lines', false, false], ['cwd-check', false, true, true],
+      ['ok', false, true], ['error', false, false], ['two-lines', false, false], ['where', false, true, true],
       ['slow-ok', false, true], ['slow', false, false], ['slow', true, false],
     ];
     for (const [mode, ignoreTerm, wantTask, noCwd = false] of cases) {
@@ -354,6 +391,27 @@ esac
         stopLeftovers(left);
       }
     }
+    // The Flint and the store of the reader with no ORBH_CWD (fix round 1 of the hook v2 live fix).
+    const rowCase = (name, setup, extraEnv) => {
+      setup();
+      const result = commit('where', false, true, extraEnv);
+      writeRow(orbhHome, baseRow);
+      check(result.status === 0, `${name}: the commit exits 0`);
+      check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops'), `${name}: the commit has the Task trailer of the session`);
+      check(!result.message.includes('wrong#ops'), `${name}: no Task trailer from another store`);
+    };
+    rowCase('a row with nested fields of the same names before the top-level fields', () => writeRow(orbhHome, {
+      extra: { flintPath: wrongReal, orbRootDir: path.join(wrongReal, '.orb') }, ...baseRow,
+    }), {});
+    rowCase('a relative ORBH_ORB_ROOT_DIR: it is made absolute from the working folder of the commit', () => undefined,
+      { ORBH_ORB_ROOT_DIR: 'local-store', FAKE_WANT_STORE: path.join(repoReal, 'local-store') });
+    rowCase('an absolute ORBH_ORB_ROOT_DIR wins over the store of the row', () => undefined,
+      { ORBH_ORB_ROOT_DIR: path.join(repoReal, 'local-store'), FAKE_WANT_STORE: path.join(repoReal, 'local-store') });
+    rowCase('a row whose Flint is gone: the working folder, and not the store of the row', () => writeRow(orbhHome, {
+      ...baseRow, flintPath: goneDir, orbRootDir: path.join(goneDir, '.orb'),
+    }), { FAKE_WANT_DIR: repoReal, FAKE_WANT_STORE: '' });
+    rowCase('ORBH_HOME of exactly ~: the row under HOME/managers', () => undefined,
+      { ORBH_HOME: '~', HOME: tildeHome });
     {
       // The body itself with SIGTERM ignored from its parent: git does not reset the signals here.
       fs.writeFileSync(pidsFile, '');
