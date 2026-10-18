@@ -17,7 +17,7 @@ flint orbh session return --await --until-group <g> "<result>"     # …and also
 
 `--wake-at` and `--until-group` require `--await` — a finished session has no next wake. `--wake-at` takes an ISO 8601 **datetime** (`2026-08-04T09:00`) or a `+duration` (`+45m`, `+2h`, `+1h30m`, `+1d`); a bare calendar date is rejected on purpose. Both are *additional* wake predicates: messages, requests, room and station activity can still wake you first.
 
-**Shard invocations.** When your Page shows `INVOCATIONS`, you are in a shard workflow: continue from its `read:` and `next:` lines, and read "Behaviours of Shard Invocations" in [[dev-knw-foh-cli]] before you pass `--with` or `--no-behaviours` to `close` or `return`.
+**Shard invocations.** When your Page shows `INVOCATIONS`, you are in a shard workflow: continue from its `read:` and `next:` lines, and read "Behaviours of Shard Invocations" in [[dev-knw-foh-cli]] before you pass `--with` or `--no-behaviours` to `close` or `return`. In a headless or subagent session, follow the `> [!headless]` callouts of the workflow. When `flint shard invoke` refuses because an artifact is not ready (`input-not-ready`), do not choose a way and do not edit the artifact: a subagent returns the refusal as the blocker, and a headless root can use `flint orbh approval request`.
 
 ## Agent Rules
 

@@ -9,6 +9,7 @@ orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
+  - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
 ---
 
 # Knowledge: Orbh Session Coordination
@@ -119,9 +120,13 @@ Orbh does not know shards. The Flint layer adds a pre-launch hook, so that a chi
 - **The first invoke nests.** The first `flint shard invoke <ref> <workflow>` of the child, when the child has no open frame of its own, uses that frame as its parent. After that, the top of the child's own stack is the parent of its next invoke. `--parent <id>` names another open frame, in any session. `--root` starts a new chain with no parent.
 - **Also after a resume.** A later run of the child (a resume after `return --await`, or a relaunch after a compaction) starts with no pre-launch hook. The launch record still gives the parent, so the nesting holds.
 - **A bare peer gets no parent.** The launch host of a bare `launch` has no launcher session. When a peer must nest under your frame, give it the frame id in its prompt, and tell it to run `flint shard invoke <ref> <workflow> --parent <id>`.
+- **The mode of the child.** A subagent or a headless child runs its invocations in the headless mode: the mode comes from its Orbh session. It loads the shard with `flint shard start <ref>`, follows the `> [!headless]` callouts of the workflow, and its invocation skips each step that only a person can do. Do not tell it to pass `--headless` or to run `hstart`: both are deprecated.
+- **Not ready.** When the child's invoke refuses because an artifact is not ready (`input-not-ready`), the child does not choose a way: it returns the refusal and its ways as the blocker. Give the choice to the person, then dispatch the way that the person picks.
 - **Close order.** A parent frame cannot close while a child frame is open: `flint shard invocations close` refuses, and `--abandon-children '<why>'` closes the children first. When a child frame closes, the parent record gets its outcome and its outputs. When the launcher session closes or finishes first, its own frames close, and a child frame in another session stays open with a warning. Thus collect the child before you close.
 
 `flint orbh page <id>` and `flint shard invocations stack --session <id>` show the stack of a child. A frame whose parent is in another session shows `part of: <frame> · session <id>`. The details are in [[knw-f-invocations]] (Flint shard).
+
+**A sequence across sessions.** The stack is one axis. The other axis is a sequence over time on one artifact: one session closes `scope_task` on a task, and a later session opens `do_task` on the same task. The later invocation links to the earlier one (`continues`), and when the earlier one is of the same workflow and did not close `done` (for example its session closed), the later one copies its settled steps. Thus a new session continues the work of an ended session with no handoff. When the earlier invocation is still open in a live session, the invoke refuses (`continue-open`): two sessions must not work on one artifact at the same time. `flint shard invocations --artifact '<artifact>'` shows the thread.
 
 ## The Orchestrator Singleton
 

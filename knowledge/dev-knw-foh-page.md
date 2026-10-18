@@ -9,6 +9,7 @@ orbh-sessions:
   - "[[79de8b0a-567e-459f-a720-182c53f09b46]]"
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
+  - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -93,6 +94,7 @@ INVOCATIONS  you are in: rpt create · (Task) 744 Nested Invocations
 | `you are in:` | The top of the stack: the innermost open frame of this session. `●` marks its row. |
 | A frame row | One open frame: the shard and the workflow, the subject, the current step (`step n/total <id>`), the invocation id, and the age. A child is under its parent (`└─`). |
 | `part of:` | The frame has its parent in another session (or the parent is closed). The line names the parent frame and the first 8 characters of its session. |
+| `toward:` | The frame was opened with `--toward '<shard> <workflow>'`: it makes its artifact ready for that workflow. When the frame closes `done`, the close checks that workflow first and prints its command. The workflow can do less toward a target (for example, no confirm of a person): read its `# Invocation` section. |
 | `read:` | The stage of the Markdown workflow to read again for the current step. |
 | `next:` | What to do for the current step: the hint text of the step, then the exact commands. Each value in a command is in POSIX single quotes. Run a command as it is, and replace only `<…>`. |
 | `close:` / `return:` | The opt-in behaviours of all open frames, as the `--with` flags of `flint orbh close` and `flint orbh session return` ([[dev-knw-foh-cli]] § Behaviours of Shard Invocations). |
@@ -103,6 +105,8 @@ How to use it:
 - Read INVOCATIONS first after a wake, a resume, or a compaction. It tells you where you are with no memory of the earlier context.
 - Read the stage in `read:`. Then do `next:`. `flint shard step` prints the same lines for the top frame, and `flint shard invocations stack` prints the whole stack.
 - Each write to a record (`flint shard invoke`, `flint shard step done|skip`, `flint shard invocations set-input|set-output|close`) ends with the same `now:`, `read:`, `next:`, and `part of:` lines. After a child closes, the first line is `back in:` and names the parent. One pure function makes the text for the CLI, the Page, and Steel, so they agree.
+- A `done` close of a frame can print the next workflow: `ready:` and `next:` (its `invoke` command), or `not ready:` with the ways. The block then has no frame for it: the next workflow is not open. Give the command to the person, or put it in your result.
+- In a headless or subagent session, the frames run in the headless mode: follow the `> [!headless]` callout of the stage in `read:`. A step that only a person can do is skipped at the open, so `now:` does not show it.
 
 The steps, the hints, and the record are in [[knw-f-invocations]] (Flint shard).
 

@@ -7,6 +7,7 @@ orbh-sessions:
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[1d490a0f-e91e-4f57-930e-350f5cbd0f18]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
+  - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
 ---
 
 # Knowledge: Self-Compaction at 80%
@@ -56,7 +57,7 @@ A shard invocation is a Flint record of the session (`.flint/invocations/`), key
 
 **Name the open frames in the handoff.** The Page that `compact start` prints has only the core blocks: it has no INVOCATIONS block. Thus run `flint shard invocations stack` before you write the handoff. Then:
 
-- in OPEN OBLIGATIONS, write one line for each open frame: its id, its label, its current step, and the command that continues it (`flint shard step`, or the `next:` command of the top frame);
+- in OPEN OBLIGATIONS, write one line for each open frame: its id, its label, its current step, its `toward:` target when it has one, and the command that continues it (`flint shard step`, or the `next:` command of the top frame);
 - in FILES, list the Markdown workflow of the top frame and the artifact of each frame, each as an absolute path with ` :: <reason>`.
 
 **After an Orbh compaction.** The relaunched context runs `flint orbh page` first. That Page has the INVOCATIONS block ([[dev-knw-foh-page]]). Read the stage in `read:` again, and continue from `next:`. `flint shard step` prints the same lines for the top frame.

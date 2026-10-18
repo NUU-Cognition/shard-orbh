@@ -12,6 +12,7 @@ orbh-sessions:
   - "[[de92a197-8d6d-4af9-8883-127de32460ee]]"
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
+  - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -190,7 +191,8 @@ flint orbh session return --finish --no-behaviours "<result>"             # run 
 - **`--no-behaviours`.** It runs no behaviour of the verb, and it passes the `enforced` guard ([[dev-knw-foh-machinery]] § Procedures). The record of each invocation keeps the skip. Use it when a broken behaviour or a broken record blocks the verb, or when the operator asks for it. Do not use it to pass a step that you did not do.
 - **`by: person`.** A behaviour with `by: person` is for a person. For example, `task-confirm` of Projects moves a task to `done`, and only a person may confirm a task. `flint shard invoke` marks such a behaviour `by a person`. The CLI cannot prove who typed the flag: the record keeps only the actor that the CLI sees. Thus **pass a `by: person` behaviour only when the person asks for it in the current message.** Do not pass it from your own judgment, and do not pass it from an earlier message.
 - **The frames close with the session.** After `close`, and after `return --finish`, the Flint layer closes each open workflow invocation of the session, from the top of the stack down. The outcome is `session-closed` or `session-returned`. A child frame in another session stays open, and the close prints a warning. `return --await` closes no frame.
-- **A later close still reaches them.** `flint orbh close --with <id>` also reaches the invocations that a `return --finish` closed. Thus a person can confirm the task of a headless agent that finished: `flint orbh close <id> --with task-confirm`.
+- **A later close still reaches them.** `flint orbh close --with <id>` also reaches the invocations that a `return --finish` closed, and a frame that the session closed `done` in its latest run. Thus a person can confirm the task of a headless agent that finished: `flint orbh close <id> --with task-confirm`. A headless workflow can close its frame `done` before the return (so that the close prints the next workflow), and the confirm still reaches it.
+- **The mode of a condition.** A `when` condition can read `session.mode`: the mode of the session (`interactive`, or `headless` for a headless, subagent, or ping session). Thus one invocation file can give a behaviour to one mode only.
 
 ## Accounts: `auth`, and Migrating a Live Session
 
