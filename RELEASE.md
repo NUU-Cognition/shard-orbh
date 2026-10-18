@@ -1,3 +1,9 @@
+# 0.7.0
+
+- **Readiness, continuation, and modes, the session side** (NUU Orbh Task 748). The Page shows the `toward:` line of an open frame, and a child command names `--mode` only when the mode of the frame differs from the session (the Page gets the session mode). `session.mode` in a behaviour `when` is the recorded mode of the frame. `continue-open` counts an awaiting session as live. A child session uses no `--headless` and no `flint shard hstart`: both are removed and refuse with the next command. Links go to `knw-f-invocations` for the details.
+- **The commit-trailer hook, body v2** (NUU Flint Task 1287). The hook also adds a `Task: <address>` trailer from the task pin of the session (`core:task`). With no `ORBH_CWD`, it finds the Flint of the session through the manager row of `ORBH_SESSION_ID`. The read waits at most about 2.5 s; at the limit it adds no Task trailer and still exits 0, so it never stops a commit. A release does not install the hook: run `flint shard orbh commit-trailers install --repo <repo>` in each repository. New knowledge: The Task Pin (`knw-foh-cli`) and The TASK Line (`knw-foh-page`).
+- **Profiles** (NUU Orbh Task 746): `knw-foh-profiles` describes the default and small-default profiles, the small-default fallback of the auth refresh ping, the parallel refresh, and how a bare runtime resolves in the launch verbs and in ping.
+
 # 0.6.0
 
 - **Shard invocations, the session side** (NUU Orbh Tasks 743 and 744). Orbh does not know shards; the Flint layer adds invocations through seams, and the docs say so. Links go to `knw-f-invocations` (the use side) and `knw-knap-invocations` (the authoring side) for the details.
