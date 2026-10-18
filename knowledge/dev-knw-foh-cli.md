@@ -13,6 +13,7 @@ orbh-sessions:
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
+  - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -126,6 +127,28 @@ flint orbh inspect <id> --results
 `session ask` records a blocking request, suspends the live run, and returns the human response on stdout. Use it only when a headless root genuinely cannot proceed; prefer the non-blocking `flint orbh approval request` gate, and subagents return blockers to their dispatcher instead of opening either. `note` appends an annotation without changing lifecycle. For durable progress narration an operator can read, use `flint orbh update` — see [[dev-knw-foh-machinery]].
 
 Common free-form keys are `phase`, `progress`, `blockers`, `artifacts`, and `confidence`. Leave `core:*` slices to Orbh/Page internals.
+
+### The Task Pin (`flint orbh task`)
+
+A session pins one Ops task or one Ops task group. The pin tells the Page, the commits, and Ops which task the session works on. The CLI `ops` holds the tasks; the verbs below call it.
+
+```bash
+flint orbh task pin <ref> [--org <slug>] [--no-sync]   # Pin a task or a task group, and attach the session in Ops
+flint orbh task unpin                                  # Clear the pin; it stays in the list of earlier pins
+flint orbh task show [--json]                          # Print the pin; refresh the title, the status, and the stage from Ops
+flint orbh task sync                                   # Attach the session in Ops again, with the current work state
+```
+
+- `<ref>` is a Convex id or an Ops address: `@v1/<org>/task/<id>#ops`, `@v1/<org>/task.dev/<id>#ops`, or `@v1/<org>/taskgroup/<id>#ops`. Give `--org` with a plain id when the default org of `ops` is not the org of the task.
+- `pin` resolves `<ref>` with `ops task show <ref> --json`, or `ops task group show <ref> --json` for a task group. Then it attaches the session: `ops task attach <address> session <session address> --session-id <id> --label "<session title>" --state <workState> --json`. The session address has the form `@v1/<org>/session/<uuid>#flint/<slug>#<machine>`.
+- When the attach fails, the pin is still set, and it is `sync pending`. The verb prints the retry command (`flint orbh task sync`). `--no-sync` pins with no attach; the pin is `sync pending` until `sync`.
+- A second pin replaces the first pin. The first pin goes to the list of earlier pins, and its Ops attachment stays. A pin of the same address again keeps its pin time.
+- `unpin` makes no Ops call. The Ops attachment stays as history.
+- `show` reads Ops when Ops answers. When Ops does not answer, it prints the stored values and says so.
+- `ops` is the command in `NUU_OPS_CLI`, default `ops`. A value that names a file runs that file; another value runs in `/bin/sh` (for example `NUU_OPS_CLI="node /path/to/cli.js"`).
+- Each verb targets your own session (`ORBH_SESSION_ID`). `--session <id>` targets another session. Do not pin a task to a session of another person.
+
+The pin is two interface keys. `core:task` holds the address; a session has a pin only while this key holds an address. `core:task-info` holds the JSON record: `{kind, address, org, id, title, status?, stage?, tasks?, pinnedAt, sync, previous}` (`tasks` is the count of tasks of a task group). After an unpin, `core:task-info` holds only `previous`. The Page shows the pin on the `TASK` line ([[dev-knw-foh-page]]), and the commit hook adds `Task: <address>` ([[dev-knw-foh-fleets]] § Commit trailers). Write the keys only with these verbs.
 
 ### Event Subscription (`session await`)
 

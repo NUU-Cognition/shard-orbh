@@ -10,6 +10,7 @@ orbh-sessions:
   - "[[0e5e27b5-779f-4068-941e-a93a7a39d3c8]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
+  - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -73,6 +74,24 @@ Do not use these forms:
 Self Page reads may mutate Page counters and drain inbox state; observer reads do not. Page functions fail independently with a warning. Treat `core:*` interface slices as reserved.
 
 Other env knobs on this surface: `ORBH_PAGE_SELF_CHECK_GAP_MS`, `ORBH_PAGE_STALE_DESC_READS`, `ORBH_PAGE_RETURN_DISCIPLINE_READS`.
+
+## The TASK Line (`core/task`)
+
+The core function `core/task` shows the task pin of the session, right after the `FLEET` line. It shows one line while the session pins a task or a task group (`flint orbh task pin`), and nothing when the session has no pin:
+
+```
+TASK  Build the pin · doing · built · @v1/nuucognition/task.dev/k17abc0def#ops
+TASK  Build the pin · doing · built · @v1/nuucognition/task.dev/k17abc0def#ops · sync pending
+TASK  group Wave 1 · 2 tasks · @v1/nuucognition/taskgroup/k99group01#ops
+```
+
+- A task shows its title, its status (`todo`, `doing`, or `done`), its stage when it has one, and its address.
+- A task group shows `group`, its title, its count of tasks, and its address.
+- `sync pending` means that Ops does not have the attach of the session yet. Run `flint orbh task sync`.
+- The line reads only the session keys `core:task` and `core:task-info`. It makes no network call, so the values are the values of the last `pin`, `show`, or `sync`. Run `flint orbh task show` to refresh them from Ops.
+- When `core:task` holds an address with no record, the line shows only the address.
+
+The verbs and the keys are in [[dev-knw-foh-cli]] § The Task Pin.
 
 ## The INVOCATIONS Block (`flint/invocations`)
 

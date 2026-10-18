@@ -2,6 +2,7 @@
 description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh field and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
 orbh-sessions:
   - "[[528386a9-3de4-4ffb-9f92-dc12e4e6dcda]]"
+  - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 ---
 
 # Knowledge: Declared Fleets
@@ -122,16 +123,17 @@ A fleet speaks with one voice.
 - A session that the Flint server launches from an artifact gets the field from code: the server writes `orbh-fleet` when the new session is a member of an open fleet.
 - A session in no fleet, or a former member of a closed fleet, writes no `orbh-fleet`.
 
-### Commit trailers: `Orbh-Fleet` and `Orbh-Session`
+### Commit trailers: `Orbh-Fleet`, `Orbh-Session`, and `Task`
 
-The author of a commit stays the person. A commit of an Orbh session gets two trailers in its message:
+The author of a commit stays the person. A commit of an Orbh session gets two trailers in its message, and a third trailer when the session pins a task:
 
 ```
 Orbh-Fleet: overnight-orbh-1006
 Orbh-Session: 528386a9-3de4-4ffb-9f92-dc12e4e6dcda
+Task: @v1/nuucognition/task.dev/k17abc0def#ops
 ```
 
-A `prepare-commit-msg` hook adds them from `ORBH_FLEET_HANDLE` and `ORBH_SESSION_ID`. The manager installs it once in each repository that the fleet commits to:
+A `prepare-commit-msg` hook adds them. It reads `ORBH_FLEET_HANDLE` and `ORBH_SESSION_ID`, and the task pin of the session (the key `core:task`, set by `flint orbh task pin`; see [[knw-foh-cli]]). The manager installs the hook once in each repository that the fleet commits to:
 
 ```bash
 flint shard orbh commit-trailers status --repo <repo>     # the hooks folder and the state of the hook
@@ -141,16 +143,20 @@ flint shard orbh commit-trailers uninstall --repo <repo>
 flint shard orbh commit-trailers show                     # print the hook body
 ```
 
+The hook body has a version. Version 2 adds the `Task` trailer. `status` shows an older body, and `install` replaces it. Version 1 adds only `Orbh-Fleet` and `Orbh-Session`.
+
 What the hook does:
 
 - It adds `Orbh-Fleet` when `ORBH_FLEET_HANDLE` is a valid handle, and `Orbh-Session` when `ORBH_SESSION_ID` is a session id. A value of another shape is ignored.
+- It adds `Task` when the session has a task pin. It reads the pin with `flint orbh session get core:task` in the Flint of the session (`ORBH_CWD`). The value must be one line in the shape of an Ops address of a task or a task group (`@v1/<org>/task/<id>#ops`, `@v1/<org>/task.<subtype>/<id>#ops`, or `@v1/<org>/taskgroup/<id>#ops`). Another value is ignored.
+- The read of the pin gets at most 1 second; usually it takes less than 0.5 seconds. When the read is slower, fails, or finds no pin, the commit gets no `Task` trailer.
 - It changes only the message. It never changes the author, the committer, or the subject. It always exits 0, so it never stops a commit.
 - It does not add a trailer that the message already has with the same value (`--amend` adds no copy).
 - A message with no text stays empty, so an empty message still aborts the commit.
 - With neither variable set (a person in a terminal), it does nothing.
 - `install` refuses when a `prepare-commit-msg` hook of another owner exists, and it prints the one line to add. `--append` adds that line to the end of that hook.
 
-In a repository with no hook, add the trailers yourself: `git commit -m "<message>" --trailer "Orbh-Fleet: $ORBH_FLEET_HANDLE" --trailer "Orbh-Session: $ORBH_SESSION_ID" -- <path>...`. Do not do this in a repository that has the hook.
+In a repository with no hook, add the trailers yourself: `git commit -m "<message>" --trailer "Orbh-Fleet: $ORBH_FLEET_HANDLE" --trailer "Orbh-Session: $ORBH_SESSION_ID" -- <path>...`. Add `--trailer "Task: $(flint orbh session get core:task)"` when the session pins a task. Do not do this in a repository that has the hook.
 
 ## Peers and Stations
 

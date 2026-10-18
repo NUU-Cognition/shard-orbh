@@ -6,10 +6,12 @@
 //   uninstall           remove the hook body and the call; a hook of another owner keeps its other lines
 //   show                print the hook body
 //
-// The hook adds the trailers `Orbh-Fleet: <handle>` and `Orbh-Session: <id>` to the message of a
-// commit that an Orbh session makes. It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID (the run
-// environment of an Orbh session). It changes only the message: never the author, the committer,
-// or the subject, and it never fails a commit. With neither variable set, it does nothing.
+// The hook adds the trailers `Orbh-Fleet: <handle>`, `Orbh-Session: <id>`, and `Task: <address>` to
+// the message of a commit that an Orbh session makes. It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID
+// (the run environment of an Orbh session), and the task pin of the session (the key core:task, read
+// with `flint orbh session get core:task` in the Flint of ORBH_CWD, in at most 1 second). It changes
+// only the message: never the author, the committer, or the subject, and it never fails a commit.
+// With neither variable set, it does nothing.
 // --repo defaults to the current folder (the Flint root when flint runs the script).
 // See knw-foh-fleets, section "Commit trailers".
 'use strict';
@@ -21,13 +23,14 @@ const BODY_NAME = 'orbh-commit-trailers';
 const HOOK_NAME = 'prepare-commit-msg';
 const MARKER = '# orbh-commit-trailers';
 const CALL_LINE = `"$(dirname "$0")/${BODY_NAME}" "$@" || true`;
-const VERSION = 1;
+const VERSION = 2;
 
 const BODY = `#!/bin/sh
 ${MARKER} v${VERSION}: installed by \`flint shard orbh commit-trailers install\` (Orbh shard).
-# Adds the trailers Orbh-Fleet and Orbh-Session to the commit message of an Orbh session.
-# It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID. It changes only the message, never the
-# author or the committer, and it always exits 0, so it never stops a commit.
+# Adds the trailers Orbh-Fleet, Orbh-Session, and Task to the commit message of an Orbh session.
+# It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID, and the task pin of the session (the key
+# core:task). It changes only the message, never the author or the committer, and it always
+# exits 0, so it never stops a commit.
 msg_file="$1"
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
 
@@ -43,9 +46,35 @@ cc="$(git config --get core.commentChar 2>/dev/null)"
 case "$cc" in ''|auto) cc='#' ;; esac
 grep -v "^$cc" "$msg_file" | grep -q '[^[:space:]]' || exit 0
 
+# The task pin of the session: the key core:task, read in the Flint of the session. The hook waits
+# at most 1 second for the read (macOS has no timeout command): after that it stops the wait and
+# does not wait for the reader. A missing key, a missing flint command, an error, or a slow read
+# gives no Task trailer.
+task=''
+if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
+  out="$(mktemp "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || out=''
+  if [ -n "$out" ]; then
+    ( cd "\${ORBH_CWD:-.}" 2>/dev/null && flint orbh session get core:task >"$out" 2>/dev/null </dev/null; : >"$out.done" ) >/dev/null 2>&1 </dev/null &
+    reader=$!
+    tries=0
+    while [ ! -f "$out.done" ] && [ "$tries" -lt 10 ]; do sleep 0.1; tries=$((tries + 1)); done
+    if [ -f "$out.done" ]; then
+      task="$(cat "$out" 2>/dev/null)"
+    else
+      kill "$reader" 2>/dev/null
+    fi
+    wait "$reader" 2>/dev/null
+    rm -f "$out" "$out.done"
+  fi
+fi
+# Only one line in the shape of an Ops address of a task or a task group reaches the message.
+[ "$(printf '%s' "$task" | wc -l | tr -d ' ')" = 0 ] || task=''
+printf '%s' "$task" | grep -Eq '^@v1/[a-z0-9][a-z0-9_-]{0,63}/(task([.][a-z][a-z0-9]{0,31})?|taskgroup)/[A-Za-z0-9_-]{1,128}#ops$' || task=''
+
 set --
 [ -n "$fleet" ] && set -- "$@" --trailer "Orbh-Fleet: $fleet"
 [ -n "$session" ] && set -- "$@" --trailer "Orbh-Session: $session"
+[ -n "$task" ] && set -- "$@" --trailer "Task: $task"
 git interpret-trailers --in-place --if-exists addIfDifferent "$@" "$msg_file" >/dev/null 2>&1 || true
 exit 0
 `;
