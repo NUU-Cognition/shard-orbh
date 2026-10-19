@@ -1,3 +1,9 @@
+# 0.7.3
+
+- **The purpose and the proper name of a wisp** (revision R30 of NUU Orbh Mission 027). `knw-foh-identity`: the `mission` of a wisp is now its `purpose` (`flint orbh wisp gain --purpose "<text>"`; `--mission` stays as a hidden alias for one release, and an old `mission` reads as the purpose). The new verb `flint orbh wisp purpose "<text>"` sets the purpose of an active wisp later. A person sees the alias as a proper name ("Rural Amazed Moonbeam"); the stored alias and each address keep the lowercase form. No Roman numeral is added to an alias.
+- **The production-day recipe** (fleet `nuu-day-1011`, Report 114) is now in `knw-foh-fleets` under "Fleet Recipes". Before, it was only a local edit of one installed build.
+- Requires a Flint CLI with R30 (flint `429d52120` or later) for `--purpose` and `flint orbh wisp purpose`.
+
 # 0.7.2
 
 - **Agent identity and session mechanics** (NUU Orbh Mission 027, fleet `agent-identity-1019`). New knowledge `knw-foh-identity`: the tiers (session, wisp, orb, comet, star); the mechanics (dispatch, fork, parallel fork, birth, consume, compact); the rule "context copies, obligations move"; the wisp verbs and the alias rule (word lists version 4); `flint orbh consume` and `flint orbh consume handoff`; `flint orbh birth` and `flint orbh fork --parallel`; and the lineage route.
