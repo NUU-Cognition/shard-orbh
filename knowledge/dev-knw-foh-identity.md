@@ -95,7 +95,7 @@ Inside its store, Orbh keeps kinds and keys (a UUID or a name). Where a record l
 A note records each session that edited it in the field `orb:`, as a list of v1 addresses. The full rule is in [[knw-f-artifacts]] § Session Tracking. In short:
 
 - Append the `by` address of `flint address me` to `orb:`. Quote it.
-- Add nothing when `orb:` or `orbh-sessions` already has your session.
+- Add nothing only when `orb:` or `orbh-sessions` has an item that is exactly your `by` address, the short form `@v1/<org>/session/<uuid>`, `[[<uuid>]]`, or your bare `<uuid>`. Do not parse other items: append your address (R27). A rare duplicate of another valid form is accepted, because each reader matches by kind and key.
 - Old notes keep `orbh-sessions`. Never remove it, and add no new item to it. Each reader reads both fields.
 - Stamp only the session (`by`), not the wisp. Orbh finds the wisp from the session.
 
@@ -155,7 +155,8 @@ flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<p
 - The prompts of a parallel fork: none (the default prompt), one for all forks, or exactly `n` (else `parallel-prompts-mismatch`). `--prompt-file` reads one prompt from a file. Give it once for each fork, or once for all forks. Do not give it with a prompt argument.
 - `--fleet <handle>` joins each fork to that open fleet when it starts. The fleet must exist.
 - `--attach` with more than one fork refuses.
-- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`), and it gets the `wispId` of the wisp. When the wisp has ended, was consumed, or is not in the store, the fork is a plain session: it does not join the wisp, and it has no `wispId`. The fork still starts (exit 0), and the command prints why it did not join (R19).
+- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`). The fork gets the `wispId` of the wisp.
+- **A fork of an inactive wisp is a plain session** (R19). The wisp of the source has ended, was consumed, or is not in the store. Then the fork does not join the wisp. The fork has no `wispId`. The fork still starts, and the command exits 0. The command prints why the fork did not join. When the wisp store refuses the join, the fork also has no `wispId`.
 - The HTTP fork answer has the field `wisp: { wispId, joined, reason? }` when the source has a wisp (R24).
 - The fork records `relations.forkedFrom` (the source, its run, and the time).
 
@@ -210,7 +211,8 @@ The current session (the consumer) consumes each source. A source is a session (
   | Cannot run (an interactive session with no live manager, a ping, a run open on another machine, no transcript, no run) | The consumer writes a handoff from the record, with `writtenBy: reconstructed`. |
 
 - **The notice** starts with `ORBH CONSUME NOTICE`. It names the consumer and the path of the handoff: `<source spool>/scratch/consume-handoff-<consumer id>.md`. It lists each open shard invocation frame of the source. It tells the source to finish its step, read its Page and `flint shard invocations stack`, and write its handoff. The source does not commit, end or kill other sessions, or dispatch new work.
-- **The source ends its handoff turn with `flint orbh consume handoff`.** This turn-ending verb checks the handoff while the source is alive. When it refuses, the turn stays alive: the source fixes the handoff and runs the verb again. The verb settles no shard invocation frame. The source must not use `flint orbh session return`, because a return settles the open frames.
+- **The source ends its handoff turn with `flint orbh consume handoff`.** This turn-ending verb checks the handoff while the source is alive. When it refuses, the turn stays alive: the source fixes the handoff and runs the verb again. The verb settles no shard invocation frame.
+- **`flint orbh session return` refuses under a live consume claim** (R25). The refusal comes before any lifecycle step, so the return writes no result. The turn stays alive, and each frame stays open. The refusal names the next command: `flint orbh consume handoff`. Thus a source that does not follow the notice still ends its turn with `consume handoff`. A claim of another machine counts as live. A claim whose process is gone does not stop a return.
 - **Each open frame stays open** (R23). The source does not step, close, or settle a frame. Its handoff lists each frame in OPEN OBLIGATIONS: the frame id, the step, and the command that continues it. The check of a handoff that the source wrote requires each frame id. A reconstructed handoff also lists each frame with its continuation command. The consumer continues each frame, or closes it with `flint shard invocations close <id> --outcome dropped`.
 - **The check of each handoff.** Orbh checks the contract, `purpose: consume`, `source`, and the frame ids. When the handoff is not valid, the source gets one more turn with the errors. After that, the consumer writes a reconstructed handoff. When the turn of a source does not end in time, the source is skipped: it is not consumed, the notice stays in its inbox, and the command exits 1. Run `consume` again after its turn ends.
 - **The transfer of obligations:**

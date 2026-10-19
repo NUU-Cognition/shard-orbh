@@ -112,7 +112,7 @@ A fleet speaks with one voice.
 `authors` stays the person. The fleet does not become a Mesh author.
 
 - When a member creates or edits a Mesh artifact, it adds `orbh-fleet: <handle>` to the frontmatter, beside `orb:` and `authors`. Read the handle from `ORBH_FLEET_HANDLE`, or from `flint orbh actor show --json`.
-- **`orb:` holds the sessions.** It is a list of v1 addresses, one for each session that edited the note. Append the `by` address of `flint address me` (`@v1/<org>/session/<uuid>#flint/<slug>`), quoted. Add nothing when `orb:` or `orbh-sessions` already has your session. The full rule is in [[knw-f-artifacts]] § Session Tracking.
+- **`orb:` holds the sessions.** It is a list of v1 addresses, one for each session that edited the note. Append the `by` address of `flint address me` (`@v1/<org>/session/<uuid>#flint/<slug>`), quoted. Add nothing only when `orb:` or `orbh-sessions` has an item that is exactly your `by` address, the short form `@v1/<org>/session/<uuid>`, `[[<uuid>]]`, or your bare `<uuid>`. Do not parse other items. The full rule is in [[knw-f-artifacts]] § Session Tracking.
 - **Old notes keep `orbh-sessions`.** Notes from before the v1 addresses have `orbh-sessions` (`"[[<uuid>]]"` items). Never remove it, and add no new item to it. Each reader reads both fields.
 - When `orbh-fleet` names another fleet, make it a list and append your handle, as `orb:` does:
 
