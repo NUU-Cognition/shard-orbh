@@ -260,6 +260,15 @@ These shapes worked in past fleets (Report 073):
 4. **Research, builders, and an independent verifier.** A verifier that did not build the code runs every gate again at the end and drives the real surface.
 5. **Two-level fan-out for bulk work.** Sub-leads each manage about 5 helpers. This keeps each parent under the fan-out cap.
 6. **Serial steps with a verify step every five.**
+7. **A production day: build, check, deploy** (fleet `nuu-day-1011`, 2026-10-11, Report 114: 8 lanes accepted and 11 deploys to production in 7.5 hours).
+   - Give each lane one app and one fixed rubric (closed loops, states, the UI standard, orgs, speed, validity, simplicity, evidence). Each lead first walks its app as a new user and records a "before" video; the list of open loops from that walk is its plan.
+   - Let the leads agree a cross-app contract in the room (one short draft, a yes or a change from each lead, a deadline). The landing contract of three apps took 30 minutes.
+   - Each lead writes its ACCEPT steps: the browser and the sign-in line, at most 8 steps with the exact click and the exact expected text, and a CLEAN UP line. Independent checkers that built nothing run them (2 lanes for each checker, about 25 minutes) and post one video of each loop. Start the check when most leads wait for it, not at a fixed time.
+   - Before the deploy wave, a read-only release planner writes the plan of each app (the URL, the host, the backend, the order, the migrations, the env names, the rollback). Deploy operators run from a clean worktree, each app at its own last reviewed commit, with a data snapshot, an env guard, and a manager gate before each backfill (read a read-only diff first). Post each deploy in the operator channel 10 minutes before. A component without build output stops a Convex push before any upload: build it in the worktree and retry once.
+   - A fix of a security finding gets one more review round, also after the stop rule: in this fleet, two such rounds found two new authorization faults.
+   - When lanes finish early, run a second wave on dev, then a regression check that runs the first ACCEPT steps again.
+   - Resources: one headless browser with a live dev page costs about 1 GB and one third of a CPU; 11 of them filled the memory. Allow one open browser for each lane, and close it after each check. An account can fail in the middle of the day ("api-error (login or access)" in `flint orbh inspect <id>`); move its sessions with `flint orbh auth migrate <account> --session <id>`.
+   - Videos: an agent-browser recording opens a fresh context that drops a dev sign-in, so start the recording on the sign-in link, and change the URL with `eval "location.href=..."`, never `open`. The real Chrome gives no frames for a background tab; use it only for read-only production checks with screenshots.
 
 Also: probe a new runtime with one `flint orbh ping` before a wave on it. Write the reports into the Mesh. Compact at 80% or above ([[dev-knw-foh-compaction]]). A manager never blocks on a human: use `flint orbh approval request`, and put the expiry in `blockers`.
 
