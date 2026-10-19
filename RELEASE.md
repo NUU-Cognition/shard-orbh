@@ -1,3 +1,10 @@
+# 0.7.2
+
+- **Agent identity and session mechanics** (NUU Orbh Mission 027, fleet `agent-identity-1019`). New knowledge `knw-foh-identity`: the tiers (session, wisp, orb, comet, star); the mechanics (dispatch, fork, parallel fork, birth, consume, compact); the rule "context copies, obligations move"; the wisp verbs and the alias rule (word lists version 4); `flint orbh consume` and `flint orbh consume handoff`; `flint orbh birth` and `flint orbh fork --parallel`; and the lineage route.
+- **The field `orb:`**: `knw-foh-fleets` names `orb:` (a list of v1 session addresses) beside `orbh-fleet`. New writes go to `orb:`. Old notes keep `orbh-sessions`, and each reader reads both fields. The fleet doctrine also has the shared-file rule: add an export line only in the same commit as its files, and build the package of a new export before a loaded module imports it.
+- `init-foh` and `knw-foh-cli` list the new knowledge file.
+- Requires a Flint CLI with Mission 027 (flint `9314abc` or later) for `flint address me` and the new verbs.
+
 # 0.7.1
 
 - **The commit-trailer hook, body v2, fix round 2** (NUU Flint Task 1287): a rejected `ORBH_CWD` falls back to the working folder, and a relative `NUU_HOME` or `ORBH_HOME` becomes absolute. The hook still never stops a commit.
