@@ -19,7 +19,7 @@ The tiers use one analogy: energy is intelligence. A tier says how much form the
 | Tier | The energy | Lifetime | What it holds | Can it be consumed? |
 |---|---|---|---|---|
 | **Session** | A spark: one short discharge for one call | One call: a request, then a result | The session record only | Yes |
-| **Wisp** | Loose energy, like plasma. It holds together for a mission. | Until its mission ends | A UUID, a generated alias, a mission, its sessions, and its lineage | Yes |
+| **Wisp** | Loose energy, like plasma. It holds together for a purpose. | Until its purpose is done | A UUID, a generated alias, a purpose, its sessions, and its lineage | Yes |
 | **Orb** | Energy with a stable form: a sphere | Permanent | A mind in one home | **Never** |
 | **Comet** | A formed body with a trajectory | Permanent | A mind and its own goal | **Never** |
 | **Star** | Energy that sustains itself | Continues with no planned end | Not bound to one home, body, model, or machine | **Never** |
@@ -33,10 +33,11 @@ The tiers use one analogy: energy is intelligence. A tier says how much form the
 
 ## The Wisp
 
-A wisp is a named identity with a mission. It has its own UUID, and it can hold many sessions.
+A wisp is a named identity with a purpose. It has its own UUID, and it can hold many sessions.
 
 ```bash
-flint orbh wisp gain [--mission "<text>"] [--session <id>] [--json]   # the current session gains a wisp
+flint orbh wisp gain [--purpose "<text>"] [--session <id>] [--json]   # the current session gains a wisp
+flint orbh wisp purpose "<text>" [--wisp <ref>]                         # set the purpose of an active wisp later
 flint orbh wisp show [<id|prefix|alias>] [--session <id>] [--json]      # default: the wisp of this session
 flint orbh wisp list [--all] [--json]                                   # active wisps; --all adds ended and consumed wisps
 flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the sessions keep their link to it
@@ -53,14 +54,22 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 - **The same UUID gives the same first alias.** The salt starts at `0`. When an active or ended wisp of the local store has the alias, Orbh uses the next salt (up to `64`).
 - **The alias is proposed.** `aliasStatus` is `proposed` until the network claims the alias. The claim (`wisp.claimed`) comes with the network. It is not built.
 - **The alias is a handle, not the key.** A program and a record store the id form (`@v1/<org>/wisp/<uuid>`). A person types the alias, and a UI shows it.
+- **A person sees the alias as a proper name** (R30). Each word has a capital first letter, and spaces separate the words: `rural-amazed-moonbeam` shows as "Rural Amazed Moonbeam". The stored alias and every address keep the lowercase form. JSON output keeps `alias` and adds `displayName`.
+- **No Roman numeral is added to an alias** (R30). A clash already gives the next salt. A numeral can come later only to mark a wisp that continues an ended wisp.
 - **One session has one wisp.** A second `wisp gain` refuses with `WISP_ALREADY_GAINED`. The session gets the metadata key `wispId`.
+
+### Its Purpose
+
+- **The purpose** says what the wisp is for, in one line (R30). Give it at `wisp gain --purpose "<text>"`.
+- **Set it later** with `flint orbh wisp purpose "<text>" [--wisp <ref>]`. Only an active wisp takes a new purpose. The event is `wisp.purposeSet { wispId, from, to }`.
+- **The old name was `mission`.** A reader takes the key `mission` of an old `wisp.gained` event as the purpose. `--mission` stays as a hidden alias of `--purpose` for one release.
 
 ### Its Life
 
 - **Active.** `wisp gain` makes the wisp with its first session (the origin). A fork of a member joins the wisp (`via fork`), when the wisp is active.
 - **Ended.** `wisp end "<reason>"` ends an active wisp. Its sessions keep their link to it.
 - **Consumed.** A consume of the wisp ends it, when each member session is consumed (see § Consume).
-- The events in the Orbh store: `wisp.gained`, `wisp.joined` (`via` is `fork`, `consume`, or `join`), `wisp.renamed`, `wisp.ended`, and `wisp.consumed`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
+- The events in the Orbh store: `wisp.gained` (with the field `purpose`), `wisp.purposeSet`, `wisp.joined` (`via` is `fork`, `consume`, or `join`), `wisp.renamed`, `wisp.ended`, and `wisp.consumed`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
 - There is no verb for a join or a rename now.
 
 ## Addresses and Their Levels
@@ -174,7 +183,7 @@ flint orbh birth "<topic>" [<target>] --from <id> [--from <id>…] [--attach] [-
 - Each seed is a file at a durable path in the spool of the new session: `scratch/birth-seed-<parent id>.md` (R22). The seed turn writes to that path. The prompt of the new session names each path.
 - A birth on an explicit store (`--orb-root` or `--at`) starts the new session in that store, also outside a Flint (R22).
 - **No obligation moves.** The parents stay as they are. A finished session can be a parent of many births.
-- **A birth starts outside each wisp.** Its topic is new, so its mission is new.
+- **A birth starts outside each wisp.** Its topic is new, so its purpose is new.
 - The new session records `relations.bornFrom` (each parent, its seed, and `writtenBy`).
 
 ### Consume
