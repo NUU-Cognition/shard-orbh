@@ -3,6 +3,7 @@ description: "Agent identity and session mechanics — the tiers (session, wisp,
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/833dd8ce-af50-4489-ad77-928b15e875de#flint/nuu-orbh"
 ---
 
 # Knowledge: Agent Identity and Session Mechanics
@@ -176,7 +177,7 @@ flint orbh fork [<target>] ["<prompt>"] [--session <id>] [--compact] [--attach] 
 flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<prompt>"]
 ```
 
-- A fork is a new detached interactive session. Its context file is the transcript of the source, or with `--compact` a distilled seed (`HANDOFF_ARTIFACT_V1`, `purpose: seed`, `writtenBy: reconstructed`) that Orbh checks as the seed of a birth. When the check fails, the fork still gets the distilled text, and its context file names the errors. The source continues as it is, and its obligations stay with it.
+- A fork is a new detached interactive session. Its context file is the transcript of the source, or with `--compact` a distilled seed (`HANDOFF_ARTIFACT_V1`, `purpose: seed`, `writtenBy: reconstructed`) that Orbh checks as the seed of a birth: the form, the head, and each FILES path. When no seed passes the check, `fork --compact` refuses with `seed-failed` and makes no fork. The next command is the same fork without `--compact`. The source continues as it is, and its obligations stay with it.
 - `--parallel <n>` makes 1 to 8 forks. Orbh reads the source one time. Each fork gets its own copy of the context file in its spool.
 - The prompts of a parallel fork: none (the default prompt), one for all forks, or exactly `n` (else `parallel-prompts-mismatch`). `--prompt-file` reads one prompt from a file. Give it once for each fork, or once for all forks. Do not give it with a prompt argument.
 - `--fleet <handle>` joins each fork to that open fleet when it starts. The fleet must exist.
@@ -278,7 +279,7 @@ A compaction gives the same session id a new context from its own handoff. The o
 - `flint orbh compact start` prints the contract `HANDOFF_ARTIFACT_V1` with `purpose: compact`, `writtenBy: self`, and `source:` with the id of the session (task jn77hb87). It needs GOAL, OPEN OBLIGATIONS, and FILES.
 - `flint orbh compact handoff` still accepts the old contract `COMPACTION_ARTIFACT_V1`.
 - A compaction keeps the wisp, its memory, the wisp name in the title, and the scratch folder, because the id stays.
-- `fork --compact` is different: a distiller writes a seed (`purpose: seed`, `writtenBy: reconstructed`, `for: a fork of session <id>`), and Orbh checks it as the seed of a birth. The seed lists the obligations of the source only for information: they stay with the source.
+- `fork --compact` is different: a distiller writes a seed (`purpose: seed`, `writtenBy: reconstructed`, `for: a fork of session <id>`), and Orbh checks it as the seed of a birth. Its OPEN OBLIGATIONS has exactly one item: `- none: a fork moves no obligation; the obligations stay with the source`. A seed that lists an obligation of the source, or that fails the check, refuses with `seed-failed`.
 
 ## The Handoff Contract: `HANDOFF_ARTIFACT_V1`
 
