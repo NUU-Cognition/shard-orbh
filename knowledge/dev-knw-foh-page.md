@@ -11,6 +11,8 @@ orbh-sessions:
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
+orb:
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -92,6 +94,20 @@ TASK  group Wave 1 · 2 tasks · @v1/nuucognition/taskgroup/k99group01#ops
 - When `core:task` holds an address with no record, the line shows only the address.
 
 The verbs and the keys are in [[dev-knw-foh-cli]] § The Task Pin.
+
+## The WISP Line (`core/wisp`)
+
+The core function `core/wisp` shows the wisp of the session, right after the `TASK` line (task jn77hb87). It shows one line while the session is in a wisp, and nothing otherwise:
+
+```
+WISP  Rural Amazed Moonbeam · active · purpose: Build the lineage view · memory <orbRoot>/spaces/flint/spools/<wispId>/scratch/memory
+WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wispId>/scratch/memory
+```
+
+- The line shows the proper name of the wisp, its state (`active`, `ended`, or `consumed into <kind> <id>`), the first 100 characters of its purpose, and its memory folder.
+- Read `MEMORY.md` in the memory folder when you start or resume. The rules of the memory are in [[dev-knw-foh-identity]] § Its Memory.
+- The title of the session shows the same name: `<Wisp Name>: <title>`.
+- The line is read-only. `flint orbh wisp show` makes a missing memory folder.
 
 ## The INVOCATIONS Block (`flint/invocations`)
 

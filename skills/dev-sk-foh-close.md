@@ -2,6 +2,8 @@
 description: "Write a session summary, return the final turn, and close the session (terminates the harness and closes the terminal tab)"
 orbh-sessions:
   - "[[25f11f9b-67f7-46e6-ad6d-3089b3131066]]"
+orb:
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 > [!important] THIS FILE IS AN INSTRUCTION. WHEN REFERENCED IT IS MEANT TO BE TAKEN AS AN ACTION.
@@ -37,7 +39,7 @@ Wrap up the current Orbh session: write a per-session summary markdown file to t
 
 4. **Determine the runtime folder.** Use the runtime's display name as the subfolder of `Mesh/Agents/` — e.g. `Mesh/Agents/Claude Code/`, `Mesh/Agents/Codex/`. Create the folder if it does not exist.
 
-5. **Write the summary file** at `Mesh/Agents/<Runtime>/<session-id>.md`. Use [[dev-tmp-foh-close-v0.1]] for the structure. The machine field is required and must be the value resolved in step 2.
+5. **Write the summary file** at `Mesh/Agents/<Runtime>/<session-id>.md`. Use [[dev-tmp-foh-close-v0.1]] for the structure. The machine field is required and must be the value resolved in step 2. Stamp `orb:` with the `by` address of `flint address me` (quoted), as [[knw-f-artifacts]] § Session Tracking says.
 
 6. **Return the final turn.** Return a concise markdown summary including the summary-file path and the session outcome.
 

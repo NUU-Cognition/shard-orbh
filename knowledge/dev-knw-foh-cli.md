@@ -16,6 +16,7 @@ orbh-sessions:
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -359,7 +360,7 @@ flint orbh fleet leave [--session <id> | --station <name>] [--reason "<why>"]
 flint orbh fleet set <handle> name|charter|charter-ref|room|avatar|limits <value...>
 flint orbh fleet updates [<handle>] [--limit <n>] [--json]  # the updates of all members in time order
 flint orbh fleet close [<handle>] "<outcome>" [--report "<Mesh path>"] [--abandon] [--force]
-flint orbh actor show [--session <id>] [--json]             # the actor of an act now: fleet, agent, session, or person
+flint orbh actor show [--session <id>] [--json]             # the actor of an act now, in this order: agent, active wisp, open fleet, session; outside a session: person
 
 flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]
 flint orbh launch <target> "<duty>" --fleet <handle>        # a member peer

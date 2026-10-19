@@ -1,7 +1,8 @@
 ---
-description: "Agent identity and session mechanics — the tiers (session, wisp, orb, comet, star), the wisp identity and its alias, addresses and their levels, the actor (by and as), dispatch, fork, parallel fork, birth, consume, and compact (context copies, obligations move), the handoff contract, the rules of the polls, the names, and the lineage with its Steel view"
+description: "Agent identity and session mechanics — the tiers (session, wisp, orb, comet, star), the wisp identity, its alias, its name in titles, and its memory, addresses and their levels, the actor (by and as), dispatch, fork, parallel fork, birth, consume, and compact (context copies, obligations move), the handoff contract, the rules of the polls, the names, and the lineage with its Steel view"
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: Agent Identity and Session Mechanics
@@ -56,7 +57,23 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 - **The alias is a handle, not the key.** A program and a record store the id form (`@v1/<org>/wisp/<uuid>`). A person types the alias, and a UI shows it.
 - **A person sees the alias as a proper name** (R30). Each word has a capital first letter, and spaces separate the words: `rural-amazed-moonbeam` shows as "Rural Amazed Moonbeam". The stored alias and every address keep the lowercase form. JSON output keeps `alias` and adds `displayName`.
 - **No Roman numeral is added to an alias** (R30). A clash already gives the next salt. A numeral can come later only to mark a wisp that continues an ended wisp.
-- **One session has one wisp.** A second `wisp gain` refuses with `WISP_ALREADY_GAINED`. The session gets the metadata key `wispId`.
+- **One session has one wisp.** A second `wisp gain` refuses with `WISP_ALREADY_GAINED`. The session gets the metadata keys `wispId` and `wispAlias`.
+
+### Its Name in Titles
+
+- **A session in a wisp shows its title as `<Wisp Name>: <title>`** on each title surface: the pane, `flint orbh list`, the cockpit, the `displayTitle` of the SDK, and Orbit (task jn77hb87). For example: "Rural Amazed Moonbeam: Fix the login".
+- **Register the plain topic.** `flint orbh session register` stores the title that you give. Orbh adds the wisp name only on the surfaces, as it adds `(I)` and `[Compacting...]`. A title that already starts with the name gets no second copy.
+- **The source of the name** is the session key `metadata.wispAlias`. The wisp store writes it with `metadata.wispId` at each gain, join, and heal, and a rename of the wisp updates it. `flint orbh wisp show` (with no ref) heals a session that gained its wisp before the key existed.
+
+### Its Memory
+
+- **A wisp has a memory folder** in its own spool: `<orbRoot>/spaces/flint/spools/<wispId>/scratch/memory/` (task jn77hb87). Its index is `MEMORY.md`.
+- **`wisp gain` makes the folder and the index**, and prints `memory: <path>`. `wisp show` prints it too, and the JSON of both has `memoryDir`.
+- **A run of a session in an active wisp gets `ORBH_WISP_MEMORY_DIR`.** The Page has a line `WISP  <Wisp Name> · <state> · memory <path>`.
+- **Each session of the wisp shares the folder**, also a fork that joins the wisp. The folder outlives each session. A session reads `MEMORY.md` when it starts or resumes.
+- **Keep it short.** Write one fact, decision, or preference on each line of `MEMORY.md`. For a longer topic, write one small file in the folder and name it in the index. Remove a line when it is no longer true. Do not write secrets, and do not copy Mesh notes: name their paths.
+- **It is not the scratch folder of a session.** The temporary files of one session go to `ORBH_SCRATCH_DIR` ([[dev-knw-foh-compaction]] § Scratch).
+- **It stays on this machine.** Git ignores `.orb/`. An ended wisp keeps its memory. The memory of a consumed wisp does not move to the consumer (not built).
 
 ### Its Purpose
 
@@ -69,7 +86,7 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 - **Active.** `wisp gain` makes the wisp with its first session (the origin). A fork of a member joins the wisp (`via fork`), when the wisp is active.
 - **Ended.** `wisp end "<reason>"` ends an active wisp. Its sessions keep their link to it.
 - **Consumed.** A consume of the wisp ends it, when each member session is consumed (see § Consume).
-- The events in the Orbh store: `wisp.gained` (with the field `purpose`), `wisp.purposeSet`, `wisp.joined` (`via` is `fork`, `consume`, or `join`), `wisp.renamed`, `wisp.ended`, and `wisp.consumed`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
+- The events in the Orbh store: `wisp.gained` (with the field `purpose`), `wisp.purposeSet`, `wisp.joined` (`via` is `fork`; the values `consume` and `join` are reserved, and no verb writes them now), `wisp.renamed`, `wisp.ended`, and `wisp.consumed`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
 - There is no verb for a join or a rename now.
 
 ## Addresses and Their Levels
@@ -159,12 +176,12 @@ flint orbh fork [<target>] ["<prompt>"] [--session <id>] [--compact] [--attach] 
 flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<prompt>"]
 ```
 
-- A fork is a new detached interactive session. Its context file is the transcript of the source, or a distilled copy with `--compact`. The source continues as it is, and its obligations stay with it.
+- A fork is a new detached interactive session. Its context file is the transcript of the source, or with `--compact` a distilled seed (`HANDOFF_ARTIFACT_V1`, `purpose: seed`, `writtenBy: reconstructed`) that Orbh checks as the seed of a birth. When the check fails, the fork still gets the distilled text, and its context file names the errors. The source continues as it is, and its obligations stay with it.
 - `--parallel <n>` makes 1 to 8 forks. Orbh reads the source one time. Each fork gets its own copy of the context file in its spool.
 - The prompts of a parallel fork: none (the default prompt), one for all forks, or exactly `n` (else `parallel-prompts-mismatch`). `--prompt-file` reads one prompt from a file. Give it once for each fork, or once for all forks. Do not give it with a prompt argument.
 - `--fleet <handle>` joins each fork to that open fleet when it starts. The fleet must exist.
 - `--attach` with more than one fork refuses.
-- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`). The fork gets the `wispId` of the wisp.
+- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`). The fork gets the `wispId` of the wisp, its memory folder, and its name in the title.
 - **A fork of an inactive wisp is a plain session** (R19). The wisp of the source has ended, was consumed, or is not in the store. Then the fork does not join the wisp. The fork has no `wispId`. The fork still starts, and the command exits 0. The command prints why the fork did not join. When the wisp store refuses the join, the fork also has no `wispId`.
 - The HTTP fork answer has the field `wisp: { wispId, joined, reason? }` when the source has a wisp (R24).
 - The fork records `relations.forkedFrom` (the source, its run, and the time).
@@ -258,8 +275,10 @@ The current session (the consumer) consumes each source. A source is a session (
 
 A compaction gives the same session id a new context from its own handoff. The obligations stay, because the id stays. The full doctrine is in [[dev-knw-foh-compaction]].
 
-- `flint orbh compact start` prints the contract `COMPACTION_ARTIFACT_V1`. That contract stays valid.
-- `flint orbh compact handoff` also accepts a `HANDOFF_ARTIFACT_V1` with `purpose: compact` and `writtenBy: self`. It needs GOAL, OPEN OBLIGATIONS, and FILES.
+- `flint orbh compact start` prints the contract `HANDOFF_ARTIFACT_V1` with `purpose: compact`, `writtenBy: self`, and `source:` with the id of the session (task jn77hb87). It needs GOAL, OPEN OBLIGATIONS, and FILES.
+- `flint orbh compact handoff` still accepts the old contract `COMPACTION_ARTIFACT_V1`.
+- A compaction keeps the wisp, its memory, the wisp name in the title, and the scratch folder, because the id stays.
+- `fork --compact` is different: a distiller writes a seed (`purpose: seed`, `writtenBy: reconstructed`, `for: a fork of session <id>`), and Orbh checks it as the seed of a birth. The seed lists the obligations of the source only for information: they stay with the source.
 
 ## The Handoff Contract: `HANDOFF_ARTIFACT_V1`
 
@@ -360,7 +379,7 @@ The session summary (`SessionSummary` of the Orbh SDK) has the optional field `r
 relations?: {
   forkedFrom?: { sessionId: string; runId?: string; at: string };
   bornFrom?: Array<{ sessionId: string; seed?: string; writtenBy: 'self' | 'reconstructed' }>;
-  consumedInto?: { kind: 'session' | 'wisp'; id: string; at: string };
+  consumedInto?: { kind: 'session' | 'wisp'; id: string; at: string }; // the kind wisp is reserved: a consumer is a session now
   consumed?: Array<{ sessionId: string; at: string; handoff?: string; writtenBy: 'self' | 'reconstructed' }>;
   wispId?: string;
 }

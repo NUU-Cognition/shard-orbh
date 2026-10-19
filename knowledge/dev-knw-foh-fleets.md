@@ -5,6 +5,7 @@ orbh-sessions:
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: Declared Fleets
@@ -28,7 +29,7 @@ flint orbh fleet declare <handle> --backfill-only     # no declare: stamp each u
 flint orbh fleet show [<handle>] [--members] [--json] # default: the fleet of this session
 flint orbh fleet list [--all] [--json]                # open fleets; --all adds closed and abandoned fleets
 flint orbh fleet updates [<handle>] [--limit <n>] [--json]   # the updates of all members in time order
-flint orbh actor show [--session <id>] [--json]       # who speaks for an act now: fleet, agent, session, or person
+flint orbh actor show [--session <id>] [--json]       # who speaks for an act now: agent, active wisp, open fleet, session (outside a session: person)
 
 # Change
 flint orbh fleet join <handle> [--session <id> | --station <name>]   # default: this session
@@ -138,7 +139,7 @@ Orbh-Session: 528386a9-3de4-4ffb-9f92-dc12e4e6dcda
 Task: @v1/nuucognition/task.dev/k17abc0def#ops
 ```
 
-A `prepare-commit-msg` hook adds them. It reads `ORBH_FLEET_HANDLE` and `ORBH_SESSION_ID`, and the task pin of the session (the key `core:task`, set by `flint orbh task pin`; see [[knw-foh-cli]]). The manager installs the hook once in each repository that the fleet commits to:
+A `prepare-commit-msg` hook adds them. It reads `ORBH_FLEET_HANDLE` and `ORBH_SESSION_ID`, and the task pin of the session (the key `core:task`, set by `flint orbh task pin`; see [[dev-knw-foh-cli]]). The manager installs the hook once in each repository that the fleet commits to:
 
 ```bash
 flint shard orbh commit-trailers status --repo <repo>     # the hooks folder and the state of the hook
@@ -201,15 +202,15 @@ By default, all builders of a fleet work on the machine branch (for example `nat
 - **Hunks in a shared file: one fixed base and a compare-and-swap.** When a file holds hunks of two builders, the owner of each hunk commits only that hunk. Build the tree from one fixed `BASE`, refuse a tree that changes a path outside your list, and move the branch with `git update-ref` from `BASE` (a compare-and-swap). When the branch moved, start again from the new `BASE`:
 
   ```bash
-  git diff -- <path>... > /tmp/mine.patch     # then delete the hunks of the other builders from the patch
+  git diff -- <path>... > "$ORBH_SCRATCH_DIR/mine.patch"     # then delete the hunks of the other builders from the patch
   branch=$(git symbolic-ref --short HEAD)
   base=$(git rev-parse HEAD)
   idx=$(mktemp)
   GIT_INDEX_FILE=$idx git read-tree "$base"
-  GIT_INDEX_FILE=$idx git apply --cached /tmp/mine.patch
+  GIT_INDEX_FILE=$idx git apply --cached "$ORBH_SCRATCH_DIR/mine.patch"
   tree=$(GIT_INDEX_FILE=$idx git write-tree); rm -f "$idx"
   git diff-tree -r --name-only "$base" "$tree"  # must list only your paths; else stop
-  commit=$(git commit-tree "$tree" -p "$base" -F /tmp/message.txt)
+  commit=$(git commit-tree "$tree" -p "$base" -F "$ORBH_SCRATCH_DIR/message.txt")
   git update-ref "refs/heads/$branch" "$commit" "$base" && git reset -q -- <path>...   # fails when the branch moved: start again
   ```
 

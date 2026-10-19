@@ -1,5 +1,5 @@
 ---
-description: "Self-compaction doctrine — the agent authors its own handoff into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id, and the shard invocation stack after an Orbh compaction or a compaction of the harness"
+description: "Self-compaction doctrine — the agent authors its own handoff (HANDOFF_ARTIFACT_V1, purpose compact) into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id, and the shard invocation stack after an Orbh compaction or a compaction of the harness"
 orbh-sessions:
   - "[[411171be-587b-44fd-8c74-43f5700bb512]]"
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
@@ -8,13 +8,15 @@ orbh-sessions:
   - "[[1d490a0f-e91e-4f57-930e-350f5cbd0f18]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
+orb:
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: Self-Compaction at 80%
 
-Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, the shard invocations of the session, and every external reference stay valid by construction. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
+Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, the shard invocations of the session, the scratch folder, the wisp with its memory and its name in the title, and every external reference stay valid by construction. This is the rule "context copies, obligations move" of [[dev-knw-foh-identity]] for one session: the id stays, so each obligation stays. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
 
-**You write your own handoff.** There is no distiller. Nothing resurrects your dead context to reconstruct what you meant — you are alive and holding the whole thing at the moment you compact, so you write the successor note yourself, and the system validates it while you can still fix it.
+**You write your own handoff.** There is no distiller for a compaction (a birth and `fork --compact` use one: see [[dev-knw-foh-identity]]). Nothing resurrects your dead context to reconstruct what you meant — you are alive and holding the whole thing at the moment you compact, so you write the successor note yourself, and the system validates it while you can still fix it.
 
 ## Occupancy: the Page CONTEXT line is the source of truth
 
@@ -31,14 +33,18 @@ Compaction spans two contexts, so it takes three verbs — two on the way out, o
 
 At **≥ 80% occupancy** (or clearly approaching it on a long turn):
 
-1. **`flint orbh compact start`.** Prints the `COMPACTION_ARTIFACT_V1` contract, the exact absolute path to write your handoff to (inside your spool's `scratch/`), and your live Page so you write OPEN OBLIGATIONS from durable state rather than memory. It **records no intent, takes no claim, and kills nothing** — it is re-runnable and safe. Its one durable effect is to **hold the pager**, which is also what marks the session `[Compacting...]`.
+1. **`flint orbh compact start`.** Prints the `HANDOFF_ARTIFACT_V1` contract with `purpose: compact`, `writtenBy: self`, and `source: <this session>`, the exact absolute path to write your handoff to (inside your spool's `scratch/`), and your live Page so you write OPEN OBLIGATIONS from durable state rather than memory. It **records no intent, takes no claim, and kills nothing** — it is re-runnable and safe. Its one durable effect is to **hold the pager**, which is also what marks the session `[Compacting...]`.
 2. **Write the handoff** to that exact path, with your own tools. No size limit, no shell quoting — it is a file.
 3. **`flint orbh compact handoff`.** The handoff path is convention, so the verb needs no argument for it. It validates the handoff **while you are still alive**, then ends this context and relaunches the same session pointed at what you wrote. It is a **turn-ending verb**, a sibling of `return`. Do not plan work after it; there is no after. Its two optional flags are the only way to change what the fresh run comes up as — see [[#Compacting into a different profile]].
 4. **`flint orbh compact finish`** — run by the **relaunched context**, not by you. Once it has read the handoff and every path in the FILES list, it runs `finish` to declare the compaction over: the `[Compacting...]` marker clears and the pager hold releases, together.
 
 Changed your mind between `start` and `handoff`? **`flint orbh compact abort`** releases the hold. Ending the turn any other way (`return --finish` / `--await`) releases it automatically.
 
-Every refusal — missing handoff, malformed handoff, a handoff belonging to another run, a dispatch claim whose child has not yet materialized — is an **ordinary error while your context survives**. Fix it and retry. This is the whole point of authoring your own handoff: the feedback loop closes. Materialized in-flight dispatches do **not** refuse: `compact start` detaches their collector stamps while the children keep running, and the successor inherits them as durable obligations to re-collect.
+Every refusal — missing handoff, malformed handoff, a handoff belonging to another run, a `source` that is another session, a `purpose` that is not `compact`, `writtenBy: reconstructed`, a dispatch claim whose child has not yet materialized — is an **ordinary error while your context survives**. Fix it and retry. This is the whole point of authoring your own handoff: the feedback loop closes. Materialized in-flight dispatches do **not** refuse: `compact start` detaches their collector stamps while the children keep running, and the successor inherits them as durable obligations to re-collect.
+
+## The contract
+
+`compact start` prints the general contract `HANDOFF_ARTIFACT_V1` (Mission 027 C6). Its head has `purpose: compact`, `writtenBy: self`, and `source:` with the id of this session. A compaction requires GOAL, OPEN OBLIGATIONS, and FILES. The other sections (DONE, OPEN, DECISIONS, VERIFIED, ASSUMED, DOUBTS, FAILED, NEXT, WELFARE) are optional, and a good handoff uses them. `compact handoff` still accepts an old `COMPACTION_ARTIFACT_V1` (SUMMARY, FILES, OPEN OBLIGATIONS). The full contract and the rules of each section are in [[dev-knw-foh-identity]] § The Handoff Contract.
 
 ## OPEN OBLIGATIONS: each one with its collection command
 
@@ -104,9 +110,13 @@ One deliberate consequence: a successor that never runs `finish` leaves the mark
 
 (`held` is deliberately not called "parked" — `retention: 'parked'` and the legacy `park` spelling of `return --await` already mean other things.)
 
-## Scratch: your durable working memory
+## Scratch: your temporary files and your durable working memory
 
 `<orbRoot>/spaces/<space>/spools/<sessionId>/scratch/` is a reserved directory created with the spool. It is keyed to the **session id**, so its contents survive compaction by exactly the construction that keeps the inbox and jobs valid — nothing moves. The handoff lives there, and so can anything else a context wants its successor to inherit: drafts, notes, intermediate analysis. Nothing is cleaned automatically; the accumulation is traceability.
+
+- **Each run gets `ORBH_SCRATCH_DIR`**, the absolute path of this folder (task jn77hb87). The launcher makes the folder. An inherited value of another session is dropped.
+- **Keep every temporary file there**, not in `/tmp` and not in the scratchpad that a harness names (Claude Code names its own "Scratchpad directory"). The launch prompt says that the Orbh folder replaces it. When the variable is empty, use the path above.
+- **The wisp memory is a different folder.** A session in a wisp also has `ORBH_WISP_MEMORY_DIR`, the memory folder of its wisp, which outlives each session of the wisp. See [[dev-knw-foh-identity]] § Its Memory.
 
 ## Who executes
 
@@ -117,7 +127,7 @@ There is **no operator-driven compaction**. `flint orbh session compact <id>` is
 
 ## The relaunched context's duty
 
-The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — the SUMMARY is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. When the Page has an INVOCATIONS block, continue each open frame from its `read:` and `next:` lines. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
+The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — its GOAL to NEXT (or the SUMMARY of an old handoff) is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. When the Page has an INVOCATIONS block, continue each open frame from its `read:` and `next:` lines. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
 
 ## Failure shape
 

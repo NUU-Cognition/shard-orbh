@@ -10,6 +10,8 @@ orbh-sessions:
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
+orb:
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Knowledge: Orbh Session Coordination
@@ -210,11 +212,12 @@ flint orbh kill [id] [--force]
 ```bash
 flint orbh ping [<runtime/profile>] "<prompt>" [-c <predecessorId>]
 flint orbh switch interactive|headless [id] [--force] [--here|--no-launch] [--await|--resume "<prompt>"]
-flint orbh fork [<runtime/profile>] ["<prompt>"] [--session <id>] [--compact] [--attach]
+flint orbh fork [<runtime/profile>] ["<prompt>"] [--session <id>] [--compact] [--attach] [--account <name>] [--model <model>]
+flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<prompt>"]
 ```
 
 - **`ping`** runs one unattended inference turn and prints its returned string. When you want a single answer and not a managed child, this is far cheaper than a full `request` dispatch. `-c <predecessorId>` continues a returned ping in a new spool.
 - **`switch`** is the mode-transition primitive: it ends the **run**, not the session, flips the durable mode, and relaunches in the other harness shape with a synthetic pickup prompt. It exists because awaiting means different things on each side — headless awaiting is *push* (the orchestrator sweep resumes you), interactive waiting is *pull* (a live pane, and the human is the waiter). Flags are direction-exclusive: `--force`/`--here`/`--no-launch` are interactive-only, `--await`/`--resume` are headless-only and mutually exclusive. `switch interactive --force` **adopts a subagent out from under a live collector** — the dispatcher is not left hanging: it receives a liveness notice and its wait settles with the `adopted` verdict.
-- **`fork`** is different in kind: it creates a **new detached interactive session** seeded from the source's conversation transcript. The source is untouched and keeps running. `--compact` distills a long source through the compaction prompt before seeding. Contrast `compact handoff --into`, which relaunches the *same* session id ([[dev-knw-foh-compaction]]).
+- **`fork`** is different in kind: it creates a **new detached interactive session** seeded from the source's conversation transcript. The source is untouched and keeps running, and its obligations stay with it. `--compact` seeds the fork with a distilled `HANDOFF_ARTIFACT_V1` seed of the source, not its whole transcript. `--parallel <n>` makes N forks with the same context. A fork of a session in an active wisp joins that wisp: it shares the wisp memory and the wisp name in its title. The full rules are in [[dev-knw-foh-identity]] § Fork and Parallel Fork. Contrast `compact handoff --into`, which relaunches the *same* session id ([[dev-knw-foh-compaction]]).
 
 Durable coordination objects — stations, workers, orb agents, cron schedules — are in [[dev-knw-foh-machinery]].

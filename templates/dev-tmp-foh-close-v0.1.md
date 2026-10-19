@@ -1,5 +1,7 @@
 ---
 description: "Per-session summary file written by sk-foh-close before closing the tab"
+orb:
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 ---
 
 # Template: Orbh Session Close Summary
@@ -20,6 +22,8 @@ started: "[ISO-8601 timestamp of run start]"
 ended: "[ISO-8601 timestamp now]"
 authors:
   - [[@Person from the global operator Name (flint whoami) — omit field entirely if no name]]
+orb:
+  - "[the output of flint address me]"
 template: "[[dev-tmp-foh-close-v0.1]]"
 ---
 
