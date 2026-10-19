@@ -8,7 +8,7 @@ orb:
 
 This file tells you what an Orbh actor is, how Orbh names and addresses it, and how sessions copy, move, and join work. Read it before you run `flint orbh wisp gain`, `fork --parallel`, `birth`, or `consume`.
 
-The design is in NUU Orbh Notepad 108 (§ 4 to § 12) and its three polls. Mission 027 built it. The general verbs of delegation are in [[dev-knw-foh-coordination]], and compaction is in [[dev-knw-foh-compaction]].
+The design is in NUU Orbh Notepad 108 (§ 4 to § 12) and its three polls. Mission 027 built it. A label such as R23 names a revision of the contract in the note of Mission 027. The general verbs of delegation are in [[dev-knw-foh-coordination]], and compaction is in [[dev-knw-foh-compaction]].
 
 **The design rule: it works alone, and it connects when the rest is there.** Orbh needs no NUU account, no network, and no org. Each part below works with Orbh alone. An org, a login, and the network only add to it.
 
@@ -45,7 +45,11 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 ### Its Identity
 
 - **The key is a UUID.** Orbh makes it at `wisp gain`. It is not the UUID of the first session, and it never changes.
-- **The alias is `adjective-adjective-noun`.** For example: `quiet-amber-heron`. A hash (SHA-256) of `<uuid>:<salt>` selects two different adjectives and one general noun from fixed word lists (version `2`: more than 1,500 adjectives and 1,500 nouns, each 3 to 8 letters `a`–`z`).
+- **The alias is `adjective-adjective-noun`.** For example: `quiet-amber-heron`. A hash (SHA-256) of `<uuid>:<salt>` selects two different adjectives and one general noun from fixed word lists.
+- **The word lists have version `4`.** They hold 1,526 adjectives and 1,575 nouns. Each word has 3 to 8 letters `a`–`z`, and one spelling only. The same UUID gives the same alias only with the same lists, so each change to a list gets a new version.
+- **The lists exclude these words:** offensive words, words that are negative about a person, brand names, NUU names, and reserved words. Two more rules:
+  - A word goes when people know it mainly as the name of a software or AI product or company (R20). For example: `cursor`, `loom`, `lovable`. A common English word stays when a company only uses it as a name (for example `brave`, `linear`).
+  - A word goes when it is the name of a model family or a harness runtime that Orbh can show beside an alias, also when it is a common English word (R21): `haiku`, `sonnet`, `opus`, `fable`, `llama`, `gemini`, `codex`, `droid`, `claude`.
 - **The same UUID gives the same first alias.** The salt starts at `0`. When an active or ended wisp of the local store has the alias, Orbh uses the next salt (up to `64`).
 - **The alias is proposed.** `aliasStatus` is `proposed` until the network claims the alias. The claim (`wisp.claimed`) comes with the network. It is not built.
 - **The alias is a handle, not the key.** A program and a record store the id form (`@v1/<org>/wisp/<uuid>`). A person types the alias, and a UI shows it.
@@ -151,7 +155,8 @@ flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<p
 - The prompts of a parallel fork: none (the default prompt), one for all forks, or exactly `n` (else `parallel-prompts-mismatch`). `--prompt-file` reads one prompt from a file. Give it once for each fork, or once for all forks. Do not give it with a prompt argument.
 - `--fleet <handle>` joins each fork to that open fleet when it starts. The fleet must exist.
 - `--attach` with more than one fork refuses.
-- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`), and it gets the `wispId` of the wisp. When the wisp has ended or was consumed, the fork is a plain session: it does not join the wisp, and it has no `wispId`. The fork still starts (exit 0), and the command prints why it did not join.
+- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`), and it gets the `wispId` of the wisp. When the wisp has ended, was consumed, or is not in the store, the fork is a plain session: it does not join the wisp, and it has no `wispId`. The fork still starts (exit 0), and the command prints why it did not join (R19).
+- The HTTP fork answer has the field `wisp: { wispId, joined, reason? }` when the source has a wisp (R24).
 - The fork records `relations.forkedFrom` (the source, its run, and the time).
 
 ### Birth
@@ -161,10 +166,12 @@ flint orbh birth "<topic>" [<target>] --from <id> [--from <id>…] [--attach] [-
 ```
 
 - A birth makes a new detached interactive session for a new topic, from 1 to 8 parents. The topic has at most 500 characters. The default target is the target of the first parent.
-- **Each parent writes its own seed.** Orbh resumes the native conversation of the parent for one turn, and the parent writes a seed for the topic: a `HANDOFF_ARTIFACT_V1` with `purpose: seed`, `for: <topic>`, and `writtenBy: self`. The Orbh record of the parent gets no run.
-- **A distiller writes the seed only as the fallback.** When the parent cannot run (it runs now, it has no native id, or it has no transcript), or when its seed is not valid, a distiller writes the seed from the transcript or the record, with `writtenBy: reconstructed`. When the distiller fails too, the birth refuses with `seed-failed`.
-- **The FILES rule of a seed:** FILES lists at least one absolute path. When no file matters, it lists the transcript or the record of the parent.
-- The new session gets the seeds as files (`birth-seed-<parent id>.md` in its spool). Its prompt names each path.
+- **Each parent writes its own seed.** Orbh resumes the native conversation of the parent for one turn. In that turn, the parent writes a seed for the topic. The seed is a `HANDOFF_ARTIFACT_V1`. Its head has `purpose: seed`, `for: <topic>`, and `writtenBy: self`. The Orbh record of the parent gets no run.
+- The seed turns of the parents run in parallel. A lease for each parent lets only one seed turn work on the conversation of that parent.
+- **A distiller writes the seed only as the fallback.** The distiller writes when the parent cannot run its seed turn: it runs now, another birth holds its lease, or it has no native conversation or no transcript. It also writes when the seed turn fails or gives a seed that is not valid. The distiller reads the transcript of the parent, or its record when no transcript is readable. Its seed has `writtenBy: reconstructed`. When the distiller fails too, the birth refuses with `seed-failed`.
+- **The FILES rule of a seed:** FILES lists at least one absolute path, and each path must exist. When no file matters, it lists the transcript or the record of the parent.
+- Each seed is a file at a durable path in the spool of the new session: `scratch/birth-seed-<parent id>.md` (R22). The seed turn writes to that path. The prompt of the new session names each path.
+- A birth on an explicit store (`--orb-root` or `--at`) starts the new session in that store, also outside a Flint (R22).
 - **No obligation moves.** The parents stay as they are. A finished session can be a parent of many births.
 - **A birth starts outside each wisp.** Its topic is new, so its mission is new.
 - The new session records `relations.bornFrom` (each parent, its seed, and `writtenBy`).
@@ -192,6 +199,7 @@ The current session (the consumer) consumes each source. A source is a session (
 
   A consumed session does not consume.
 
+- **One consumer for each source** (R23). Before the handoff, the consumer claims each source (the key `claim` of the slice `core:consume` of the source). A second consumer is refused while the claim is live: `session <id> is claimed by the consumer <id> since <time>`. When the process that holds a claim is gone, another consumer can take the claim over. A claim of another machine refuses.
 - **Each state of a source.** The handoff turns of the sources run in parallel.
 
   | State of the source | What Orbh does |
@@ -201,33 +209,37 @@ The current session (the consumer) consumes each source. A source is a session (
   | Died (its last run ended with a crash or a kill, its process is gone, or it was abandoned) | Orbh resumes it from its own transcript. It writes its handoff. |
   | Cannot run (an interactive session with no live manager, a ping, a run open on another machine, no transcript, no run) | The consumer writes a handoff from the record, with `writtenBy: reconstructed`. |
 
-- **The notice** starts with `ORBH CONSUME NOTICE`. It names the consumer and the path of the handoff: `<source spool>/scratch/consume-handoff-<consumer id>.md`. It tells the source to finish its step, read its Page and `flint shard invocations stack`, write its handoff, and end its turn with `flint orbh session return --finish "consume handoff written"`. The source does not commit, end or kill other sessions, or dispatch new work.
-- **The check of each handoff.** Orbh checks the contract, `purpose: consume`, and `source`. When the handoff is not valid, the source gets one more turn with the errors. After that, the consumer writes a reconstructed handoff. A source whose turn times out is skipped: it is not consumed, and the command exits 1.
+- **The notice** starts with `ORBH CONSUME NOTICE`. It names the consumer and the path of the handoff: `<source spool>/scratch/consume-handoff-<consumer id>.md`. It lists each open shard invocation frame of the source. It tells the source to finish its step, read its Page and `flint shard invocations stack`, and write its handoff. The source does not commit, end or kill other sessions, or dispatch new work.
+- **The source ends its handoff turn with `flint orbh consume handoff`.** This turn-ending verb checks the handoff while the source is alive. When it refuses, the turn stays alive: the source fixes the handoff and runs the verb again. The verb settles no shard invocation frame. The source must not use `flint orbh session return`, because a return settles the open frames.
+- **Each open frame stays open** (R23). The source does not step, close, or settle a frame. Its handoff lists each frame in OPEN OBLIGATIONS: the frame id, the step, and the command that continues it. The check of a handoff that the source wrote requires each frame id. A reconstructed handoff also lists each frame with its continuation command. The consumer continues each frame, or closes it with `flint shard invocations close <id> --outcome dropped`.
+- **The check of each handoff.** Orbh checks the contract, `purpose: consume`, `source`, and the frame ids. When the handoff is not valid, the source gets one more turn with the errors. After that, the consumer writes a reconstructed handoff. When the turn of a source does not end in time, the source is skipped: it is not consumed, the notice stays in its inbox, and the command exits 1. Run `consume` again after its turn ends.
 - **The transfer of obligations:**
 
   | Obligation | What happens |
   |---|---|
-  | Dispatch collectors | Move to the consumer. Collect each child with `flint orbh wait <id>`. The child keeps its `parentSessionId`: there is no reparent. |
+  | Dispatch collectors | Each uncollected anchor moves to the consumer, also the anchor of a child that returned and whose result the source did not collect (R23). Collect each child with `flint orbh wait <id>`. The child keeps its `parentSessionId`: there is no reparent. |
   | Inbox requests to the source | Copied to the inbox of the consumer. Answer each with `flint orbh message respond <requestId> "<answer>"`. |
   | Requests that the source sent | Listed only. The answer goes to the inbox of the source. |
   | The fleet root | Moves to the consumer (the roster gets a root join, and the consumer gets the fleet membership). |
   | Stream ownership | Moves to the consumer. |
   | Jobs | Do not move. The record stays in the spool of the source: `flint orbh job result <id> --session <source>`. |
   | Questions to a person | Fail. The close of the source settles them. |
-  | Open shard invocation frames | Listed in the handoff (OPEN OBLIGATIONS). The consumer continues or closes each frame. |
+  | Open shard invocation frames | Stay open. Listed in the handoff (OPEN OBLIGATIONS) and in the result, each with its continuation command. The consumer continues or closes each frame. |
   | Uncommitted paths | Listed in the handoff (FILES) and in the report. They become paths of the consumer. |
 
-- **The end.** Each source ends with the end reason `consumed`. It records `relations.consumedInto` (the consumer). The consumer records `relations.consumed` (each source, the time, the path of its handoff, and `writtenBy`). The lineage route shows a `consume` edge from each source to the consumer. The record of each source stays in its spool.
+- **The end** (R23). A source ends with the end reason `consumed` only after each required transfer of its obligations succeeded. Then it records `relations.consumedInto` (the consumer). The consumer records `relations.consumed` (each source, the time, the path of its handoff, and `writtenBy`). The lineage route shows a `consume` edge from each source to the consumer. The record of each source stays in its spool.
+- **A failed transfer keeps the source open.** The result lists each obligation that did not move (`NOT moved: …`), and the source has the status `failed`. The command exits with a code that is not 0. The claim keeps the retry state: the handoff, its writer, and the failures. Fix the cause, then run `flint orbh consume` again with the same source from the same consumer. The second run moves the rest with no new handoff turn.
 - **A wisp as a source.** Orbh consumes each member session of the wisp that is not consumed yet. When each member is consumed, the wisp records `wisp.consumed`. The consume of one member alone leaves the wisp as it is, and the consumer does not join the wisp.
 - **The reconcile report** goes to `<consumer spool>/scratch/consume-report-<time>.md`, and the command prints it. Its sections: `## HANDOFFS`, `## OPEN ITEMS` (one list with no duplicates), `## CONFLICTS`, `## DECISIONS`, and `## UNCOMMITTED PATHS`. A conflict is one of: `same-file` (two sources changed one path and did not commit it), `decision` (two decisions that seem to contradict), or `waits-for` (a source waits for another source). Orbh does not resolve a conflict.
-- `--json` gives `{ consumer, consumed, skipped, sources, report, reportPath, wisps }`.
+- `--json` gives `{ consumer, consumed, skipped, sources, report, reportPath, wisps }`. `sources` has the status of each source: `consumed`, `skipped`, `failed`, or `refused`.
+- The command exits 0 only when each source is consumed.
 
 **After a consume, the consumer:**
 
 1. Reads the report, each handoff, and each FILES path.
 2. Checks the important claims. A handoff is a set of claims, not facts.
 3. Accepts or rejects each open item, and shows each conflict to the person (or to its dispatcher). It does not resolve a conflict silently.
-4. Collects each moved obligation with the command in the report.
+4. Collects each moved obligation with the command in the report, and continues or closes each open frame of a source.
 5. Commits the uncommitted paths of the sources as its own paths, with the rule "commit only your own paths".
 6. Keeps the mark of the source on each item that it carries.
 
