@@ -35,7 +35,7 @@ Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], the broadc
 
 ## Pin Relevant Files
 
-Each session has a list of pinned Markdown files. The human opens the Markdown finder of your session with `Ctrl-]` then `o`. The finder shows your pins above all other files. Keep this list correct, so that the human can find the files of your work quickly.
+Each session has a list of pinned Markdown files. The human opens the Markdown finder of your session with `Ctrl-]` then `o`. The finder shows your pins above all other files, and the Orbh menu shows the first nine. The latest pin is at the top of both. Keep this list correct, so that the human can find the files of your work quickly.
 
 - **Pin the files of your work.** A relevant file is a Flint file that you work on, create, or discuss with the human: the task, the spec, the plan, the report, the note, or the shard file.
 - **Pin when the work starts.** Pin a file when you start to work on it, or right after you create it. Do not wait for a workflow to tell you. A workflow step that pins a file is an addition to this rule, not a replacement.
@@ -43,7 +43,7 @@ Each session has a list of pinned Markdown files. The human opens the Markdown f
 - **Keep the pins.** Keep a pin after the work on the file is done. Remove a pin only when the file is no longer relevant. After a rename, remove the old path and add the new path.
 
 ```bash
-flint helper pins add "Mesh/Types/Tasks/(Task) NNN Title.md"   # Append one or more paths; the current pins stay
+flint helper pins add "Mesh/Types/Tasks/(Task) NNN Title.md"   # Put one or more paths at the top; the current pins stay below
 flint helper pins list                                         # Show the pins of this session
 flint helper pins remove "Mesh/Old Title.md"                    # Remove a path
 ```
