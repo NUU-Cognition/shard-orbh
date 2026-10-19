@@ -1,3 +1,8 @@
+# 0.7.1
+
+- **The commit-trailer hook, body v2, fix round 2** (NUU Flint Task 1287): a rejected `ORBH_CWD` falls back to the working folder, and a relative `NUU_HOME` or `ORBH_HOME` becomes absolute. The hook still never stops a commit.
+- **No version pin on the Flint shard** (NUU Orbh Task 748): the dependency on `NUU-Cognition/shard-flint` has no `version` line, so the shard installs with each Flint shard version.
+
 # 0.7.0
 
 - **Readiness, continuation, and modes, the session side** (NUU Orbh Task 748). The Page shows the `toward:` line of an open frame, and a child command names `--mode` only when the mode of the frame differs from the session (the Page gets the session mode). `session.mode` in a behaviour `when` is the recorded mode of the frame. `continue-open` counts an awaiting session as live. A child session uses no `--headless` and no `flint shard hstart`: both are removed and refuse with the next command. Links go to `knw-f-invocations` for the details.
