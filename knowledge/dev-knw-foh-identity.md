@@ -151,7 +151,7 @@ flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<p
 - The prompts of a parallel fork: none (the default prompt), one for all forks, or exactly `n` (else `parallel-prompts-mismatch`). `--prompt-file` reads one prompt from a file. Give it once for each fork, or once for all forks. Do not give it with a prompt argument.
 - `--fleet <handle>` joins each fork to that open fleet when it starts. The fleet must exist.
 - `--attach` with more than one fork refuses.
-- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`). When the wisp has ended or was consumed, the fork does not join it: the fork exists, the command prints why, and it exits 1.
+- **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`), and it gets the `wispId` of the wisp. When the wisp has ended or was consumed, the fork is a plain session: it does not join the wisp, and it has no `wispId`. The fork still starts (exit 0), and the command prints why it did not join.
 - The fork records `relations.forkedFrom` (the source, its run, and the time).
 
 ### Birth
