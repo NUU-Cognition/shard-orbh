@@ -1,8 +1,10 @@
 ---
-description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh field and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
+description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh fields and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
 orbh-sessions:
   - "[[528386a9-3de4-4ffb-9f92-dc12e4e6dcda]]"
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
+orb:
+  - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
 ---
 
 # Knowledge: Declared Fleets
@@ -105,23 +107,26 @@ A fleet speaks with one voice.
 - Discord shows the fleet name. With an updates webhook, each post has the fleet name and avatar. With no webhook, the bot posts with a fleet heading. Only the operator configures the webhook: `flint orbh humanchannel webhook ensure`, `webhook set <url>`, or `webhook clear`.
 - Messages and room posts show the fleet label of the sender when they are read. A message stores no actor.
 
-### The Mesh field: `orbh-fleet`
+### The Mesh fields: `orbh-fleet` and `orb:`
 
 `authors` stays the person. The fleet does not become a Mesh author.
 
-- When a member creates or edits a Mesh artifact, it adds `orbh-fleet: <handle>` to the frontmatter, beside `orbh-sessions` and `authors`. Read the handle from `ORBH_FLEET_HANDLE`, or from `flint orbh actor show --json`.
-- When the field names another fleet, make it a list and append your handle, as `orbh-sessions` does:
+- When a member creates or edits a Mesh artifact, it adds `orbh-fleet: <handle>` to the frontmatter, beside `orb:` and `authors`. Read the handle from `ORBH_FLEET_HANDLE`, or from `flint orbh actor show --json`.
+- **`orb:` holds the sessions.** It is a list of v1 addresses, one for each session that edited the note. Append the `by` address of `flint address me` (`@v1/<org>/session/<uuid>#flint/<slug>`), quoted. Add nothing when `orb:` or `orbh-sessions` already has your session. The full rule is in [[knw-f-artifacts]] § Session Tracking.
+- **Old notes keep `orbh-sessions`.** Notes from before the v1 addresses have `orbh-sessions` (`"[[<uuid>]]"` items). Never remove it, and add no new item to it. Each reader reads both fields.
+- When `orbh-fleet` names another fleet, make it a list and append your handle, as `orb:` does:
 
   ```yaml
   authors:
     - "[[@Nathan]]"
-  orbh-sessions:
-    - "[[528386a9-3de4-4ffb-9f92-dc12e4e6dcda]]"
+  orb:
+    - "@v1/nuucognition/session/528386a9-3de4-4ffb-9f92-dc12e4e6dcda#flint/nuu-orbh"
   orbh-fleet: overnight-orbh-1006
   ```
 
 - A session that the Flint server launches from an artifact gets the field from code: the server writes `orbh-fleet` when the new session is a member of an open fleet.
-- A session in no fleet, or a former member of a closed fleet, writes no `orbh-fleet`.
+- A session in no fleet, or a former member of a closed fleet, writes no `orbh-fleet`. It still stamps `orb:`.
+- A member with an active wisp still writes the handle of its fleet: the fleet voice and the identity are separate. The wisp is not a Mesh field: Orbh finds it from the session. See [[dev-knw-foh-identity]].
 
 ### Commit trailers: `Orbh-Fleet`, `Orbh-Session`, and `Task`
 
@@ -208,6 +213,7 @@ By default, all builders of a fleet work on the machine branch (for example `nat
   git update-ref "refs/heads/$branch" "$commit" "$base" && git reset -q -- <path>...   # fails when the branch moved: start again
   ```
 
+- **Never leave a shared file broken.** A shared file is a file that many builders edit: a barrel (`index.ts`), a registration file, a plugin list. Never leave an uncommitted edit in it that breaks the build of its package. Add an export or a registration line only in the same commit as the files that it names, and only when the package builds with it. Before a loaded module imports a new export of another package, build that package. A failed build that cleans `dist` (for example `tsup` with `clean`) empties the package for every builder. Fleet `agent-identity-1019` had five incidents of this kind.
 - **Never run `git commit` with a private `GIT_INDEX_FILE`.** HEAD can move between `git read-tree HEAD` and `git commit`. The commit then gets the new parent and the old tree, and it silently reverts the commits of other builders. This occurred two times in the overnight program of 2026-10-06.
 - **Check each commit.** After a commit, `git show --stat HEAD` must list only your paths. If your commit reverted the lines of another builder, restore them at once and tell that builder.
 - **A revert scan before each deploy.** The manager reads `git log --stat <last deploy>..HEAD`. Each commit must list only the paths of its task. For a commit that lists a path of another task, read `git diff <sha>^ <sha> -- <path>`, and restore the lost lines before the build.

@@ -14,6 +14,8 @@ orbh-sessions:
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
+orb:
+  - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -30,7 +32,8 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 | [[dev-knw-foh-machinery]] | Stations, cron sessions, workers, procedures, workflow chaining, updates, approvals, `improve` |
 | [[dev-knw-foh-internals]] | Orb spool and store layout, lifecycle derivation, result streams, delivery slices, spaces, bundles, and repair |
 | [[dev-knw-foh-orchestrator]] | Delegation shapes, recursive managers, and the orchestrator's supervisor/reaper/wake-engine role |
-| [[dev-knw-foh-fleets]] | Declared fleets: the doctrine of a program of many sessions, the Mesh field `orbh-fleet`, and the commit trailers |
+| [[dev-knw-foh-fleets]] | Declared fleets: the doctrine of a program of many sessions, the Mesh fields `orbh-fleet` and `orb:`, and the commit trailers |
+| [[dev-knw-foh-identity]] | Agent identity and session mechanics: tiers, wisps, addresses, `by` and `as`, fork, parallel fork, birth, consume, the handoff contract, and the lineage |
 
 ## Lifecycle Orientation
 
