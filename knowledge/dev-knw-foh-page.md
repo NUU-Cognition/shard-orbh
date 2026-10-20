@@ -1,5 +1,5 @@
 ---
-description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the INVOCATIONS block of shard invocations, awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
+description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the KIN and PARTY lines, the INVOCATIONS block of shard invocations, awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[521efa86-61d9-4156-92ba-c40ef56d9e3d]]"
@@ -13,6 +13,8 @@ orbh-sessions:
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 orb:
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+orbh-fleet: kinship-1020
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -41,6 +43,7 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 1. **A wake.** A Page-worthy event lands: the same events that end `page arm`.
 2. **The context advisory.** The context of the run is at 80% or more. The manager sends this Page one time for each run.
 3. **A compaction of the harness.** The harness replaced its context in place, for example Claude Code at the limit of its context or after `/compact`. The manager sends one Page after each such compaction. Its first line is `Context compacted: this is your Page. Read INVOCATIONS to continue where you are.` (or `… Read it to continue where you are.` when the Page has no INVOCATIONS block). Read the Page first, then continue from its `read:` and `next:` lines. See [[dev-knw-foh-compaction]].
+4. **A party notice to a working session.** The session works, and it has a party notice that no Page showed yet. This reason is only for a working session: the orchestrator sweep and the pager never wake an awaiting session for a party notice. See § The KIN and PARTY Lines.
 
 The manager never sends a Page while the pager is held (from `compact start` to `compact finish`). An Orbh compaction thus gets no Page from the manager: the relaunched context reads the Page itself. A harness that writes no compaction record (for example Grok, Kimi, or Cursor) gets no Page after its compaction. When no Page comes, run `flint orbh page` yourself.
 
@@ -108,6 +111,31 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 - Read `MEMORY.md` in the memory folder when you start or resume. The rules of the memory are in [[dev-knw-foh-identity]] § Its Memory.
 - The title of the session shows the same name: `<Wisp Name>: <title>`.
 - The line is read-only. `flint orbh wisp show` makes a missing memory folder.
+
+## The KIN and PARTY Lines
+
+Two lines come right after the `WISP` line (task jn7d0191). They show the kinship and the membership of the session, from the same summary as `flint orbh kin`, `inspect`, the chrome, and Steel.
+
+```
+KIN  child of wisp Rural Amazed Moonbeam · 2 children · 1 siblings
+KIN  forked from 3d54e255 · 0 children · 2 siblings · consumed into <label> 12:23
+KIN  independent · 0 children · 0 siblings · consumed into <label> 12:23 · ⚠ revived after consume: the obligations are with <label>
+PARTY  names-review (3) · steel-names (5)
+PARTY  ✉ Final Sandy Origin joined steel-names (14:02)
+```
+
+**The `KIN` line:** `KIN  <origin> · <n> children · <n> siblings[ · consumed into <label> <time>][ · ⚠ revived after consume: the obligations are with <label>]`.
+
+- The origin segment is one of: `child of <node>` (for example `child of wisp Rural Amazed Moonbeam`), `sibling of <node>`, `successor of wisp <Wisp Name>`, `forked from <id>`, `born from <n>`, `embodies wisp <Wisp Name>`, or `independent`.
+- The children count holds the kinship children and the dispatch children.
+- The line shows only when the session has a kinship fact beyond a plain dispatch. A dispatch child with no other relation has no `KIN` line: the `DISPATCHES` block of its parent and its subagent prompt cover it.
+- **Act on `⚠ revived after consume`.** This session ran again after a consume. Its obligations are with the consumer: do not collect a moved child, answer a moved request, or continue a moved frame. See [[dev-sk-foh-read_kinship]].
+
+**The `PARTY` lines:** `PARTY  <handle> (<n>) · <handle> (<n>)` gives each open party of the identity of the session, with its count of members. Then one line comes for each undelivered notice: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`.
+
+- **A self Page read shows each notice one time and marks it delivered.** The managed Page of a working session marks it in the same way. An observer read (`flint orbh page <id>`) marks nothing.
+- **A notice never wakes an awaiting session.** It shows at the next turn.
+- The verbs and the rules are in [[dev-knw-foh-membership]] § Parties. The full view is `flint orbh kin` ([[dev-knw-foh-kinship]] § The Views).
 
 ## The INVOCATIONS Block (`flint/invocations`)
 

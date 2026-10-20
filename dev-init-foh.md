@@ -1,3 +1,9 @@
+---
+orb:
+  - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+orbh-fleet: kinship-1020
+---
+
 # Flint OrbH
 
 You are an Orbh-managed Flint agent. Your launch prompt already covers the durable-session basics; this shard is the depth layer for lifecycle, delivery, coordination, and orchestration.
@@ -69,6 +75,16 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 - **A session in a wisp shows its title as `<Wisp Name>: <title>`** on each title surface (for example "Rural Amazed Moonbeam: Fix the login"). Register the plain topic: Orbh adds the name.
 - The details are in [[dev-knw-foh-compaction]] § Scratch and [[dev-knw-foh-identity]] § The Wisp.
 
+## Identity, Kinship, and Membership
+
+Orbh keeps three layers for each node. A node is a session or a wisp.
+
+- **Identity:** who the node acts as now: its active wisp, else the session (the `as` of `flint address me`). It can change.
+- **Kinship:** where the node came from. The rite that makes the node writes its origin (`kinOrigin`) one time, and the origin never changes. `flint orbh spawn session|wisp` makes a node with a relation to the caller: `--child` (the default), `--sibling`, `--independent`, `--successor <wisp>`, or `--as <wisp>`.
+- **Membership:** what the node belongs to now: its fleet and its parties (`flint orbh party`). It changes, and the history stays.
+
+A session comes from a session, and a wisp comes from an identity. A wisp runs no harness: it acts through its sub-sessions. Read the three layers with `flint orbh kin` and the `KIN` and `PARTY` lines of the Page. The details are in [[dev-knw-foh-kinship]] and [[dev-knw-foh-membership]].
+
 ## Self-Compaction at 80% Context
 
 The Page `CONTEXT` line is the source of truth for context occupancy; an armed pager autofires a hard advisory at ≥ 80%. **80% is guidance, not a gate — nothing in the runtime blocks or triggers the verbs, and `compact start` is re-runnable and safe at any occupancy.** Treat it as the point by which you should have started, not a threshold that fires on your behalf: at or above **80%**, or clearly approaching it on a long turn, or whenever an operator asks you to compact, **you write your own handoff** — there is no distiller:
@@ -117,6 +133,20 @@ flint orbh session ask "<question>"                           # blocking; suspen
 |------|-------------|
 | `skills/dev-sk-foh-close.md` | Close an operator-owned session after leaving a searchable Mesh summary. |
 | `skills/dev-sk-foh-discard.md` | Tombstone a session with no Mesh summary. |
+| `skills/dev-sk-foh-spawn_session.md` | Start a session with a relation to the caller: a child (a dispatch), a sibling, or an independent peer. |
+| `skills/dev-sk-foh-spawn_wisp.md` | Make a wisp with a purpose and a relation (child, sibling, successor, or independent), with its first sub-session. |
+| `skills/dev-sk-foh-embody_wisp.md` | Start one more sub-session of an active wisp (`spawn session --as <wisp>`). |
+| `skills/dev-sk-foh-fork_session.md` | Fork a session, or fork it in parallel, to try a side path while the source continues. |
+| `skills/dev-sk-foh-birth_session.md` | Make a session for a new topic from 1 to 8 parents, with no move of obligations. |
+| `skills/dev-sk-foh-gain_wisp.md` | Give a session that exists a wisp identity with a purpose. |
+| `skills/dev-sk-foh-read_kinship.md` | Read the identity, the kinship, and the membership of a node, and act on a consume or a revive warning. |
+| `skills/dev-sk-foh-create_party.md` | Make a party; your identity is the founder. |
+| `skills/dev-sk-foh-join_party.md` | Join a node to an open party. |
+| `skills/dev-sk-foh-leave_party.md` | Take a node out of a party. |
+| `skills/dev-sk-foh-close_party.md` | Close a party when its work is done. |
+| `workflows/dev-wkfl-foh-consume_sessions.md` | Consume sessions or a wisp into this session: the sources, the consume, the check of each handoff, the moved obligations, and the record. |
+| `knowledge/dev-knw-foh-kinship.md` | The three layers, the node kinds, the two rules, the origin record and its parent side, the spawn relations, each rite with its record and an example, siblings, and the views. Read before you spawn, fork, birth, or consume. |
+| `knowledge/dev-knw-foh-membership.md` | Parties (the verbs, the members, the founder, the notices), fleets as a membership, a recruit with no kinship, and which group to use. Read before you create or join a party. |
 | `knowledge/dev-knw-foh-cli.md` | Core verbs, turn dispositions and scheduling flags, awaiting/list hygiene, store scoping, accounts and `auth migrate`, and the map to deeper references. |
 | `knowledge/dev-knw-foh-profiles.md` | Choose an exact `runtime/profile` target, and change the profile of a session that already exists. |
 | `knowledge/dev-knw-foh-coordination.md` | Launch peers; dispatch, continue, and collect subagents; message, room, interrupt, respond, kill; `peek`, `timeline`, `ping`, `switch`, `fork`. |
@@ -130,4 +160,4 @@ flint orbh session ask "<question>"                           # blocking; suspen
 
 ## Loading on Demand
 
-Load the close/discard skill only when performing that operator lifecycle action. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load the close/discard skill only when performing that operator lifecycle action. Load a kinship or party skill, or the consume workflow, only when you do that action. Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.

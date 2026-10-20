@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, accounts, store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -17,6 +17,8 @@ orbh-sessions:
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+orbh-fleet: kinship-1020
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -35,6 +37,8 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 | [[dev-knw-foh-orchestrator]] | Delegation shapes, recursive managers, and the orchestrator's supervisor/reaper/wake-engine role |
 | [[dev-knw-foh-fleets]] | Declared fleets: the doctrine of a program of many sessions, the Mesh fields `orbh-fleet` and `orb:`, and the commit trailers |
 | [[dev-knw-foh-identity]] | Agent identity and session mechanics: tiers, wisps, addresses, `by` and `as`, fork, parallel fork, birth, consume, the handoff contract, and the lineage |
+| [[dev-knw-foh-kinship]] | The three layers, the origin record of each node, the spawn relations, each rite with its record, siblings, and `flint orbh kin` |
+| [[dev-knw-foh-membership]] | Parties and their notices, fleets as a membership, and a recruit with no kinship |
 
 ## Lifecycle Orientation
 
@@ -374,6 +378,37 @@ flint orbh update list --fleet <handle>                     # --all for every se
 
 A member's run has `ORBH_FLEET_ID`, `ORBH_FLEET_HANDLE`, and `ORBH_FLEET_NAME`. `list` puts a fleet header line above the root row of a fleet. `inspect`, `peek`, and the Page show the membership.
 
+## Kinship and Membership: `spawn`, `kin`, and `party`
+
+Each node (a session or a wisp) has three layers: its identity (who it acts as now), its kinship (where it came from), and its membership (what it belongs to now). The doctrine is in [[dev-knw-foh-kinship]] and [[dev-knw-foh-membership]].
+
+```bash
+# Spawn: make a node with a relation to the caller (one relation flag; the default is --child)
+flint orbh spawn session <target> "<prompt>" [--child | --sibling | --independent | --as <wisp>] \
+    [--headless | --interactive] [--account <name>] [--model <model>] [--fleet <handle>] [--json]
+flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] \
+    [--child | --sibling | --successor <wisp> | --independent] \
+    [--headless | --interactive] [--account <name>] [--model <model>] [--json]
+
+# Read the three layers (no server needed)
+flint orbh kin [<ref>] [--depth <n>] [--up | --down] [--json]   # ref: a session id or prefix, a wisp id or alias, or party:<handle>
+
+# Parties (the default member is the identity of the caller: its active wisp, else the session)
+flint orbh party create <handle> [--name "<name>"] [--purpose "<text>"] [--session <id> | --wisp <ref>] [--json]
+flint orbh party join <handle> [--session <id> | --wisp <ref>] [--json]
+flint orbh party leave [<handle>] [--session <id> | --wisp <ref>] [--reason "<why>"] [--json]
+flint orbh party show [<handle>] [--json]
+flint orbh party list [--all] [--mine] [--json]
+flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
+```
+
+- **`spawn session --child`** is a dispatch, as `request` is: the child shows in `DISPATCHES`, and `flint orbh wait <id>` collects it. Outside a session it refuses: use `--independent`. **`--sibling`** and **`--independent`** start a peer that nobody collects. **`--as <wisp>`** (embody) starts a sub-session of an active wisp. The default mode is `--headless`.
+- **`spawn wisp`** makes a wisp (a fresh UUID, a fresh alias, and the purpose) and starts its first sub-session. The default mode is `--interactive` (`flint orbh attach <id>`). `--successor <wisp>` refuses while that wisp is active.
+- **The old verbs stay**, and each one writes the same origin record: `request`, `job run --agent`, and a worker of a member are a child spawn; a bare `launch` is an independent spawn; `fork`, `birth`, and `wisp gain` write their own rites.
+- **`kin`** prints IDENTITY, KINSHIP (a tree: the ancestry, the node, the descent, and the siblings), and MEMBERSHIP (the fleet and the parties). `--json` prints the lineage graph and the summary.
+- **A party notice** goes to each other member at each join, leave, and close. It never wakes a session. The Page shows it one time on a `PARTY` line ([[dev-knw-foh-page]] § The KIN and PARTY Lines).
+- `inspect` has the sections Kinship and Membership, and `peek` has a `Kin:` line and a `Parties:` line.
+
 ## Page, Pager, and List Hygiene
 
 ```bash
@@ -393,7 +428,7 @@ flint orbh list --status awaiting
 - `flint orbh scope [--expect <dir>] [--json]` is the read-only pre-flight probe: it prints which store the next command will resolve to and why, creates nothing, and with `--expect` exits non-zero on a mismatch — so a brief can require it before any mutating verb.
 - `flint orbh context [id] [--json]` prints token context-window occupancy directly (the Page `CONTEXT` number) without rendering the Page; see [[dev-knw-foh-compaction]]. `flint orbh peek <id> [--json]` is cheap projection-only status for another session; see [[dev-knw-foh-coordination]].
 - Verify/repair commands and current caveats live in [[dev-knw-foh-internals]].
-- Bare `launch` creates a peer; `request` creates a collected subagent. Do not interchange them.
+- Bare `launch` creates a peer; `request` creates a collected subagent. Do not interchange them. `spawn session --child` is a dispatch, as `request` is, and `spawn session --independent` is a peer, as bare `launch` is.
 - Durable machinery beyond the session — stations, cron, workers, procedures, workflow chaining, `update`/`approval`/`improve` — is in [[dev-knw-foh-machinery]].
 - Declared fleets — the verbs above, the doctrine, the `orbh-fleet` Mesh field, and the commit trailers — are in [[dev-knw-foh-fleets]].
 - Shard invocations are a Flint layer on the session. The flags are above. The INVOCATIONS block of the Page is in [[dev-knw-foh-page]], the stack after a compaction in [[dev-knw-foh-compaction]], the parent of a child session in [[dev-knw-foh-coordination]], and the `enforced` guard in [[dev-knw-foh-machinery]]. The use side is in [[knw-f-invocations]], and the authoring side is in [[knw-knap-invocations]].

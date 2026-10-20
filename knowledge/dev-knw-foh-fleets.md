@@ -1,18 +1,20 @@
 ---
-description: "Declared fleets — the verbs, when to declare, how to name, the charter, the voice, the Mesh fields and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
+description: "Declared fleets — a fleet as a membership, the verbs, when to declare, how to name, the charter, the voice, the Mesh fields and commit trailers, peers and stations, accounts and load before each wave, many builders on one checkout, review and deploy, the fleet recipes, and the close-out"
 orbh-sessions:
   - "[[528386a9-3de4-4ffb-9f92-dc12e4e6dcda]]"
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+orbh-fleet: kinship-1020
 ---
 
 # Knowledge: Declared Fleets
 
 A **declared fleet** is a named group of Orbh sessions that acts under one name for one program. A fleet has a handle, a display name, a charter, one root session, and the person who is accountable (the principal). The acts of a member show the fleet: its updates, its Discord posts, its commits, and its Mesh edits. The root is the manager of the fleet.
 
-Membership is separate from ancestry and from collection. A child of a member is a member from its first event. A peer or a station joins only when you tell it to. Closing a fleet does not stop, close, or kill a session.
+**A fleet is a membership** ([[dev-knw-foh-membership]]): it says what a session belongs to now, and it changes. Membership is separate from kinship ([[dev-knw-foh-kinship]]) and from collection. A child of a member is a member from its first event. A peer or a station joins only when you tell it to. A recruit keeps its own kinship. Closing a fleet does not stop, close, or kill a session.
 
 Read this file before you run a program of many sessions. The general manager rules are in [[dev-knw-foh-orchestrator]]. The delegation verbs are in [[dev-knw-foh-coordination]].
 
@@ -46,6 +48,7 @@ The fleet flags of other verbs:
 ```bash
 flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]  # the new session is the root
 flint orbh launch <target> "<duty>" --fleet <handle>        # a peer that is a member (via launch)
+flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>   # a sibling peer that is a member
 flint orbh worker spawn "<brief>" --fleet <handle>          # only for a worker whose parent is in no fleet
 flint orbh message send fleet:<handle> "<text>"             # goes to the root session of the fleet
 flint orbh message request fleet:<handle> "<question>"      # a blocking peer request to the root
@@ -61,7 +64,9 @@ A bare `update list --fleet` (with no handle) is the deprecated name of `update 
 
 - **Descendants are automatic.** A subagent of a member (`request`, `job run --agent`, a worker of a member) is a member from its first event (`role descendant`, `via inherit`). It needs no command.
 - **Declare stamps the present tree.** `fleet declare` stamps each session under the root (`via backfill`). So a manager can declare after its first wave. The backfill does not change the actor of an update that a child already sent. Use `--no-backfill` to stamp only the root.
-- **A bare peer is not a member.** `launch` with no `--fleet` gives a session in no fleet.
+- **A bare peer is not a member.** `launch` with no `--fleet` gives a session in no fleet. In the same way, `spawn session --sibling` and `spawn session --independent` give a session in no fleet, unless you give `--fleet <handle>`. `spawn session --child` is a dispatch, so its child inherits the fleet.
+- **A recruit has no kinship to the fleet.** `fleet join` adds a session that is not a descendant, and it writes no kinship record. The root is not the kinship parent of the recruit, and the recruit owes no result to the root. Example: in [[dev-knw-foh-membership]] § A Recruit With No Kinship.
+- **A fleet is not a party.** The rule "one membership for each session" below is for fleets only. A member of a fleet can also be in many parties ([[dev-knw-foh-membership]] § Parties).
 - **One membership for each session.** A member of an open fleet cannot declare or join another fleet. It must `fleet leave` first. A stamp of a closed fleet does not count.
 - **No nested fleets.** A member cannot declare a fleet inside its fleet. A subagent never declares.
 - **An old build writes no stamp.** A child that an old CLI launched has no stamp. Repair it with `flint orbh fleet declare <handle> --backfill-only`. A repeat writes nothing.
@@ -171,6 +176,7 @@ In a repository with no hook, add the trailers yourself: `git commit -m "<messag
 ## Peers and Stations
 
 - Launch a peer of the fleet with `flint orbh launch <target> "<duty>" --fleet <handle>`. It gets a stamp (`via launch`) and one roster event.
+- Start a sibling peer of the fleet with `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>`. It has the kinship parents of the caller, and nobody collects its result.
 - Add a session that exists with `flint orbh fleet join <handle> --session <id>`.
 - Add a station with `flint orbh fleet join <handle> --station <name>`.
 - Start a new program as an operator in one command: `flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]`.
