@@ -2,6 +2,7 @@
 description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, and the map of the Orbh skills and knowledge"
 orb:
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
 orbh-fleet: kinship-1020
 ---
 
@@ -132,8 +133,6 @@ flint orbh session ask "<question>"                           # blocking; suspen
 
 | File | When to Use |
 |------|-------------|
-| `skills/dev-sk-foh-close.md` | Close an operator-owned session after leaving a searchable Mesh summary. |
-| `skills/dev-sk-foh-discard.md` | Tombstone a session with no Mesh summary. |
 | `skills/dev-sk-foh-spawn_session.md` | Start a session with a relation to the caller: a child (a dispatch), a sibling, or an independent peer. |
 | `skills/dev-sk-foh-spawn_wisp.md` | Make a wisp with a purpose and a relation (child, sibling, successor, or independent), with its first sub-session. |
 | `skills/dev-sk-foh-embody_wisp.md` | Start one more sub-session of an active wisp (`spawn session --as <wisp>`). |
@@ -161,4 +160,4 @@ flint orbh session ask "<question>"                           # blocking; suspen
 
 ## Loading on Demand
 
-Load the close/discard skill only when performing that operator lifecycle action. Load a kinship or party skill, or the consume workflow, only when you do that action. Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load a kinship or party skill, or the consume workflow, only when you do that action. Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
