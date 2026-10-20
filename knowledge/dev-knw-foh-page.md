@@ -114,26 +114,40 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 
 ## The KIN and PARTY Lines
 
-Two lines come right after the `WISP` line (task jn7d0191). They show the kinship and the membership of the session, from the same summary as `flint orbh kin`, `inspect`, the chrome, and Steel.
+The core functions `core/kin` and `core/party` show two kinds of line right after the `WISP` line (task jn7d0191). The order is `FLEET`, `TASK`, `WISP`, `KIN`, `PARTY`, and then the procedure. The lines use the same reader and summary as `flint orbh kin`, `inspect`, `peek`, and the chrome.
 
 ```
-KIN  child of wisp Rural Amazed Moonbeam · 2 children · 1 siblings
-KIN  forked from 3d54e255 · 0 children · 2 siblings · consumed into <label> 12:23
-KIN  independent · 0 children · 0 siblings · consumed into <label> 12:23 · ⚠ revived after consume: the obligations are with <label>
-PARTY  names-review (3) · steel-names (5)
-PARTY  ✉ Final Sandy Origin joined steel-names (14:02)
+KIN  independent · 2 children · 0 siblings
+KIN  embodies wisp Helpful Shimmery Autoharp · 0 children · 0 siblings
+KIN  forked from 5aa9a295 · 0 children · 1 sibling · consumed into 833dd8ce 12:23
+KIN  child of 647fed45 · 0 children · 3 siblings · consumed into 833dd8ce 12:23 · ⚠ revived after consume: the obligations are with 833dd8ce
+PARTY  review-crew (3) · side-crew (1)
+PARTY  ✉ Fork Child joined review-crew (14:26)
 ```
 
-**The `KIN` line:** `KIN  <origin> · <n> children · <n> siblings[ · consumed into <label> <time>][ · ⚠ revived after consume: the obligations are with <label>]`.
+**The `KIN` line:** `KIN  <origin> · <n> children · <n> siblings[ · consumed <n> sessions][ · consumed into <ref> <HH:MM>][ · ⚠ revived after consume: the obligations are with <ref>][ · revived after an end <HH:MM>]`.
 
-- The origin segment is one of: `child of <node>` (for example `child of wisp Rural Amazed Moonbeam`), `sibling of <node>`, `successor of wisp <Wisp Name>`, `forked from <id>`, `born from <n>`, `embodies wisp <Wisp Name>`, or `independent`.
-- The children count holds the kinship children and the dispatch children.
-- The line shows only when the session has a kinship fact beyond a plain dispatch. A dispatch child with no other relation has no `KIN` line: the `DISPATCHES` block of its parent and its subagent prompt cover it.
-- **Act on `⚠ revived after consume`.** This session ran again after a consume. Its obligations are with the consumer: do not collect a moved child, answer a moved request, or continue a moved frame. See [[dev-sk-foh-read_kinship]].
+- **A ref** is the short id of a session, or `wisp <Wisp Name>` for a wisp. The counts use plurals: `1 child`, `2 children`, `1 sibling`.
+- **The origin segment** is one of: `child of <ref>`, `sibling of <ref>`, `successor of wisp <Wisp Name>`, `forked from <ref>`, `born from <n>` (more than one parent) or `born from <ref>`, `embodies wisp <Wisp Name>`, `independent`, or `no recorded origin`.
+- **The children count** holds the kinship children and every dispatch child of the store, as `inspect` counts them.
+- **The siblings count can be a lower bound.** It then shows as `N+` (for example `256+ siblings`), or with no count.
+- **No counts:** when the store does not list its sessions in 1.5 seconds, the line gives no counts. Run `flint orbh kin` for them.
+- **`consumed <n> sessions`** shows on a consumer. **`consumed into <ref> <HH:MM>`** shows on a source.
+- **The revive facts.** `⚠ revived after consume` means that the session runs again after a consume: its obligations are with the consumer. Do not collect a moved child, answer a moved request, or continue a moved frame ([[dev-sk-foh-read_kinship]]). `revived after an end <HH:MM>` means that the session runs again after a close. It is a fact, not a warning.
 
-**The `PARTY` lines:** `PARTY  <handle> (<n>) · <handle> (<n>)` gives each open party of the identity of the session, with its count of members. Then one line comes for each undelivered notice: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`.
+**When the `KIN` line shows.** It shows when the session has one of these facts:
 
-- **A self Page read shows each notice one time and marks it delivered.** The managed Page of a working session marks it in the same way. An observer read (`flint orbh page <id>`) marks nothing.
+- an origin that is not a plain dispatch and not `independent`;
+- a consume, as the consumer or as a source;
+- a revival;
+- a node that has this session as its anchor (a sibling);
+- a kinship child that is not a dispatch child.
+
+A plain dispatch child has no `KIN` line: the `DISPATCHES` block of its parent and its subagent prompt cover it. An `independent` origin alone, dispatch children alone, and a gained wisp alone give no line either. The `WISP` line shows the wisp.
+
+**The `PARTY` lines:** `PARTY  <handle> (<n>) · <handle> (<n>)` gives each open party of the identity of the session with its count of members. A session that acts as a wisp also gets the parties of the session itself. Then one line comes for each undelivered notice: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. After 10 notice lines, one line gives the count of the rest.
+
+- **A self Page read shows each notice one time and marks it delivered.** The managed Page of a working session marks it in the same way. A Page read of another session (`flint orbh page <id>`) marks nothing.
 - **A notice never wakes an awaiting session.** It shows at the next turn.
 - The verbs and the rules are in [[dev-knw-foh-membership]] § Parties. The full view is `flint orbh kin` ([[dev-knw-foh-kinship]] § The Views).
 

@@ -391,7 +391,7 @@ flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] \
     [--headless | --interactive] [--account <name>] [--model <model>] [--json]
 
 # Read the three layers (no server needed)
-flint orbh kin [<ref>] [--depth <n>] [--up | --down] [--json]   # ref: a session id or prefix, a wisp id or alias, or party:<handle>
+flint orbh kin [<ref>] [--depth <n>] [--up | --down] [--json]   # ref: a session id or prefix, wisp:<ref> or a wisp id or alias, or party:<handle>
 
 # Parties (the default member is the identity of the caller: its active wisp, else the session)
 flint orbh party create <handle> [--name "<name>"] [--purpose "<text>"] [--session <id> | --wisp <ref>] [--json]
@@ -402,10 +402,10 @@ flint orbh party list [--all] [--mine] [--json]
 flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 ```
 
-- **`spawn session --child`** is a dispatch, as `request` is: the child shows in `DISPATCHES`, and `flint orbh wait <id>` collects it. Outside a session it refuses: use `--independent`. **`--sibling`** and **`--independent`** start a peer that nobody collects. **`--as <wisp>`** (embody) starts a sub-session of an active wisp. The default mode is `--headless`.
-- **`spawn wisp`** makes a wisp (a fresh UUID, a fresh alias, and the purpose) and starts its first sub-session. The default mode is `--interactive` (`flint orbh attach <id>`). `--successor <wisp>` refuses while that wisp is active.
+- **`spawn session --child`** is a dispatch, as `request` is: the child shows in `DISPATCHES`, and `flint orbh wait <id>` collects it. It is always headless, and it inherits the fleet of its parent: `--interactive` and `--fleet` refuse. Outside a session it refuses: use `--independent`. **`--sibling`** (it needs a session) and **`--independent`** start a peer that nobody collects. **`--as <wisp>`** (embody) starts a sub-session of an active wisp. It is a peer too. The default mode is `--headless`. `--json` gives `{ kind, id, wispId?, alias?, origin }`.
+- **`spawn wisp`** makes a wisp (a fresh UUID, a fresh alias, and the purpose) and starts its first sub-session, which joins the wisp before its first run. The default mode is `--interactive` (`flint orbh attach <id>`). `--child` and `--sibling` need a session. `--successor <wisp>` refuses while that wisp is active. `--json` gives `{ kind, id, alias, sessionId, origin }`.
 - **The old verbs stay**, and each one writes the same origin record: `request`, `job run --agent`, and a worker of a member are a child spawn; a bare `launch` is an independent spawn; `fork`, `birth`, and `wisp gain` write their own rites.
-- **`kin`** prints IDENTITY, KINSHIP (a tree: the ancestry, the node, the descent, and the siblings), and MEMBERSHIP (the fleet and the parties). `--json` prints the lineage graph and the summary.
+- **`kin`** prints IDENTITY, KINSHIP (the ancestry and the descent as trees, then the siblings), and MEMBERSHIP (the fleet and the parties). The default ref is the calling session. `--depth` is 1 to 5 (the default is 2). `--up` and `--down` together refuse. `--json` gives `{ root, depth, graph, summary, wisp?, party? }`. It reads the store directly and writes nothing.
 - **A party notice** goes to each other member at each join, leave, and close. It never wakes a session. The Page shows it one time on a `PARTY` line ([[dev-knw-foh-page]] § The KIN and PARTY Lines).
 - `inspect` has the sections Kinship and Membership, and `peek` has a `Kin:` line and a `Parties:` line.
 

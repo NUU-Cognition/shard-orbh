@@ -64,7 +64,7 @@ A bare `update list --fleet` (with no handle) is the deprecated name of `update 
 
 - **Descendants are automatic.** A subagent of a member (`request`, `job run --agent`, a worker of a member) is a member from its first event (`role descendant`, `via inherit`). It needs no command.
 - **Declare stamps the present tree.** `fleet declare` stamps each session under the root (`via backfill`). So a manager can declare after its first wave. The backfill does not change the actor of an update that a child already sent. Use `--no-backfill` to stamp only the root.
-- **A bare peer is not a member.** `launch` with no `--fleet` gives a session in no fleet. In the same way, `spawn session --sibling` and `spawn session --independent` give a session in no fleet, unless you give `--fleet <handle>`. `spawn session --child` is a dispatch, so its child inherits the fleet.
+- **A bare peer is not a member.** `launch` with no `--fleet` gives a session in no fleet. In the same way, `spawn session --sibling`, `--independent`, and `--as <wisp>` give a session in no fleet, unless you give `--fleet <handle>`. `spawn session --child` is a dispatch, so its child inherits the fleet, and `--fleet` refuses.
 - **A recruit has no kinship to the fleet.** `fleet join` adds a session that is not a descendant, and it writes no kinship record. The root is not the kinship parent of the recruit, and the recruit owes no result to the root. Example: in [[dev-knw-foh-membership]] § A Recruit With No Kinship.
 - **A fleet is not a party.** The rule "one membership for each session" below is for fleets only. A member of a fleet can also be in many parties ([[dev-knw-foh-membership]] § Parties).
 - **One membership for each session.** A member of an open fleet cannot declare or join another fleet. It must `fleet leave` first. A stamp of a closed fleet does not count.
@@ -176,7 +176,7 @@ In a repository with no hook, add the trailers yourself: `git commit -m "<messag
 ## Peers and Stations
 
 - Launch a peer of the fleet with `flint orbh launch <target> "<duty>" --fleet <handle>`. It gets a stamp (`via launch`) and one roster event.
-- Start a sibling peer of the fleet with `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>`. It has the kinship parents of the caller, and nobody collects its result.
+- Start a sibling peer of the fleet with `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>`. It has the kinship parents of the caller, and nobody collects its result. It gets a stamp (`via launch`): the output has `Fleet: <handle> (<name>) · member · via launch`.
 - Add a session that exists with `flint orbh fleet join <handle> --session <id>`.
 - Add a station with `flint orbh fleet join <handle> --station <name>`.
 - Start a new program as an operator in one command: `flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]`.
