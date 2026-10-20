@@ -4,13 +4,15 @@ orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/833dd8ce-af50-4489-ad77-928b15e875de#flint/nuu-orbh"
+  - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+orbh-fleet: kinship-1020
 ---
 
 # Knowledge: Agent Identity and Session Mechanics
 
 This file tells you what an Orbh actor is, how Orbh names and addresses it, and how sessions copy, move, and join work. Read it before you run `flint orbh wisp gain`, `fork --parallel`, `birth`, or `consume`.
 
-The design is in NUU Orbh Notepad 108 (§ 4 to § 12) and its three polls. Mission 027 built it. A label such as R23 names a revision of the contract in the note of Mission 027. The general verbs of delegation are in [[dev-knw-foh-coordination]], and compaction is in [[dev-knw-foh-compaction]].
+The design is in NUU Orbh Notepad 108 (§ 4 to § 12) and its three polls. Mission 027 built it. A label such as R23 names a revision of the contract in the note of Mission 027. The general verbs of delegation are in [[dev-knw-foh-coordination]], and compaction is in [[dev-knw-foh-compaction]]. Where a node came from (its kinship) is in [[dev-knw-foh-kinship]], and what it belongs to now (its membership) is in [[dev-knw-foh-membership]].
 
 **The design rule: it works alone, and it connects when the rest is there.** Orbh needs no NUU account, no network, and no org. Each part below works with Orbh alone. An org, a login, and the network only add to it.
 
@@ -36,6 +38,8 @@ The tiers use one analogy: energy is intelligence. A tier says how much form the
 ## The Wisp
 
 A wisp is a named identity with a purpose. It has its own UUID, and it can hold many sessions.
+
+**A wisp is a node, as a session is.** It has its own origin, its own children, and a place in the kinship tree. It runs no harness: it acts only through its sub-sessions, the sessions with its `wispId`. A session outlives its contexts, and in the same way a wisp outlives its sessions. `flint orbh spawn wisp` makes a wisp with its first sub-session, and `flint orbh spawn session <target> "<prompt>" --as <wisp>` starts one more sub-session (embody). See § Its Kinship below.
 
 ```bash
 flint orbh wisp gain [--purpose "<text>"] [--session <id>] [--json]   # the current session gains a wisp
@@ -84,11 +88,20 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 
 ### Its Life
 
-- **Active.** `wisp gain` makes the wisp with its first session (the origin). A fork of a member joins the wisp (`via fork`), when the wisp is active.
+- **Active.** `wisp gain` makes the wisp with its first session (the origin). `spawn wisp` makes the wisp and starts its first sub-session. A fork of a member joins the wisp (`via fork`), when the wisp is active. `spawn session --as <wisp>` adds a new sub-session (`via embody`).
 - **Ended.** `wisp end "<reason>"` ends an active wisp. Its sessions keep their link to it.
 - **Consumed.** A consume of the wisp ends it, when each member session is consumed (see § Consume).
-- The events in the Orbh store: `wisp.gained` (with the field `purpose`), `wisp.purposeSet`, `wisp.joined` (`via` is `fork`; the values `consume` and `join` are reserved, and no verb writes them now), `wisp.renamed`, `wisp.ended`, and `wisp.consumed`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
-- There is no verb for a join or a rename now.
+- The events in the Orbh store: `wisp.gained` (with the field `purpose`), `wisp.purposeSet`, `wisp.joined` (`via` is `fork` or `embody`; the values `consume` and `join` are reserved, and no verb writes them now), `wisp.renamed`, `wisp.ended`, `wisp.consumed`, `wisp.kinOrigin`, and `wisp.kinLink`. The wisp is one spool in the Orb space of the Flint, as a fleet is.
+- There is no verb that adds a session that exists to a wisp, and no verb for a rename.
+
+### Its Kinship
+
+- **A wisp has one origin**, as each node has. Orbh writes it one time, as the event `wisp.kinOrigin`. `wisp gain` writes the rite `gain` with the session that gains it as the kinship parent. `spawn wisp` writes the rite `spawn` with the relation of its flag.
+- **A wisp comes from an identity.** The kinship parent of a spawned child wisp is the identity of the caller: its active wisp, else the calling session.
+- **Its parent side.** Each child, each sibling, and each successor of the wisp adds one `wisp.kinLink` event to the spool of the wisp.
+- **A successor continues an ended wisp:** `flint orbh spawn wisp <target> "<purpose>" --successor <wisp>`. The new wisp gets a fresh alias. The numeral name is not built.
+- **`wisp gain` writes no origin on the session.** The session existed before the wisp. It gets the `as` link (`wispId`) and the parent side of the wisp.
+- The rites, the records, and the examples are in [[dev-knw-foh-kinship]]. A wisp can also be a member of a party ([[dev-knw-foh-membership]]).
 
 ## Addresses and Their Levels
 
@@ -165,10 +178,15 @@ A session holds two different things:
 - Start a new topic with the context of finished sessions → **birth**. A finished session has no obligations, so nothing must move.
 - Continue the work of sessions that have open work or a live state, in one session → **consume**. Two owners of one obligation must not exist.
 - Your own context is full → **compact**.
+- Give a new identity its own purpose and memory → **spawn wisp** ([[dev-knw-foh-kinship]] § Spawn a Wisp).
+
+Each mechanic that makes a node also writes its origin record (`kinOrigin`). The rites and their records are in [[dev-knw-foh-kinship]] § The Rites.
 
 ### Dispatch
 
 A subagent of `flint orbh request` or `job run --agent` gets only a prompt. It records `parentSessionId`, `rootSessionId`, and `depth`. A bare `flint orbh launch` makes a peer: it has no parent. See [[dev-knw-foh-coordination]].
+
+`flint orbh spawn session <target> "<prompt>"` (the relation `--child`, the default) is the same dispatch. `--sibling` and `--independent` start a peer. Each form writes the origin `spawn` with its relation ([[dev-knw-foh-kinship]] § The Spawn Relations).
 
 ### Fork and Parallel Fork
 
@@ -185,7 +203,7 @@ flint orbh fork --parallel <n> [--prompt-file <file>]… [--fleet <handle>] ["<p
 - **A fork stays in its wisp.** A fork of a session in an active wisp joins that wisp (`via fork`). The fork gets the `wispId` of the wisp, its memory folder, and its name in the title.
 - **A fork of an inactive wisp is a plain session** (R19). The wisp of the source has ended, was consumed, or is not in the store. Then the fork does not join the wisp. The fork has no `wispId`. The fork still starts, and the command exits 0. The command prints why the fork did not join. When the wisp store refuses the join, the fork also has no `wispId`.
 - The HTTP fork answer has the field `wisp: { wispId, joined, reason? }` when the source has a wisp (R24).
-- The fork records `relations.forkedFrom` (the source, its run, and the time).
+- The fork records `relations.forkedFrom` (the source, its run, and the time), and the origin `fork`/`child` (`kinOrigin`). The forks of one `--parallel` share one spawn group (`group`), so Orbh derives that they are siblings.
 
 ### Birth
 
@@ -202,7 +220,7 @@ flint orbh birth "<topic>" [<target>] --from <id> [--from <id>…] [--attach] [-
 - A birth on an explicit store (`--orb-root` or `--at`) starts the new session in that store, also outside a Flint (R22).
 - **No obligation moves.** The parents stay as they are. A finished session can be a parent of many births.
 - **A birth starts outside each wisp.** Its topic is new, so its purpose is new.
-- The new session records `relations.bornFrom` (each parent, its seed, and `writtenBy`).
+- The new session records `relations.bornFrom` (each parent, its seed, and `writtenBy`), and the origin `birth`/`child` with each parent (`kinOrigin`).
 
 ### Consume
 
@@ -383,8 +401,14 @@ relations?: {
   consumedInto?: { kind: 'session' | 'wisp'; id: string; at: string }; // the kind wisp is reserved: a consumer is a session now
   consumed?: Array<{ sessionId: string; at: string; handoff?: string; writtenBy: 'self' | 'reconstructed' }>;
   wispId?: string;
+  kinOrigin?: KinOrigin;           // the origin of the node (task jn7d0191)
+  kinChildren?: KinLinkEntry[];    // the parent side: the nodes that name this node as a kinship parent
+  kinRelated?: KinLinkEntry[];     // the anchor side: the siblings and the successors of this node
+  kinRevived?: KinRevival[];       // each run after an end or a consume
 }
 ```
+
+The kinship types are in [[dev-knw-foh-kinship]] § The Origin Record.
 
 ### The Route
 
@@ -397,22 +421,27 @@ relations?: {
   ```ts
   interface LineageGraph { root: string; nodes: LineageNode[]; edges: LineageEdge[]; truncated: boolean }
   type LineageNode =
-    | { kind: 'session'; id: string; title?: string; state: string; runtime?: string; wispId?: string }
-    | { kind: 'wisp'; id: string; alias?: string; state: string }
-    | { kind: 'fleet'; handle: string; name?: string; state: string };
-  interface LineageEdge { kind: 'dispatch' | 'fork' | 'fleet' | 'wisp' | 'consume' | 'birth'; from: string; to: string; at?: string }
+    | { kind: 'session'; id: string; title?: string; state: string; runtime?: string; wispId?: string; origin?: { rite: KinRite; relation: KinRelation }; revived?: boolean }
+    | { kind: 'wisp'; id: string; alias?: string; state: string; origin?: { rite: KinRite; relation: KinRelation } }
+    | { kind: 'fleet'; handle: string; name?: string; state: string }
+    | { kind: 'party'; handle: string; name?: string; state: string };
+  interface LineageEdge {
+    kind: 'dispatch' | 'fork' | 'fleet' | 'wisp' | 'consume' | 'birth' | 'spawn' | 'sibling' | 'successor' | 'party';
+    from: string; to: string; at?: string;
+  }
   ```
 
-- A node key is `session:<id>`, `wisp:<id>`, or `fleet:<handle>`.
-- The direction of each edge: `dispatch` parent → child, `fork` source → fork, `fleet` fleet → member, `wisp` wisp → session, `consume` source → consumer, `birth` parent → child.
+- A node key is `session:<id>`, `wisp:<id>`, `fleet:<handle>`, or `party:<handle>`.
+- The direction of each edge: `dispatch` parent → child, `fork` source → fork, `fleet` fleet → member, `wisp` wisp → session, `consume` source → consumer, `birth` parent → child, `spawn` kinship parent → child (only when no `dispatch`, `fork`, or `birth` edge joins the two nodes), `sibling` anchor → sibling (only for a sibling with no kinship parent), `successor` ended wisp → successor, and `party` party → member.
 - `truncated` is true when the depth cut the graph. A node that the reader cannot see has the state `unknown`. The walk breaks a dispatch or fork cycle.
-- No CLI verb prints the graph. `flint orbh inspect <id>` has a Lineage section (Parent, Fleet, Continues, Subagents).
+- `flint orbh kin [<ref>]` prints the graph as a tree, with the identity and the membership ([[dev-knw-foh-kinship]] § The Views). `flint orbh inspect <id>` has the section Kinship (each relation, old and new) and the section Membership (the fleet and the parties).
 
 ### The Steel View
 
 - **The Lineage tab** of a session (in the session panel) draws the graph of that session.
 - **The page `/lineage/:sessionId`** draws the same graph. `/lineage` with no id lists the 20 sessions that changed last. The hotkey of the page is `⌘0` (`Ctrl+0`).
-- A card is a session (with its state), a wisp (with its alias, a dashed border), or a fleet. A fleet with member cards is a dashed group box. A click on a session card opens that session.
-- Each edge kind has its own style: `consume` is the thickest line, and `fork`, `fleet`, `wisp`, and `birth` have different dashes.
+- A card is a session (with its state), a wisp (with its alias, a dashed border), a fleet, or a party. A fleet with member cards is a dashed group box. A click on a session card opens that session. The page also opens for a wisp id.
+- Each edge kind has its own style: `consume` is the thickest line, and `fork`, `fleet`, `wisp`, `birth`, `spawn`, `sibling`, `successor`, and `party` have different styles.
+- The session info shows three groups: Identity, Kinship, and Membership.
 - The buttons set the depth (1 to 5). The view loads again each 30 seconds while it shows.
 - When the route is not there (an older Flint server), the view builds the graph from the session summaries and the fleets. Its header then says "from the session summaries".
