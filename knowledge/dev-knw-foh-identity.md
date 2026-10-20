@@ -53,12 +53,10 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 
 - **The key is a UUID.** Orbh makes it at `wisp gain`. It is not the UUID of the first session, and it never changes.
 - **The alias is `adjective-adjective-noun`.** For example: `quiet-amber-heron`. A hash (SHA-256) of `<uuid>:<salt>` selects two different adjectives and one general noun from fixed word lists.
-- **The word lists have version `5`** (task jn788t38, an operator request: fewer clashes). They hold 1,620 adjectives and 4,541 nouns: about 11.9 billion names (version 4: 3.7 billion). Each word has 3 to 8 letters `a`–`z`, and one spelling only. The same UUID gives the same alias only with the same lists, so each change to a list gets a new version.
-- **The nouns are concrete and plain words are welcome:** objects, places, roles, foods, animals, and plants (an operator decision). A role does not name a gender or a rank of people.
-- **A worklist of coined words waits for a later version.** `Repos/flint/packages/orbh/docs/wisp-coined-worklist/` holds 38,329 invented English-sounding words (`bragdale`, `sparcott`) for a form `adjective-coined-noun` ("Quiet Bragdale Heron"), with the method that made them. No code reads it. Real first names and surnames are not used (operator decision).
-- **The lists exclude these words:** offensive words, words that are negative about a person, brand names, NUU names, the energy words near the tier names (`spark`, `ember`, `flare`), and reserved words. Words with a sense of death, disease, violence, the body, drugs, alcohol, or money stay out of the nouns. Two more rules:
+- **The word lists have version `4`.** They hold 1,526 adjectives and 1,575 nouns. Each word has 3 to 8 letters `a`–`z`, and one spelling only. The same UUID gives the same alias only with the same lists, so each change to a list gets a new version.
+- **The lists exclude these words:** offensive words, words that are negative about a person, brand names, NUU names, and reserved words. Two more rules:
   - A word goes when people know it mainly as the name of a software or AI product or company (R20). For example: `cursor`, `loom`, `lovable`. A common English word stays when a company only uses it as a name (for example `brave`, `linear`).
-  - A word goes when it is the name of a model family or a harness runtime that Orbh can show beside an alias, also when it is a common English word (R21): `haiku`, `sonnet`, `opus`, `fable`, `llama`, `gemini`, `codex`, `droid`, `claude`, and from version 5 `muse`, `grok`, `kimi`, `agy`, `astra`, `luna`, `sol`, `terra`, `spark`, `composer`, `flash`.
+  - A word goes when it is the name of a model family or a harness runtime that Orbh can show beside an alias, also when it is a common English word (R21): `haiku`, `sonnet`, `opus`, `fable`, `llama`, `gemini`, `codex`, `droid`, `claude`.
 - **The same UUID gives the same first alias.** The salt starts at `0`. When an active or ended wisp of the local store has the alias, Orbh uses the next salt (up to `64`).
 - **The alias is proposed.** `aliasStatus` is `proposed` until the network claims the alias. The claim (`wisp.claimed`) comes with the network. It is not built.
 - **The alias is a handle, not the key.** A program and a record store the id form (`@v1/<org>/wisp/<uuid>`). A person types the alias, and a UI shows it.
@@ -188,7 +186,7 @@ Each mechanic that makes a node also writes its origin record (`kinOrigin`). The
 
 A subagent of `flint orbh request` or `job run --agent` gets only a prompt. It records `parentSessionId`, `rootSessionId`, and `depth`. A bare `flint orbh launch` makes a peer: it has no parent. See [[dev-knw-foh-coordination]].
 
-`flint orbh spawn session <target> "<prompt>"` (the relation `--child`, the default) is the same dispatch. `--sibling` and `--independent` start a peer. Each form writes the origin `spawn` with its relation ([[dev-knw-foh-kinship]] § The Spawn Relations).
+`flint orbh spawn session <target> "<prompt>"` (the relation `--child`, the default) is the same dispatch. It is always headless. `--sibling`, `--independent`, and `--as <wisp>` start a peer: it has no parent, and nobody collects its result. Each form writes its origin ([[dev-knw-foh-kinship]] § The Spawn Relations).
 
 ### Fork and Parallel Fork
 
@@ -414,10 +412,11 @@ The kinship types are in [[dev-knw-foh-kinship]] § The Origin Record.
 
 ### The Route
 
-`GET /orbh/lineage/:id?depth=N` on the Flint server gives the lineage graph of one session. The SDK has `client.orbh.getLineage(id, depth?)`.
+`GET /orbh/lineage/:id?depth=N` on the Flint server gives the lineage graph of one node. The SDK has `client.orbh.getLineage(id, depth?)`.
 
-- `:id` is a full id or a unique prefix. `depth` is a whole number from 1 to 5. The default is 2.
-- A bad depth gives 400 with the code `LINEAGE_DEPTH_INVALID`. An unknown session gives 404 with the code `session-not-found`.
+- `:id` is a session id or a unique prefix, `wisp:<id>` (an id, not an alias), a bare wisp id that names no session, or `party:<handle>`. For a session, the root of the graph is the session id. For a wisp or a party, the root is the node key. `depth` is a whole number from 1 to 5. The default is 2.
+- A bad depth gives 400 with the code `LINEAGE_DEPTH_INVALID`. An unknown root gives 404 with the code `session-not-found`, `wisp-not-found`, or `party-not-found`.
+- The `party` edges come from the open parties. A root of a closed party gives its members at the close.
 - The answer:
 
   ```ts
@@ -442,8 +441,8 @@ The kinship types are in [[dev-knw-foh-kinship]] § The Origin Record.
 
 - **The Lineage tab** of a session (in the session panel) draws the graph of that session.
 - **The page `/lineage/:sessionId`** draws the same graph. `/lineage` with no id lists the 20 sessions that changed last. The hotkey of the page is `⌘0` (`Ctrl+0`).
-- A card is a session (with its state), a wisp (with its alias, a dashed border), a fleet, or a party. A fleet with member cards is a dashed group box. A click on a session card opens that session. The page also opens for a wisp id.
-- Each edge kind has its own style: `consume` is the thickest line, and `fork`, `fleet`, `wisp`, `birth`, `spawn`, `sibling`, `successor`, and `party` have different styles.
-- The session info shows three groups: Identity, Kinship, and Membership.
+- A card is a session (with its state), a wisp (with its alias, a dashed border), or a fleet. A fleet with member cards is a dashed group box. A click on a session card opens that session.
+- Each edge kind has its own style: `consume` is the thickest line, and `fork`, `fleet`, `wisp`, and `birth` have different dashes.
+- **Kinship in Steel:** the session info shows the three groups (Identity, Kinship, and Membership). The Lineage page draws the new node and edge kinds of kinship, and it opens for a wisp too.
 - The buttons set the depth (1 to 5). The view loads again each 30 seconds while it shows.
 - When the route is not there (an older Flint server), the view builds the graph from the session summaries and the fleets. Its header then says "from the session summaries".
