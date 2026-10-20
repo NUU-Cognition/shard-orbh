@@ -68,8 +68,8 @@ At each join, leave, and close, each **other** member gets a notice. The node th
 - **A wisp member** gets the record in each of its live sub-sessions.
 - **An ended session gets no record.** "Ended" here means a terminal work state: `finished` or `abandoned`. Orbh reads the state again at the write. An awaiting session is not ended: it gets the record.
 - **A notice never wakes a session.** It starts no run, and it is not a message. An awaiting member sees it at its next turn.
-- **A working member** sees it on its Page. With managed delivery, the manager sends a Page to a working session when it has an undelivered party notice. The orchestrator sweep and the pager never wake an awaiting session for it.
-- **The Page shows each undelivered notice one time**, and then marks it delivered: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. The Page shows at most 10 notice lines, then one line with the count of the rest. A Page read by another session marks nothing. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
+- **A working member** sees it on its Page. With managed delivery, the manager sends a Page to a working session when it has an undelivered party notice. The manager reads the session again before each send. When the session no longer works, the manager does not send the Page, and the notice stays pending. The orchestrator sweep and the pager never wake an awaiting session for it.
+- **The Page shows each undelivered notice one time**, and then marks it delivered: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. The Page shows at most 10 notice lines, then `PARTY  ✉ <n> more notice(s): the next Page shows it/them`. It marks only the notices that it shows, and only after a full render: a failed, timed-out, or cut `core/party` marks nothing. A Page read by another session marks nothing. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
 - **The label is fixed at the write.** A later rename of the session or the wisp does not change it.
 
 Use a notice for a fact that a member must know. To ask a member to act, send a message: `flint orbh message send <id> "<text>"`. A message wakes an awaiting session.

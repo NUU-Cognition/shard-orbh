@@ -44,7 +44,7 @@ Make a new wisp with its own purpose, and start its first sub-session. Use it fo
    ```
 
    With the default `--interactive`, it also has `next: flint orbh attach <id>`. Give that command to the person, or put it in your result.
-4. **When the first launch fails,** the wisp stays, and the verb exits 1. Run the next command that it prints: `flint orbh spawn session <target> "<prompt>" --as <alias>`.
+4. **When the first launch fails,** the wisp stays, and the verb exits 1. Run the next command that it prints: `flint orbh spawn session <target> "<prompt>" --as <alias>`. The first sub-session joins the wisp before its first run, also in the interactive mode. When that join is refused, Orbh abandons the sub-session with no run.
 5. **Check.**
    - `flint orbh wisp show <alias>` shows the wisp, its purpose, and its memory folder. `--json` adds `kinOrigin`, `kinChildren`, and `kinRelated`.
    - `flint orbh kin <alias>` shows its origin and its first sub-session.

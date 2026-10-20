@@ -176,7 +176,7 @@ In a repository with no hook, add the trailers yourself: `git commit -m "<messag
 ## Peers and Stations
 
 - Launch a peer of the fleet with `flint orbh launch <target> "<duty>" --fleet <handle>`. It gets a stamp (`via launch`) and one roster event.
-- Start a sibling peer of the fleet with `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>`. It has the kinship parents of the caller, and nobody collects its result. It gets a stamp (`via launch`): the output has `Fleet: <handle> (<name>) · member · via launch`.
+- Start a sibling peer of the fleet with `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>`. It has the kinship parents of the caller, and nobody collects its result. It gets a stamp (`via launch`) before its first run, also in the interactive mode. The output has `Fleet: <handle> (<name>) · member · via launch` only after Orbh stored the membership. When the fleet refuses the join (for example, it closed after the plan), Orbh abandons the session with no run, and the command exits 1.
 - Add a session that exists with `flint orbh fleet join <handle> --session <id>`.
 - Add a station with `flint orbh fleet join <handle> --station <name>`.
 - Start a new program as an operator in one command: `flint orbh launch <target> "<prompt>" --declare-fleet <handle> --charter-file <path> [--fleet-name "<name>"]`.

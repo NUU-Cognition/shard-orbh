@@ -41,12 +41,12 @@ Start a new session with a relation to the caller: a child that owes you its res
    next: flint orbh wait eca8d3f5-…
    ```
 
-   With `--fleet`, the output also has `Fleet: <handle> (<name>) · member · via launch`.
+   With `--fleet`, the output also has `Fleet: <handle> (<name>) · member · via launch`. It shows only after Orbh stored the membership, before the first run. A second `--child` with the same prompt in the same turn starts no second child: it prints `Warning: re-attached to the open dispatch <id> of the same prompt`.
 4. **Check.**
    - A child: collect its result with `flint orbh wait <id>` (in Claude Code, with `run_in_background: true`). The child shows in the `DISPATCHES` block of your Page.
    - A headless peer: the next command is `flint orbh inspect <id>`. An interactive peer: the next command is `flint orbh attach <id>`. Coordinate by message: `flint orbh message send <id> "<text>"`.
    - `flint orbh kin <id>` shows the origin under IDENTITY.
-5. **When it refuses,** read the reason. A child outside a session refuses: use `--independent`. Two relation flags refuse. `--headless` and `--interactive` together refuse.
+5. **When it refuses,** read the reason. A child outside a session refuses: use `--independent`. Two relation flags refuse. `--headless` and `--interactive` together refuse. A refused fleet join (for example, a closed fleet) abandons the new session with no run, and the command exits 1. `SpawnRecordMissingError` means that the store does not have the origin or the membership after the start: the spawn is not a success, and the error gives the close command. A launch host of an older build does not start the session (exit 1, no session).
 
 # Output
 

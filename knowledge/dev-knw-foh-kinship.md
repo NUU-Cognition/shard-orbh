@@ -107,7 +107,7 @@ flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] \
 | `--as <wisp>` | **Embody.** A peer: `parentSessionId` is null, and nobody owes a result. Rite `embody`, parents: [the wisp]. The wisp must be active. | — |
 
 - **The default mode** of `spawn session` is `--headless`. The default mode of `spawn wisp` is `--interactive`: its first sub-session is a detached interactive session, as `birth` starts it. `--headless` and `--interactive` together refuse.
-- **A sibling, an independent session, and an embodied session are peers.** `parentSessionId` is null, and nobody collects them. They take no fleet by inheritance. `--fleet <handle>` makes the new session a member of an open fleet. The output then has the line `Fleet: <handle> (<name>) · member · via launch`.
+- **A sibling, an independent session, and an embodied session are peers.** `parentSessionId` is null, and nobody collects them. They take no fleet by inheritance. `--fleet <handle>` makes the new session a member of an open fleet. The join completes before the first run, also for an interactive session. The output has the line `Fleet: <handle> (<name>) · member · via launch` only after Orbh stored the membership. When the join is refused (for example, the fleet closed after the plan), Orbh abandons the session with no run, and the command exits 1 with the reason.
 - **The output** names the new node, its relation and its rite, its parents, its anchor, and the next command:
 
   ```
@@ -119,6 +119,9 @@ flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] \
 
   The next command is `flint orbh wait <id>` for a child, `flint orbh attach <id>` for an interactive session, and `flint orbh inspect <id>` for a headless peer.
 - **`--json`** gives `{ kind, id, wispId?, alias?, origin }` for `spawn session`, and `{ kind, id, alias, sessionId, origin }` for `spawn wisp`.
+- **A spawn reports only what the store has.** After the start, Orbh reads the store. A missing origin, a missing wisp join, or a missing fleet membership is an error (`SpawnRecordMissingError`, exit 1, with the close command of the session), never a success. Orbh does not join a wisp or a fleet after the first run.
+- **The launch host.** A launch with a kinship origin or an embody uses the launch-host payload version 4. A launch host of an older build does not start it: the caller gets exit 1, and no session exists. This applies to `request -q` with a dispatcher too.
+- **A replay of a dispatch.** A second `spawn session --child` with the same prompt in the same turn of the parent starts no second child. It re-attaches to the open dispatch: `Warning: re-attached to the open dispatch <id> of the same prompt`. For a child from before this build, the output says `relation: child (rite spawn, derived from the old records)`, `--json` adds `"originDerived": true`, and the next command is `flint orbh wait <id>`. Orbh writes no origin for that child.
 - **A headless `spawn session` gets no preset title.** The new session registers its own title.
 - **The old verbs stay.** `request`, `job run --agent`, and a worker of a member are a child spawn. A bare `launch` is an independent spawn. Each one writes the same origin record as its `spawn` form.
 
@@ -138,7 +141,7 @@ Each block gives when to use the rite, the command, what Orbh records, and one e
 
 - **When:** start a new identity with its own purpose, and its first sub-session.
 - **Command:** `flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] [--child | --sibling | --successor <wisp> | --independent]`.
-- **What it does:** Orbh makes the wisp (a fresh UUID, a fresh alias, and the purpose), writes its origin, and starts its first sub-session. The first sub-session joins the wisp before its first run, so that run has `ORBH_WISP_MEMORY_DIR`. Its title is the purpose. Its first prompt names the wisp and its parent, gives the purpose and the memory folder (read `MEMORY.md` first), and then gives the `--prompt` text.
+- **What it does:** Orbh makes the wisp (a fresh UUID, a fresh alias, and the purpose), writes its origin, and starts its first sub-session. The first sub-session joins the wisp before its first run, in the headless and in the interactive mode, so that run has `ORBH_WISP_MEMORY_DIR`. Its title is the purpose. Its first prompt names the wisp and its parent, gives the purpose and the memory folder (read `MEMORY.md` first), and then gives the `--prompt` text.
 - **The output:**
 
   ```
@@ -160,7 +163,8 @@ Each block gives when to use the rite, the command, what Orbh records, and one e
 
 - **When:** give one more task to a wisp that is active. The new session acts as the wisp.
 - **Command:** `flint orbh spawn session <target> "<prompt>" --as <wisp>`.
-- **Records:** the new session gets `wispId` (the event `wisp.joined` with `via: 'embody'` on the wisp spool) and the origin `embody`/`child` with parents [the wisp]. The wisp gets the parent side. A headless sub-session joins the wisp before its first run. An interactive sub-session joins just after its start. Both runs get `ORBH_WISP_MEMORY_DIR`.
+- **Records:** the new session gets `wispId` (the event `wisp.joined` with `via: 'embody'` on the wisp spool) and the origin `embody`/`child` with parents [the wisp]. The wisp gets the parent side. The sub-session joins the wisp before its first run, in the headless and in the interactive mode, so its first run gets `ORBH_WISP_MEMORY_DIR`.
+- **A refused join stops the start.** When the wisp ended after the plan, Orbh abandons the new session with no run and clears its wisp keys. The command exits 1 with the reason.
 - **It is a peer.** `parentSessionId` is null, and nobody collects its result.
 - **The live sub-sessions.** The output has the line `wisp: <Wisp Name> (<id>) · <n> live sub-session(s)`. A live sub-session is a session of the wisp whose work state is not terminal. More than one live sub-session of one wisp is permitted.
 - **An ended wisp refuses:** "A session embodies an active wisp only. To continue its work, spawn a successor". An unknown wisp refuses: `No wisp has the id or alias <ref>.`
@@ -255,8 +259,8 @@ flint orbh kin [<ref>] [--depth <n>] [--up | --down] [--json]
 - **The ref:** a session id or prefix; a wisp as `wisp:<ref>`, or as a bare wisp id, prefix, alias, or name; or `party:<handle>` (a bare handle works too). The default is the calling session. An unknown ref refuses: `No session, wisp, or party <ref> in this store.`
 - **The sections:** IDENTITY (the node, the wisp that it acts as, its origin, its counts, and its consume), KINSHIP (the ancestry up and the descent down as trees, each edge with its kind, then the siblings), and MEMBERSHIP (the fleet with the role of the node, and each party with its count of members and the role of the node).
 - **`--depth <n>`** sets how many steps the walk takes: 1 to 5, the default is 2. `--up` prints only the ancestry, and `--down` prints only the descent. Both together refuse: `Give --up or --down, not both.` When the walk stops at the depth and more relations exist, `kin` prints the next command, for example `flint orbh kin <id> --depth 3`.
-- **`--json`** gives `{ root, depth, graph, summary, wisp?, party? }`. `summary` is only for a session root. A wisp root gives `wisp`, and a party root gives `party`.
-- **It reads the store directly.** It needs no server, and it writes nothing. It leaves out the discarded sessions.
+- **`--json`** gives `{ root, depth, graph, summary, siblings, wisp?, party? }`. `summary` is null except for a session root. `siblings` is the sibling list from the store, or null. A wisp root adds `wisp`, and a party root adds `party`.
+- **It reads the store directly.** It needs no server, and it writes nothing. The counts and the siblings come from the records of the whole store, with the discarded sessions, by the K0 rule of the summary. The graph of the trees leaves out the discarded sessions.
 
 ```
 $ flint orbh kin 9010418b

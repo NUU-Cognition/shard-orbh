@@ -43,7 +43,7 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 1. **A wake.** A Page-worthy event lands: the same events that end `page arm`.
 2. **The context advisory.** The context of the run is at 80% or more. The manager sends this Page one time for each run.
 3. **A compaction of the harness.** The harness replaced its context in place, for example Claude Code at the limit of its context or after `/compact`. The manager sends one Page after each such compaction. Its first line is `Context compacted: this is your Page. Read INVOCATIONS to continue where you are.` (or `… Read it to continue where you are.` when the Page has no INVOCATIONS block). Read the Page first, then continue from its `read:` and `next:` lines. See [[dev-knw-foh-compaction]].
-4. **A party notice to a working session.** The session works, and it has a party notice that no Page showed yet. This reason is only for a working session: the orchestrator sweep and the pager never wake an awaiting session for a party notice. See § The KIN and PARTY Lines.
+4. **A party notice to a working session.** The session works, and it has a party notice that no Page showed yet. This reason is only for a working session: the orchestrator sweep and the pager never wake an awaiting session for a party notice. The manager reads the session again before each send and each retry. When the session no longer works (for example, it returned with `--await`), the manager does not send that Page, and the notice stays pending. See § The KIN and PARTY Lines.
 
 The manager never sends a Page while the pager is held (from `compact start` to `compact finish`). An Orbh compaction thus gets no Page from the manager: the relaunched context reads the Page itself. A harness that writes no compaction record (for example Grok, Kimi, or Cursor) gets no Page after its compaction. When no Page comes, run `flint orbh page` yourself.
 
@@ -145,9 +145,11 @@ PARTY  ✉ Fork Child joined review-crew (14:26)
 
 A plain dispatch child has no `KIN` line: the `DISPATCHES` block of its parent and its subagent prompt cover it. An `independent` origin alone, dispatch children alone, and a gained wisp alone give no line either. The `WISP` line shows the wisp.
 
-**The `PARTY` lines:** `PARTY  <handle> (<n>) · <handle> (<n>)` gives each open party of the identity of the session with its count of members. A session that acts as a wisp also gets the parties of the session itself. Then one line comes for each undelivered notice: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. After 10 notice lines, one line gives the count of the rest.
+**The `PARTY` lines:** `PARTY  <handle> (<n>) · <handle> (<n>)` gives each open party of the identity of the session with its count of members. A session that acts as a wisp also gets the parties of the session itself. Then one line comes for each undelivered notice: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. After 10 notice lines, one more line gives the count of the rest: `PARTY  ✉ <n> more notice(s): the next Page shows it/them`.
 
-- **A self Page read shows each notice one time and marks it delivered.** The managed Page of a working session marks it in the same way. A Page read of another session (`flint orbh page <id>`) marks nothing.
+- **A self Page read shows each notice one time and marks it delivered.** It marks only the notices that it shows. The rest stay pending, and the next Page shows them. The managed Page of a working session marks in the same way.
+- **The marks need a full render.** The marks run after the Page is assembled, inside the time of one Page function (`ORBH_PAGE_TIMEOUT_MS`, 5 seconds by default). When `core/party` failed, timed out, or was cut by the size limit, the Page marks nothing, and the notices show again on the next Page.
+- **These reads mark nothing:** a Page read of another session (`flint orbh page <id>`), a Page with no mutation (`--no-mutate`), and one function run (`flint orbh page run core/party`).
 - **A notice never wakes an awaiting session.** It shows at the next turn.
 - The verbs and the rules are in [[dev-knw-foh-membership]] § Parties. The full view is `flint orbh kin` ([[dev-knw-foh-kinship]] § The Views).
 
