@@ -68,7 +68,7 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 
 ### Its Name in Titles
 
-- **A session in a wisp shows its title as `<Wisp Name> | <title>`** on each title surface: the pane, `flint orbh list`, the cockpit, the `displayTitle` of the SDK, and Orbit (task jn77hb87). For example: "Rural Amazed Moonbeam | Fix the login".
+- **A session in a wisp shows its title as `<Initials> | <title>`** on each title surface: the pane, `flint orbh list`, the cockpit, the `displayTitle` of the SDK, and Orbit (task jn77hb87). The initials are the first letter of each word of the wisp name. For example: "RAM | Fix the login" for the wisp Rural Amazed Moonbeam. Two wisps can have the same initials. The full name stays on the `WISP` line of the Page, in `wisp show`, in `kin`, and in the `wisp gain` output.
 - **Register the plain topic.** `flint orbh session register` stores the title that you give. Orbh adds the wisp name only on the surfaces, as it adds `(I)` and `[Compacting...]`. A title that already starts with the name gets no second copy.
 - **The source of the name** is the session key `metadata.wispAlias`. The wisp store writes it with `metadata.wispId` at each gain, join, and heal, and a rename of the wisp updates it. `flint orbh wisp show` (with no ref) heals a session that gained its wisp before the key existed.
 

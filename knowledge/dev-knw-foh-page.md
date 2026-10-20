@@ -109,7 +109,7 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 
 - The line shows the proper name of the wisp, its state (`active`, `ended`, or `consumed into <kind> <id>`), the first 100 characters of its purpose, and its memory folder.
 - Read `MEMORY.md` in the memory folder when you start or resume. The rules of the memory are in [[dev-knw-foh-identity]] § Its Memory.
-- The title of the session shows the same name: `<Wisp Name> | <title>`.
+- The title of the session shows the initials of the name: `<Initials> | <title>` (for example "RAM | Fix the login").
 - The line is read-only. `flint orbh wisp show` makes a missing memory folder.
 
 ## The KIN and PARTY Lines
