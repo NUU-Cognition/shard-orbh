@@ -33,7 +33,7 @@ Start a new session that acts as an active wisp: a sub-session of the wisp. Use 
 5. **Check.**
    - `flint orbh kin <id>` shows `origin: embodies wisp <Wisp Name> (<id>)`. The kinship parent is the wisp, not your session.
    - `flint orbh peek <id>` shows `Kin: as wisp <Wisp Name> · embodies wisp <Wisp Name> · …`.
-   - The title of the new session shows `<Wisp Name>: <title>`. Its run has `ORBH_WISP_MEMORY_DIR`, and its Page has the `WISP` line with the memory folder.
+   - The title of the new session shows `<Wisp Name> | <title>`. Its run has `ORBH_WISP_MEMORY_DIR`, and its Page has the `WISP` line with the memory folder.
    - Nobody collects its result. When it returns, read the result with `flint orbh result <id>`.
 
 # Output

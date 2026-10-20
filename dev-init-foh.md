@@ -74,7 +74,7 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 
 - **Keep temporary files in the scratch folder of your spool**: `$ORBH_SCRATCH_DIR` (`<orbRoot>/spaces/local/spools/<session id>/scratch/`). Drafts, intermediate output, downloaded data, and scripts for one task go there, not to `/tmp` and not to the scratchpad that a harness names. For Orbh work, this rule replaces the scratchpad rule of the harness. The folder survives compaction and resume. Finished work goes into the Mesh.
 - **A wisp has a memory folder**: `$ORBH_WISP_MEMORY_DIR`, which `flint orbh wisp show` also prints. Each session of the wisp shares it. Read its `MEMORY.md` when you start or resume, and keep there only short facts, decisions, and preferences that a later session of the wisp needs. No secrets.
-- **A session in a wisp shows its title as `<Wisp Name>: <title>`** on each title surface (for example "Rural Amazed Moonbeam: Fix the login"). Register the plain topic: Orbh adds the name.
+- **A session in a wisp shows its title as `<Wisp Name> | <title>`** on each title surface (for example "Rural Amazed Moonbeam | Fix the login"). Register the plain topic: Orbh adds the name.
 - The details are in [[dev-knw-foh-compaction]] § Scratch and [[dev-knw-foh-identity]] § The Wisp.
 
 ## Identity, Kinship, and Membership
