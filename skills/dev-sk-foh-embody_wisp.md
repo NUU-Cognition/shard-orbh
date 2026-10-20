@@ -11,7 +11,7 @@ Run `flint shard start orbh` if you haven't already.
 
 # Skill: Embody Wisp
 
-Start a new session that acts as an active wisp: a sub-session of the wisp. Use it to give one more task to a wisp. A wisp runs no harness, so a sub-session is the only way it acts.
+Start a new session that acts as an active wisp: a sub-session of the wisp. Use it to give one more task to a wisp. A wisp runs no harness, so a sub-session is the only way it acts. The new session is a peer: nobody collects its result.
 
 # Input
 
@@ -25,18 +25,21 @@ Start a new session that acts as an active wisp: a sub-session of the wisp. Use 
 2. **Embody.**
 
    ```bash
-   flint orbh spawn session <target> "<prompt>" --as <wisp>
+   flint orbh spawn session <target> "<prompt>" --as <wisp> [--interactive]
    ```
 
-3. **Read the output.** It names the new session, the wisp, the next command, and how many sub-sessions of the wisp are live. More than one live sub-session is permitted. When two sub-sessions can edit the same files, give each one its own files in its prompt.
-4. **Check.**
-   - `flint orbh kin <id>` shows the origin `embodies wisp <Wisp Name>`. The kinship parent is the wisp, not your session.
-   - The title of the new session shows `<Wisp Name>: <title>`, and its Page has the `WISP` line with the memory folder.
+3. **Read the output.** It has `relation: child (rite embody)`, `parents: wisp <Wisp Name>`, the next command, and the line `wisp: <Wisp Name> (<id>) · <n> live sub-session(s)`. More than one live sub-session is permitted. When two sub-sessions can edit the same files, give each one its own files in its prompt.
+4. **When it refuses,** read the reason. An ended wisp refuses: "A session embodies an active wisp only. To continue its work, spawn a successor". An unknown wisp refuses: `No wisp has the id or alias <ref>.`
+5. **Check.**
+   - `flint orbh kin <id>` shows `origin: embodies wisp <Wisp Name> (<id>)`. The kinship parent is the wisp, not your session.
+   - `flint orbh peek <id>` shows `Kin: as wisp <Wisp Name> · embodies wisp <Wisp Name> · …`.
+   - The title of the new session shows `<Wisp Name>: <title>`. Its run has `ORBH_WISP_MEMORY_DIR`, and its Page has the `WISP` line with the memory folder.
+   - Nobody collects its result. When it returns, read the result with `flint orbh result <id>`.
 
 # Output
 
-- A new session with `wispId` = the wisp (the event `wisp.joined` with `via: 'embody'` on the wisp spool)
-- Its origin: rite `embody`, relation `child`, parents [the wisp]
+- A new session with `wispId` = the wisp (the event `wisp.joined` with `via: 'embody'` on the wisp spool). A headless sub-session joins before its first run. An interactive sub-session joins just after its start.
+- Its origin: rite `embody`, relation `child`, parents [the wisp]. It has no `parentSessionId`.
 - The parent side on the wisp (`kinChildren`)
 
 See [[dev-knw-foh-kinship]] § Embody, and [[dev-knw-foh-identity]] § The Wisp.

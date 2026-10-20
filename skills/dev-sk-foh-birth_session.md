@@ -30,7 +30,7 @@ Make a new session for a new topic, from the context of 1 to 8 parent sessions. 
 
    Each parent writes its own seed in one turn. A distiller writes the seed only when the parent cannot (`writtenBy: reconstructed`). When no seed is valid, the birth refuses with `seed-failed`, and no session exists.
 3. **Read the output.** It names the new session and the path of each seed (`scratch/birth-seed-<parent id>.md` in the spool of the new session). The next command is `flint orbh attach <id>`.
-4. **Check.** `flint orbh kin <id>` shows `born from <n>` and each parent. The new session is outside each wisp and each fleet. To give it a wisp, use [[dev-sk-foh-gain_wisp]] with `--session <id>`.
+4. **Check.** `flint orbh kin <id>` names each parent. The `KIN` line of the new session shows `born from <n>` (or the parent, when there is one parent). The new session is outside each wisp and each fleet. To give it a wisp, use [[dev-sk-foh-gain_wisp]] with `--session <id>`.
 
 # Output
 

@@ -36,7 +36,7 @@ A simple test: a fact of kinship is true for all time. A fact of membership is t
 | **`for` parent** | The session that dispatched a session and collects its result. Only a dispatch child has one. | `parentSessionId` (this build does not change it) |
 | **`by`** | The session that ran the rite. It is provenance, not kinship. It is absent when a person ran the rite outside a session. | `kinOrigin.by` |
 
-A dispatch child has the same session as its kinship parent, its `for` parent, and its `by`. A spawned wisp has its kinship parent in the identity of the caller, no `for` parent, and the calling session as `by`.
+A dispatch child has the same session as its kinship parent, its `for` parent, and its `by`. A spawned wisp has its kinship parent in the identity of the caller, no `for` parent, and the calling session as `by`. An embodied session (`spawn session --as`) has the wisp as its kinship parent and no `for` parent.
 
 ## The Two Rules
 
@@ -83,7 +83,7 @@ Each rite that makes a node writes one origin record on the new node. Orbh write
 - **The parent side.** After the new node exists, Orbh appends one entry (`{ kind, id, rite, relation, at, group? }`) to `kinChildren` of each kinship parent, and to `kinRelated` of the anchor. It appends under a lock of that node, after a fresh read. A second append of the same id changes nothing. Thus each link has two sides.
 - **A failure of the parent side does not undo the new node.** Orbh prints one warning. The readers still find the child from its `kinOrigin`.
 - **The old records stay.** `forkedFrom`, `bornFrom`, `parentSessionId`, `wispId`, and the fleet stamp do not change. `kinOrigin` is one more record. It does not replace them.
-- **A node from before this build has no `kinOrigin`.** It is valid. The readers derive its origin from the old records: `forkedFrom` gives `fork`, `bornFrom` gives `birth`, and `parentSessionId` gives `spawn`/`child`. They mark that origin as derived.
+- **A node from before this build has no `kinOrigin`.** It is valid. The readers derive its origin from the old records: `forkedFrom` gives `fork`, `bornFrom` gives `birth`, and `parentSessionId` gives `spawn`/`child`. They mark that origin as derived: `flint orbh kin` and `inspect` add `from the old records`. A node with no origin at all shows `no recorded origin`.
 - **The readers ignore an item of a bad shape.** They never stop on it.
 
 ## The Spawn Relations
@@ -100,16 +100,27 @@ flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] \
 
 | Relation | `spawn session` | `spawn wisp` |
 |---|---|---|
-| `--child` (the default) | A dispatch. Parents: [the calling session]. `parentSessionId` is the caller. The child shows in the `DISPATCHES` block of the caller, and `flint orbh wait <id>` collects it. Outside a session it refuses: use `--independent`. | Parents: [the identity of the caller]. In a session with no wisp, the parent is the session. |
-| `--sibling` | A peer. Parents: the `kinOrigin.parents` of the caller, else [the `for` parent of the caller], else none. Anchor: the caller. Nobody owes a result. | Parents: the `kinOrigin.parents` of the identity of the caller. Anchor: the identity of the caller. |
-| `--successor <wisp>` | — | Parents: the `kinOrigin.parents` of that wisp. Anchor: that wisp. It refuses while that wisp is active: end it first with `flint orbh wisp end`. |
-| `--independent` | A peer with no kinship parent. It is the bare `flint orbh launch`. | A wisp with no kinship parent |
-| `--as <wisp>` | **Embody.** Rite `embody`, parents: [the wisp]. The wisp must be active. | — |
+| `--child` (the default) | A dispatch. Parents: [the calling session]. `parentSessionId` is the caller. The child shows in the `DISPATCHES` block of the caller, and `flint orbh wait <id>` collects it. A dispatch is always headless, so `--interactive` refuses. The child inherits the fleet of its parent, so `--fleet` refuses. Outside a session it refuses: use `--independent`. | Parents: [the identity of the caller]. In a session with no wisp, the parent is the session. Outside a session it refuses: use `--independent`. |
+| `--sibling` | A peer. Parents: the `kinOrigin.parents` of the caller as they are (also none). For a caller with no `kinOrigin`: [its `for` parent], else none. Anchor: the caller. Nobody owes a result. Outside a session it refuses: a sibling needs a caller. | Parents: the `kinOrigin.parents` of the identity of the caller. Anchor: the identity of the caller. Outside a session it refuses. |
+| `--successor <wisp>` | — | Parents: the `kinOrigin.parents` of that wisp. Anchor: that wisp. It refuses while that wisp is active: end it first with `flint orbh wisp end`. It also works outside a session. |
+| `--independent` | A peer with no kinship parent, as the bare `flint orbh launch`. It also works outside a session. | A wisp with no kinship parent. It also works outside a session. |
+| `--as <wisp>` | **Embody.** A peer: `parentSessionId` is null, and nobody owes a result. Rite `embody`, parents: [the wisp]. The wisp must be active. | — |
 
-- **The default mode** of `spawn session` is `--headless`. The default mode of `spawn wisp` is `--interactive`: a detached interactive session, as `birth` starts it.
-- **A sibling and an independent session are peers.** `parentSessionId` is null, and nobody collects them. A sibling takes no fleet by inheritance. `--fleet <handle>` joins it to an open fleet.
-- **The output** names the new node, its relation, its parents, and the next command: `flint orbh wait <id>` for a child session, `flint orbh attach <id>` for an interactive session. `--json` gives `{ kind, id, wispId?, alias?, sessionId?, origin }`.
-- **The old verbs stay.** Each one writes the same origin record as its `spawn` form.
+- **The default mode** of `spawn session` is `--headless`. The default mode of `spawn wisp` is `--interactive`: its first sub-session is a detached interactive session, as `birth` starts it. `--headless` and `--interactive` together refuse.
+- **A sibling, an independent session, and an embodied session are peers.** `parentSessionId` is null, and nobody collects them. They take no fleet by inheritance. `--fleet <handle>` makes the new session a member of an open fleet. The output then has the line `Fleet: <handle> (<name>) · member · via launch`.
+- **The output** names the new node, its relation and its rite, its parents, its anchor, and the next command:
+
+  ```
+  spawned: session eca8d3f5-… · headless
+  relation: child (rite spawn)
+  parents: session 647fed45 (Orbh claude session)
+  next: flint orbh wait eca8d3f5-…
+  ```
+
+  The next command is `flint orbh wait <id>` for a child, `flint orbh attach <id>` for an interactive session, and `flint orbh inspect <id>` for a headless peer.
+- **`--json`** gives `{ kind, id, wispId?, alias?, origin }` for `spawn session`, and `{ kind, id, alias, sessionId, origin }` for `spawn wisp`.
+- **A headless `spawn session` gets no preset title.** The new session registers its own title.
+- **The old verbs stay.** `request`, `job run --agent`, and a worker of a member are a child spawn. A bare `launch` is an independent spawn. Each one writes the same origin record as its `spawn` form.
 
 ## The Rites
 
@@ -120,15 +131,27 @@ Each block gives when to use the rite, the command, what Orbh records, and one e
 - **When:** give one task to a new session. Use `--child` when you collect the result. Use `--sibling` for a peer of the same parent. Use `--independent` for a peer with no kinship.
 - **Command:** `flint orbh spawn session <target> "<prompt>" [--child | --sibling | --independent]`. The old verbs write the same record: `flint orbh request`, `job run --agent`, and a worker of a member are `spawn`/`child`. A bare `flint orbh launch` is `spawn`/`independent`.
 - **Records:** `kinOrigin` with the rite `spawn` and the relation of the flag. The parent side on each kinship parent, and `kinRelated` on the anchor of a sibling. A child also has `parentSessionId`, `rootSessionId`, and `depth`, as before.
-- **Example:** `flint orbh spawn session claude/o55h "Write the party skills" --sibling --fleet kinship-1020` starts a peer of the caller. It has the parents of the caller, the caller as its anchor, and the fleet `kinship-1020`.
+- **Example:** `flint orbh spawn session claude/o55h "Write the party skills" --sibling --fleet kinship-1020` starts a peer of the caller. It has the parents of the caller, the caller as its anchor, and the fleet `kinship-1020`. The output has `relation: sibling (rite spawn)`, the `parents:` line, `anchor: session <caller>`, and `Fleet: kinship-1020 (Kinship Fleet) · member · via launch`.
 - The skill: [[dev-sk-foh-spawn_session]].
 
 ### Spawn a Wisp
 
 - **When:** start a new identity with its own purpose, and its first sub-session.
 - **Command:** `flint orbh spawn wisp <target> "<purpose>" [--prompt "<first prompt>"] [--child | --sibling | --successor <wisp> | --independent]`.
-- **What it does:** Orbh makes the wisp (a fresh UUID, a fresh alias, and the purpose), writes its origin, and starts its first sub-session. The first prompt holds the purpose, the `--prompt` text, and the path of the wisp memory.
-- **Records:** `wisp.kinOrigin` on the new wisp, with the rite `spawn`. The parent side on each kinship parent, and on the anchor. The first sub-session gets `wispId` and its own origin: rite `embody`, relation `child`, parents [the new wisp].
+- **What it does:** Orbh makes the wisp (a fresh UUID, a fresh alias, and the purpose), writes its origin, and starts its first sub-session. The first sub-session joins the wisp before its first run, so that run has `ORBH_WISP_MEMORY_DIR`. Its title is the purpose. Its first prompt names the wisp and its parent, gives the purpose and the memory folder (read `MEMORY.md` first), and then gives the `--prompt` text.
+- **The output:**
+
+  ```
+  spawned: wisp Fabled Wintry Anklet (bdf87e94-…)
+  relation: child (rite spawn)
+  parents: session 647fed45
+  memory: <orbRoot>/spaces/flint/spools/bdf87e94-…/scratch/memory
+  first sub-session: 346b0343-… · headless · embody
+  ```
+
+  With the default `--interactive`, the output also has `next: flint orbh attach <id>`.
+- **When the first launch fails,** the wisp stays. The verb prints the next command (`flint orbh spawn session <target> "<prompt>" --as <alias>`) and exits 1.
+- **Records:** `wisp.kinOrigin` on the new wisp, with the rite `spawn`. The parent side on each kinship parent, and on the anchor. The first sub-session gets `wispId` and its own origin: rite `embody`, relation `child`, parents [the new wisp]. `flint orbh wisp show --json` gives `kinOrigin`, `kinChildren`, and `kinRelated`.
 - **A successor gets a fresh alias.** A numeral name ("… II") is not in this build.
 - **Example:** an ended wisp Quiet Amber Heron had a purpose that is not done. `flint orbh spawn wisp claude/o55h "Finish the lineage view" --successor quiet-amber-heron` makes a new wisp with the parents of Quiet Amber Heron, and Quiet Amber Heron as its anchor.
 - The skill: [[dev-sk-foh-spawn_wisp]].
@@ -137,8 +160,11 @@ Each block gives when to use the rite, the command, what Orbh records, and one e
 
 - **When:** give one more task to a wisp that is active. The new session acts as the wisp.
 - **Command:** `flint orbh spawn session <target> "<prompt>" --as <wisp>`.
-- **Records:** the new session gets `wispId` (the event `wisp.joined` with `via: 'embody'` on the wisp spool) and the origin `embody`/`child` with parents [the wisp]. The wisp gets the parent side. The verb prints how many sub-sessions of the wisp are live. More than one live sub-session of one wisp is permitted.
-- **Example:** `flint orbh spawn session claude/o55h "Review the noun list" --as final-sandy-origin` starts a sub-session of Final Sandy Origin. Its title shows "Final Sandy Origin: Review the noun list".
+- **Records:** the new session gets `wispId` (the event `wisp.joined` with `via: 'embody'` on the wisp spool) and the origin `embody`/`child` with parents [the wisp]. The wisp gets the parent side. A headless sub-session joins the wisp before its first run. An interactive sub-session joins just after its start. Both runs get `ORBH_WISP_MEMORY_DIR`.
+- **It is a peer.** `parentSessionId` is null, and nobody collects its result.
+- **The live sub-sessions.** The output has the line `wisp: <Wisp Name> (<id>) · <n> live sub-session(s)`. A live sub-session is a session of the wisp whose work state is not terminal. More than one live sub-session of one wisp is permitted.
+- **An ended wisp refuses:** "A session embodies an active wisp only. To continue its work, spawn a successor". An unknown wisp refuses: `No wisp has the id or alias <ref>.`
+- **Example:** `flint orbh spawn session claude/o55h "Review the noun list" --as final-sandy-origin` starts a sub-session of Final Sandy Origin. Its title shows `Final Sandy Origin: <title>`.
 - The skill: [[dev-sk-foh-embody_wisp]].
 
 ### Fork
@@ -181,16 +207,18 @@ Each block gives when to use the rite, the command, what Orbh records, and one e
 
 ### Revive
 
-- **When:** a person or a message starts a run on a session that ended, or on a session that was consumed. Revive is not a verb. Orbh records it at the run start.
-- **Records:** the run start appends one entry to `kinRevived`: `{ at, runId?, after: 'consumed' | 'ended', consumedInto?, by? }`. For a consumed session, `consumedInto` is copied into the entry, and `consumedInto` stays as history.
-- **The obligations do not come back.** They stay with the consumer. The Page of a revived session warns: `⚠ revived after consume: the obligations are with <label>`.
-- **Example:** an operator resumes `9010418b` after `833dd8ce` consumed it. The run start records `after: consumed` with `consumedInto` `833dd8ce`. `9010418b` does not collect a child or answer a request that moved to `833dd8ce`.
+- **When:** a person or a message starts a run on a session whose retention is `closed`: after a close or after a consume. Revive is not a verb. Orbh records it at the run start.
+- **Not a revive:** a session that `finished`, or that stopped with an `error`, and runs again. That is a normal continuation, and Orbh writes no revival.
+- **Records:** the run start appends one entry to `kinRevived`: `{ at, runId?, after: 'consumed' | 'ended', consumedInto?, by? }`. `after: 'ended'` means a close. For a consumed session, `consumedInto` is copied into the entry, and `consumedInto` stays as history.
+- **The obligations do not come back.** They stay with the consumer. The `KIN` line of a session that was revived after a consume warns: `⚠ revived after consume: the obligations are with <ref>`. After a close, the line has `revived after an end <HH:MM>`, with no warning.
+- **A run from before this build has no record.** Such a session shows `consumed into …` with no revive warning.
+- **Example:** an operator resumes the session `3d54e255` after the session `833dd8ce` consumed it. The run start records `after: consumed` with `consumedInto` `833dd8ce`. `3d54e255` does not collect a child or answer a request that moved to `833dd8ce`.
 
 ### What Each Rite Does in Each Layer
 
 | Rite | Kinship | Identity | Membership |
 |---|---|---|---|
-| spawn session `--child` | a new node, parent: the caller | none | the child inherits the fleet of its parent |
+| spawn session `--child` | a new node, parent: the caller | none | the child inherits the fleet of its parent (`--fleet` refuses) |
 | spawn session `--sibling`, `--independent` | a new node, parents by the relation | none | none, or `--fleet` |
 | embody (`--as`) | a new node, parent: the wisp | the session acts as the wisp | none, or `--fleet` |
 | spawn wisp | a new wisp and its first sub-session (embody) | the sub-session acts as the new wisp | none |
@@ -210,20 +238,54 @@ Orbh derives siblings. It stores no sibling list. Two nodes are siblings when on
 - They are in the same spawn group (`group`, from `fork --parallel`).
 - One node has the other as its `anchor` with the relation `sibling`.
 
+**The sibling count can be a lower bound.** When the reader cannot decide each candidate, the views show the count as `N+` (for example `256+ siblings`), or they give no count.
+
 Nodes that do the same work with no shared origin are not siblings. Put them in a party ([[dev-knw-foh-membership]]).
 
 ## The Views
 
-All views read the same facts from one pure summary (`summarizeKinship`). Thus the Page, `kin`, `inspect`, the chrome, and Steel agree.
+All views read the same facts with one shared reader and one pure summary (`summarizeKinship`). Thus the Page, `kin`, `inspect`, `peek`, and the chrome agree.
+
+### `flint orbh kin`
 
 ```bash
 flint orbh kin [<ref>] [--depth <n>] [--up | --down] [--json]
 ```
 
-- **`flint orbh kin`** prints three sections: IDENTITY, KINSHIP, and MEMBERSHIP. KINSHIP is a tree: the ancestry up, then the node, then the descent down, with the siblings. The ref is a session id or prefix, a wisp id or alias, or `party:<handle>`. The default is the caller. `--up` and `--down` print one direction. `--json` prints the lineage graph and the summary. It reads the store directly, so it needs no server.
-- **The `KIN` line of the Page** shows the origin, the counts, the consume, and the revive warning. A plain dispatch child gets no `KIN` line. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
-- **`flint orbh inspect <id>`** has the section "Kinship" (each relation, old and new) and the section "Membership" (the fleet and the parties). **`flint orbh peek <id>`** has one `Kin:` line and one `Parties:` line.
-- **The lineage route** (`GET /orbh/lineage/:id`, [[dev-knw-foh-identity]] § The Lineage) has the node kind `party` (`party:<handle>`) and the edge kinds `spawn` (a kinship parent → the child, when no `dispatch`, `fork`, or `birth` edge joins them), `sibling` (the anchor → a sibling with no kinship parent), `successor` (the ended wisp → its successor), and `party` (the party → each member). A session node and a wisp node have `origin: { rite, relation }`. A session node has `revived` after a revive.
-- **The Orbh chrome** (the info panel of a session) and **Steel** (the session info and the Lineage page) show three groups: Identity, Kinship, and Membership.
+- **The ref:** a session id or prefix; a wisp as `wisp:<ref>`, or as a bare wisp id, prefix, alias, or name; or `party:<handle>` (a bare handle works too). The default is the calling session. An unknown ref refuses: `No session, wisp, or party <ref> in this store.`
+- **The sections:** IDENTITY (the node, the wisp that it acts as, its origin, its counts, and its consume), KINSHIP (the ancestry up and the descent down as trees, each edge with its kind, then the siblings), and MEMBERSHIP (the fleet with the role of the node, and each party with its count of members and the role of the node).
+- **`--depth <n>`** sets how many steps the walk takes: 1 to 5, the default is 2. `--up` prints only the ancestry, and `--down` prints only the descent. Both together refuse: `Give --up or --down, not both.` When the walk stops at the depth and more relations exist, `kin` prints the next command, for example `flint orbh kin <id> --depth 3`.
+- **`--json`** gives `{ root, depth, graph, summary, wisp?, party? }`. `summary` is only for a session root. A wisp root gives `wisp`, and a party root gives `party`.
+- **It reads the store directly.** It needs no server, and it writes nothing. It leaves out the discarded sessions.
+
+```
+$ flint orbh kin 9010418b
+IDENTITY
+  session 9010418b · Kinship Fleet · working
+  acts as: wisp Rural Amazed Moonbeam (6b9362be)
+  origin: no recorded origin
+  56 children · 0 siblings · consumed into session 833dd8ce (CONSUME NUU Orbh · nuu-night-1019) 2026-10-19T12:23:56.828Z
+KINSHIP
+  ancestry (up 2)
+    ● session 9010418b · Kinship Fleet · working
+    └─ wisp ← wisp Rural Amazed Moonbeam (6b9362be) · active
+  descent (down 2)
+    ● session 9010418b · Kinship Fleet · working
+    ├─ birth → session 304b4004 · Wisp Name Polish · needs-input
+    ├─ consume → session 833dd8ce · CONSUME NUU Orbh · nuu-night-1019 · awaiting
+    ├─ dispatch → session 010a268f · M027 L6: Orbh - one handoff contract · finished
+    …
+  siblings (0)
+MEMBERSHIP
+  fleet kinship-1020 (Kinship Fleet) · role root · open
+```
+
+### The Other Views
+
+- **The `KIN` line of the Page** shows the origin, the counts, the consume, and the revive facts. A plain dispatch child gets no `KIN` line. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
+- **`flint orbh inspect <id>`** has the section "Kinship" (Origin, Parent, Wisp, Continues, Subagents, Children, Siblings, Consumed into, Consumed, and Revived) and the section "Membership" (Fleet, and one Party row for each party). **`flint orbh peek <id>`** has one `Kin:` line and one `Parties:` line, and `peek --json` has `kinship`.
+- **The lineage route** (`GET /orbh/lineage/:id`, [[dev-knw-foh-identity]] § The Lineage) has the node kind `party` (`party:<handle>`) and the edge kinds `spawn` (a kinship parent → the child, when no `dispatch`, `fork`, or `birth` edge joins them), `sibling` (the anchor → a sibling with no kinship parent), `successor` (the ended wisp → its successor), and `party` (the party → each member). A session node and a wisp node have `origin: { rite, relation }`. A session node has `revived` after a revive. The root can be a session, `wisp:<id>` (an id, not an alias), a bare wisp id, or `party:<handle>`. An unknown root gives 404 with `session-not-found`, `wisp-not-found`, or `party-not-found`. The `party` edges come from the open parties. A root of a closed party gives its members at the close.
+- **The Orbh chrome:** the info panel is the Session Inspect of the session. It adds the section Identity (Wisp, Purpose), and it puts its Kinship and Membership rows into the inspect sections of the same names. Each fact shows one time. A failed read shows "—". A long row ends with "…", but the revive warning wraps. The panel reads again when it opens, at each event of its own spool or of a child, and on `r`.
+- **Steel:** the session info shows the three groups. The Lineage page draws the new node and edge kinds, and it opens for a wisp too.
 
 The skill: [[dev-sk-foh-read_kinship]].

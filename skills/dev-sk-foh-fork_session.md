@@ -32,7 +32,7 @@ Make a new session with a copy of the context of a session. The source continues
 
 3. **Read the output.** Each fork is a detached interactive session, and the next command is `flint orbh attach <id>`. When the source is in an active wisp, the fork joins it. When it does not join, the output says why.
 4. **When `fork --compact` refuses with `seed-failed`,** no fork exists. Run the same fork without `--compact`.
-5. **Check.** `flint orbh kin <id>` shows `forked from <source>`. The forks of one `--parallel` share one spawn group, so `kin` shows them as siblings.
+5. **Check.** `flint orbh kin <id>` shows `origin: forked from session <source> (<title>)`, and the `KIN` line of the fork shows `forked from <source>`. The forks of one `--parallel` share one spawn group, so `kin` shows them as siblings.
 6. **Later**, the source can take the work of a fork back with [[dev-wkfl-foh-consume_sessions]].
 
 # Output

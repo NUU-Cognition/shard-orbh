@@ -91,9 +91,9 @@ Do each item that the report lists:
 
 ## Stage 5: Record and Report
 
-- **Check the kinship.** `flint orbh kin` shows each source in the descent of this session as consumed into it. The `KIN` line of each source shows `consumed into <label> <time>`.
+- **Check the kinship.** `flint orbh kin --up` shows each source in the ancestry of this session, with a `consume` edge. The `KIN` line of this session shows `consumed <n> sessions`, and the `KIN` line of each source shows `consumed into <ref> <HH:MM>`.
 - **Keep the mark of each source** on each item that you carry: in the commit bodies, the notes, and the result. The mark is for audit, not for credit. Never write that a source consented or agreed when it did not say so.
-- **A source that runs again** (revive) holds no moved obligation. Its Page warns. The obligations stay with this session.
+- **A source that runs again** (revive) holds no moved obligation. Its `KIN` line warns: `⚠ revived after consume: the obligations are with <ref>`. The obligations stay with this session.
 - Give the person a summary: the sources, what moved, the conflicts and the decisions, the commits, and the open items. When the work needs a Mesh record, write a note and stamp `orb:`.
 
 > [!headless]

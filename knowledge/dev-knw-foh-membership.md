@@ -40,7 +40,7 @@ flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 - **The handle** has 2 to 32 lower-case letters, digits, and hyphens (`^[a-z0-9][a-z0-9-]{1,31}$`). It is unique for all time in the store, also after a close. The name is the handle in Title Case when you give no `--name`.
 - **The default member** of `create` (the founder), `join`, and `leave` is the identity of the caller: its active wisp, else the calling session. `--session <id>` (an id or a prefix) and `--wisp <ref>` (an id, a prefix, or an alias) name another node. Give one of them, not both. Outside a session, give one of them.
 - **`leave` with no handle** takes the one open party of the member. When the member is in more than one open party, it refuses and lists them: name one.
-- **`show` with no handle** shows the parties of the identity of the caller. With one party, it shows that party. `show` lists each member with its kind, its label (the title of a session, the display name of a wisp), its state, and its role, then the last 20 events of the history.
+- **`show` with no handle** looks at the parties of the identity of the caller. With one party, it shows that party. With no party or more than one, it prints a list and asks for a handle. `show` lists each member with its kind, its label (the title of a session, the display name of a wisp), its state, and its role, then the last 20 events of the history.
 - **`list`** shows the open parties. `--all` adds the closed parties. `--mine` shows only the parties of the identity of the caller.
 
 ### The Rules
@@ -50,22 +50,26 @@ flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 - **A leave of a node that is not a member refuses.** The refusal lists the parties of that node.
 - **The founder closes the party.** The founder is the node that created it (the calling session or its identity). A person outside a session can also close it. A live member that is not the founder closes it only with `--force`. A node that is not a member cannot close it, also with `--force`.
 - **The founder stays the founder** after it leaves, so it can still close the party.
+- **A close always has a caller.** The CLI gives the calling session, or a person when no session runs the command. Orbh never takes a close with no caller as a close by a person.
+- **One founder for one handle.** When two creates of one handle meet (for example, two stores that sync), the create with the earliest time wins. Its founder is the founder.
 
 ### A Wisp as a Member
 
 - A wisp joins as one member. Its sub-sessions do not join one by one.
 - When the caller acts as a wisp, `party join <handle>` joins the wisp, not the session. To join the session alone, give `--session "$ORBH_SESSION_ID"`.
 - Each live sub-session of a member wisp gets the notices of the party.
+- The `PARTY` line of a sub-session lists the parties of its wisp and the parties of the session itself.
 
 ### The Notices
 
 At each join, leave, and close, each **other** member gets a notice. The node that the event is about gets no notice: the node that joined or left, or the node that closed the party. A session that acts as that node (a sub-session of that wisp) gets no notice too.
 
 - **A session member** gets one record in its slice `core:party-notices`: `{ id, party, event, about, aboutLabel, at, delivered }`. `event` is `joined`, `left`, or `closed`. `about` is the node that joined or left, or the node that closed the party. For a close by a person, `about` is null and `aboutLabel` is "a person".
-- **A wisp member** gets the record in each of its live sub-sessions. An ended session gets no record.
+- **A wisp member** gets the record in each of its live sub-sessions.
+- **An ended session gets no record.** "Ended" here means a terminal work state: `finished` or `abandoned`. Orbh reads the state again at the write. An awaiting session is not ended: it gets the record.
 - **A notice never wakes a session.** It starts no run, and it is not a message. An awaiting member sees it at its next turn.
 - **A working member** sees it on its Page. With managed delivery, the manager sends a Page to a working session when it has an undelivered party notice. The orchestrator sweep and the pager never wake an awaiting session for it.
-- **The Page shows each undelivered notice one time**, and then marks it delivered: `PARTY  ✉ <label> joined <handle> (<HH:MM>)`. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
+- **The Page shows each undelivered notice one time**, and then marks it delivered: `PARTY  ✉ <label> joined|left|closed <handle> (<HH:MM>)`. The Page shows at most 10 notice lines, then one line with the count of the rest. A Page read by another session marks nothing. See [[dev-knw-foh-page]] § The KIN and PARTY Lines.
 - **The label is fixed at the write.** A later rename of the session or the wisp does not change it.
 
 Use a notice for a fact that a member must know. To ask a member to act, send a message: `flint orbh message send <id> "<text>"`. A message wakes an awaiting session.
@@ -87,7 +91,7 @@ Example: the wisp Final Sandy Origin owns the wisp names. It reviews with a buil
 # in a sub-session of Final Sandy Origin
 flint orbh party create names-review --purpose "Review each new word list"
 flint orbh party join steel-names
-flint orbh party show                 # both parties of the wisp
+flint orbh party list --mine          # both parties of the wisp
 ```
 
 Each other member of `steel-names` gets one notice: `Final Sandy Origin joined steel-names`.
@@ -99,7 +103,7 @@ A fleet is a membership: a group for one program, with a root, a charter, and on
 - **One open fleet for each session.** A member of an open fleet cannot declare or join another fleet. It must leave first. This rule does not apply to parties.
 - **Most members are descendants.** A dispatch child of a member is a member from its first event (`via inherit`). That is a membership rule that rides on the dispatch.
 - **A fleet can recruit any node.** `flint orbh fleet join <handle> --session <id>` adds a session that is not a descendant. `flint orbh launch <target> "<duty>" --fleet <handle>` and `flint orbh spawn session <target> "<duty>" --sibling --fleet <handle>` add a new peer.
-- **A sibling takes no fleet by inheritance.** `spawn session --sibling` and `--independent` give a session in no fleet, unless you give `--fleet`.
+- **A peer takes no fleet by inheritance.** `spawn session --sibling`, `--independent`, and `--as <wisp>` give a session in no fleet, unless you give `--fleet`. `spawn session --child` is a dispatch: the child inherits the fleet of its parent, and `--fleet` refuses.
 
 ## A Recruit With No Kinship
 
@@ -112,7 +116,7 @@ flint orbh fleet join kinship-1020 --session 5c2e91aa
 flint orbh kin 5c2e91aa
 ```
 
-`kin` then shows the origin `independent` under KINSHIP, and the fleet `kinship-1020` under MEMBERSHIP. The session is a member of the fleet now. The root is not its kinship parent, and the session owes no result to the root.
+`kin` then shows `origin: independent` under IDENTITY, and the fleet `kinship-1020` under MEMBERSHIP. The session is a member of the fleet now. The root is not its kinship parent, and the session owes no result to the root.
 
 ## Which Group to Use
 
