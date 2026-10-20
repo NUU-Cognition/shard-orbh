@@ -1,4 +1,5 @@
 ---
+description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, and the map of the Orbh skills and knowledge"
 orb:
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
 orbh-fleet: kinship-1020

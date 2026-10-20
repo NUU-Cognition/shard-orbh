@@ -211,7 +211,8 @@ By default, all builders of a fleet work on the machine branch (for example `nat
   git diff -- <path>... > "$ORBH_SCRATCH_DIR/mine.patch"     # then delete the hunks of the other builders from the patch
   branch=$(git symbolic-ref --short HEAD)
   base=$(git rev-parse HEAD)
-  idx=$(mktemp)
+  idx="$ORBH_SCRATCH_DIR/hunk-index"   # a private index file in your scratch folder, not in /tmp
+  rm -f "$idx"
   GIT_INDEX_FILE=$idx git read-tree "$base"
   GIT_INDEX_FILE=$idx git apply --cached "$ORBH_SCRATCH_DIR/mine.patch"
   tree=$(GIT_INDEX_FILE=$idx git write-tree); rm -f "$idx"
@@ -224,7 +225,7 @@ By default, all builders of a fleet work on the machine branch (for example `nat
 - **Never run `git commit` with a private `GIT_INDEX_FILE`.** HEAD can move between `git read-tree HEAD` and `git commit`. The commit then gets the new parent and the old tree, and it silently reverts the commits of other builders. This occurred two times in the overnight program of 2026-10-06.
 - **Check each commit.** After a commit, `git show --stat HEAD` must list only your paths. If your commit reverted the lines of another builder, restore them at once and tell that builder.
 - **A revert scan before each deploy.** The manager reads `git log --stat <last deploy>..HEAD`. Each commit must list only the paths of its task. For a commit that lists a path of another task, read `git diff <sha>^ <sha> -- <path>`, and restore the lost lines before the build.
-- **The build lock.** Run one package build at a time under the lock of the program (for example `mkdir /tmp/<program>-build.lock`, and `rmdir` when done). Do not run `pnpm install`, a full monorepo build, or a build that cleans `dist` while other builders work.
+- **The build lock.** Run one package build at a time under the lock of the program. Use the shared lock path that the program names. The manager puts it in the `scratch/` folder of its own spool, for example `mkdir "<manager spool>/scratch/<program>-build.lock"`, and each builder runs `rmdir` on it when done. Do not put a lock in `/tmp`. Do not run `pnpm install`, a full monorepo build, or a build that cleans `dist` while other builders work.
 - **No `pnpm --filter @nuucognition/flint-cli dev`.** Its `predev` step runs `turbo build` of about 37 workspace packages outside the build lock. Run the CLI from source with `pnpm exec tsx src/index.ts` in `apps/flint-cli`, or run `node apps/orbh-cli/dist/index.js` after a locked build of `apps/orbh-cli`.
 - **The load gate.** Before a heavy step (a package build, a full typecheck, a test run of more than one spec), read the 1-minute load average. Wait while it is above 2 per CPU. On an 18-CPU Mac: `until [ "$(sysctl -n vm.loadavg | awk '{print int($2)}')" -lt 36 ]; do sleep 10; done`. Run one test spec at a time. Before a full build, read the free memory (`memory_pressure | tail -1` on macOS).
 - **Show a gate wait.** Set `phase gate-wait` and `blockers "<the gate>"` while you wait (Agent Rule 4 of the init).
