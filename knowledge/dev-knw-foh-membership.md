@@ -20,7 +20,7 @@ The design is in NUU Orbh Notepad 109 (# 4 and # 5) and its build contract (K5).
 | Group | For | A node can be in | Has a root | Has a charter |
 |---|---|---|---|---|
 | **Fleet** | One program of many sessions, with one voice | One open fleet | Yes | Yes |
-| **Party** | Any nodes that work together | Many parties | No: it has a founder | No: it has an optional purpose |
+| **Party** | Any nodes that work together | Many parties | No: it has a founder, or none when a person made it | No: it has an optional purpose |
 
 ## Parties
 
@@ -38,7 +38,8 @@ flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 ```
 
 - **The handle** has 2 to 32 lower-case letters, digits, and hyphens (`^[a-z0-9][a-z0-9-]{1,31}$`). It is unique for all time in the store, also after a close. The name is the handle in Title Case when you give no `--name`.
-- **The default member** of `create` (the founder), `join`, and `leave` is the identity of the caller: its active wisp, else the calling session. `--session <id>` (an id or a prefix) and `--wisp <ref>` (an id, a prefix, or an alias) name another node. Give one of them, not both. Outside a session, give one of them.
+- **The default member** of `create` (the founder), `join`, and `leave` is the identity of the caller: its active wisp, else the calling session. `--session <id>` (an id or a prefix) and `--wisp <ref>` (an id, a prefix, or an alias) name another node. Give one of them, not both. Outside a session, `join` and `leave` need one of them.
+- **A party with no founder.** Outside a session, `create` with no `--session` and no `--wisp` works: a person makes the party. It has no founder and no member: `party show` prints `founder: none (a person made the party)` and `members: 0`, and the JSON has no `founder` key. A person outside a session closes it, or a member closes it with `--force`.
 - **`leave` with no handle** takes the one open party of the member. When the member is in more than one open party, it refuses and lists them: name one.
 - **`show` with no handle** looks at the parties of the identity of the caller. With one party, it shows that party. With no party or more than one, it prints a list and asks for a handle. `show` lists each member with its kind, its label (the title of a session, the display name of a wisp), its state, and its role, then the last 20 events of the history.
 - **`list`** shows the open parties. `--all` adds the closed parties. `--mine` shows only the parties of the identity of the caller.
@@ -48,7 +49,7 @@ flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 - **A second join changes nothing.** A join of a node that is a member already prints that nothing changed.
 - **A closed party is terminal.** A join, a leave, and a second close of a closed party refuse.
 - **A leave of a node that is not a member refuses.** The refusal lists the parties of that node.
-- **The founder closes the party.** The founder is the node that created it (the calling session or its identity). A person outside a session can also close it. A live member that is not the founder closes it only with `--force`. A node that is not a member cannot close it, also with `--force`.
+- **The founder closes the party.** The founder is the node that created it (the calling session or its identity, or the node of `--session` or `--wisp`). A person outside a session can also close it. A live member that is not the founder closes it only with `--force`. A node that is not a member cannot close it, also with `--force`.
 - **The founder stays the founder** after it leaves, so it can still close the party.
 - **A close always has a caller.** The CLI gives the calling session, or a person when no session runs the command. Orbh never takes a close with no caller as a close by a person.
 - **One founder for one handle.** When two creates of one handle meet (for example, two stores that sync), the create with the earliest time wins. Its founder is the founder.
