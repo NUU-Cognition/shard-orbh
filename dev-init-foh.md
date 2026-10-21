@@ -43,20 +43,24 @@ Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], the broadc
 
 ## Pin Relevant Files
 
-Each session has a list of pinned Markdown files. The human opens the Markdown finder of your session with `Ctrl-]` then `o`. The finder shows your pins above all other files, and the Orbh menu shows the first nine. The latest pin is at the top of both. Keep this list correct, so that the human can find the files of your work quickly.
+Each session has a list of pins. A pin is a Markdown file or an HTML file in the Flint, a link, or an Ops task. The human opens the Orbh menu of your session with `Ctrl-]`, and the Markdown finder with `Ctrl-]` then `o`. The menu shows the first nine pins, and the finder shows your pins above all other files. The latest pin is at the top of both. Keep this list correct, so that the human can find the things of your work quickly.
 
 - **Pin the files of your work.** A relevant file is a Flint file that you work on, create, or discuss with the human: the task, the spec, the plan, the report, the note, or the shard file.
 - **Pin when the work starts.** Pin a file when you start to work on it, or right after you create it. Do not wait for a workflow to tell you. A workflow step that pins a file is an addition to this rule, not a replacement.
+- **Pin a link or a task when the human will open it.** For example, a web page that you discuss with the human, an HTML report that you made, or an Ops task that is related to your work. Give a link a name with `--name`.
 - **Do not pin every file that you read.** Pin a file only when the human is likely to open it.
 - **Keep the pins.** Keep a pin after the work on the file is done. Remove a pin only when the file is no longer relevant. After a rename, remove the old path and add the new path.
 
 ```bash
-flint helper pins add "Mesh/Types/Tasks/(Task) NNN Title.md"   # Put one or more paths at the top; the current pins stay below
+flint helper pins add "Mesh/Types/Tasks/(Task) NNN Title.md"   # Put one or more pins at the top; the current pins stay below
+flint helper pins add "Mesh/Reports/Board.html"                # An HTML file opens in the browser
+flint helper pins add "https://example.com/page" --name "Page" # A link, with the name that the menu shows
+flint helper pins add "@v1/<org>/task/<id>#ops"                # An Ops task: the pin gets its title and link from Ops
 flint helper pins list                                         # Show the pins of this session
-flint helper pins remove "Mesh/Old Title.md"                    # Remove a path
+flint helper pins remove "Mesh/Old Title.md"                    # Remove a pin by its path, URL, or task address
 ```
 
-Use `add`, not `set`: `set` replaces the full list. Give each path relative to the Flint root, in quotes. The helper targets your session through `ORBH_SESSION_ID`. It accepts only readable `.md` or `.markdown` files inside the Flint. The full reference is "Session Markdown Pins" in [[knw-f-cli]].
+Use `add`, not `set`: `set` replaces the full list. Give each path relative to the Flint root, in quotes. The helper targets your session through `ORBH_SESSION_ID`. It accepts readable `.md`, `.markdown`, `.html`, and `.htm` files inside the Flint, http and https links, and Ops task addresses. A task in this list is not the task pin of your session (`flint orbh task pin`). The full reference is "Session Pins" in [[knw-f-cli]].
 
 ## The Pager and Wake Delivery
 
