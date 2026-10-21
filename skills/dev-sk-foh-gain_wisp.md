@@ -32,7 +32,7 @@ Give a session that exists a wisp identity with a purpose. The session becomes t
 5. **Check the selected session.**
    - `flint orbh wisp show --session <id>` shows the new wisp, its purpose, and its memory folder.
    - `flint orbh kin <id>` shows `acts as: wisp <Wisp Name> (<id>)`, and `flint orbh kin wisp:<alias>` shows `origin: gained by session <id>`.
-   - The Page of that session (`flint orbh page <id>`) has the `WISP` line, and its title shows `<Initials> | <title>` (the initials of the wisp name). A gained wisp alone gives the session no `KIN` line: the `WISP` line shows the wisp.
+   - The Page of that session (`flint orbh page <id>`) has the `WISP` line, and its title shows the wisp and its purpose: `<Initials> | <purpose>` in the pane, and `<Wisp Name> | <purpose>` in `flint orbh list`. A gained wisp alone gives the session no `KIN` line: the `WISP` line shows the wisp.
    - Only when the selected session is this session: `flint address me` gives the wisp address on its `as:` line. For another session, `address me` reads the caller, so it proves nothing.
 6. **The memory.** The selected session reads `MEMORY.md` in the memory folder. Its run that was live at the gain has no `ORBH_WISP_MEMORY_DIR`. Its next run gets it.
 7. **From now on,** a wisp that the selected session spawns comes from the wisp (rule 1). A session that it spawns still comes from the session.

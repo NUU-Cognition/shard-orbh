@@ -68,7 +68,11 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 
 ### Its Name in Titles
 
-- **A session in a wisp shows its title as `<Initials> | <title>`** on each title surface: the pane, `flint orbh list`, the cockpit, the `displayTitle` of the SDK, and Orbit (task jn77hb87). The initials are the first letter of each word of the wisp name. For example: "RAM | Fix the login" for the wisp Rural Amazed Moonbeam. Two wisps can have the same initials. The full name stays on the `WISP` line of the Page, in `wisp show`, in `kin`, and in the `wisp gain` output.
+- **A session in a wisp shows the wisp and its purpose in place of its title** (task jn77hb87). There are two forms:
+  - The full form `<Wisp Name> | <purpose>` in the detailed views: `flint orbh list`, the cockpit, the `displayTitle` of the SDK, and Orbit. For example: "Rural Amazed Moonbeam | Fix the login flow".
+  - The short form `<Initials> | <purpose>` in the pane, the terminal tab, and the Orbh overlay. The initials are the first letter of each word of the wisp name. For example: "RAM | Fix the login flow".
+
+  A wisp with no purpose shows the registered title in place of the purpose. The registered title stays on the session record. The wisp store writes `metadata.wispAlias` and `metadata.wispPurpose` on each session of the wisp, and a new purpose updates them. Two wisps can have the same initials. The full name stays on the `WISP` line of the Page, in `wisp show`, in `kin`, and in the `wisp gain` output.
 - **Register the plain topic.** `flint orbh session register` stores the title that you give. Orbh adds the wisp name only on the surfaces, as it adds `(I)` and `[Compacting...]`. A title that already starts with the name gets no second copy.
 - **The source of the name** is the session key `metadata.wispAlias`. The wisp store writes it with `metadata.wispId` at each gain, join, and heal, and a rename of the wisp updates it. `flint orbh wisp show` (with no ref) heals a session that gained its wisp before the key existed.
 
@@ -85,7 +89,7 @@ flint orbh wisp end "<reason>" [--wisp <ref>] [--session <id>] [--json] # the se
 ### Its Purpose
 
 - **The purpose** says what the wisp is for, in one line (R30). Give it at `wisp gain --purpose "<text>"`.
-- **Set it later** with `flint orbh wisp purpose "<text>" [--wisp <ref>]`. Only an active wisp takes a new purpose. The event is `wisp.purposeSet { wispId, from, to }`.
+- **Set it later** with `flint orbh wisp purpose "<text>" [--wisp <ref>]`. Only an active wisp takes a new purpose. The event is `wisp.purposeSet { wispId, from, to }`. The titles of the sessions of the wisp show the new purpose.
 - **The old name was `mission`.** A reader takes the key `mission` of an old `wisp.gained` event as the purpose. `--mission` stays as a hidden alias of `--purpose` for one release.
 
 ### Its Life
