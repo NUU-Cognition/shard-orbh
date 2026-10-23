@@ -190,6 +190,40 @@ How to use it:
 
 The steps, the hints, and the record are in [[knw-f-invocations]] (Flint shard).
 
+## The ENSURE Block (`core/ensure`) and Orb Ensure
+
+A session has an **ensure list**: the files that must be in your context (the slice `core:ensure`). Orbh puts files on it for you, and you can add more:
+
+| Source | Files | Life of the entry |
+|---|---|---|
+| The launch of a session in a Flint | `Shards/Flint/init-f.md` | The session |
+| `flint shard start <ref>` | The init file of the shard | The current span: it ends at a compaction |
+| `flint shard invoke <ref> <workflow>` | The init file of the shard and the workflow file | Until the invocation closes |
+| `flint orbh ensure add <path>` | Any file | Until `flint orbh ensure remove <path>` |
+
+Orbh checks each file against the text that you saw in the current **span** of your context. A span starts at the start of the native context and again at each compaction. A compaction of the harness keeps only the messages that it preserves, so most reads before it no longer count. A `Read` result counts, and so does the output of `cat` or `sed`. A large command output counts only by the preview that you saw.
+
+| Verdict | Meaning | What to do |
+|---|---|---|
+| `full` | Each line of the file is in your context | Nothing |
+| `partial` | Some lines are in your context (`n of m lines seen`) | Read the rest of the file |
+| `stale` | The file changed on disk after you read it | Read it again |
+| `missing` | The file is not in your context | Read it in full |
+| `confirmed` | You said that it is in your context | Nothing, until a compaction or a change of the file |
+
+A file that is not in your context is **due** after 5 tool results, or the end of a turn, after its entry, and at once after a compaction. Then:
+
+- The Page shows the ENSURE block:
+  ```
+  ENSURE  These files must be in your context, and they are not. Read each one in full now:
+    missing  Shards/Notepad/init-ntpd.md
+    If a line is wrong, run: flint orbh ensure confirm '<path>' --reason '<why>'
+  ```
+- In a managed session, the pump sends one short reminder (`Orb Ensure: these files must be in your context…`) between two tool calls, only while you are in a turn. It names each file one time in each span. After that, the Page shows only `⚠ ENSURE  still not in your context: …`.
+- `compact start` names the ensured files: put each one in FILES. `compact finish` warns about each required file, and each FILES path, that is not in the context of the new run.
+
+When you get a reminder, read each file directly: the Read tool, or `cat` in parts for a large file. When the check is wrong (for example, you have the content in another form), run `flint orbh ensure confirm '<path>' --reason '<why>'`. A confirm holds for the span, while the file does not change. `flint orbh ensure check` shows each verdict; `list`, `add`, and `remove` change the list. See [[dev-knw-foh-cli]] for the verbs.
+
 ## Procedures: Durable Step State
 
 A **procedure** is the per-session step register — ordered steps, a cursor, forced evidence check-ins — and it renders on the Page, so it survives context loss.

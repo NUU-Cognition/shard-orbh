@@ -165,6 +165,20 @@ flint orbh task sync                                   # Attach the session in O
 
 The pin is two interface keys. `core:task` holds the address; a session has a pin only while this key holds an address. `core:task-info` holds the JSON record: `{kind, address, org, id, title, status?, stage?, tasks?, pinnedAt, sync, previous}` (`tasks` is the count of tasks of a task group). After an unpin, `core:task-info` holds only `previous`. The Page shows the pin on the `TASK` line ([[dev-knw-foh-page]]), and the commit hook adds `Task: <address>` ([[dev-knw-foh-fleets]] § Commit trailers). Write the keys only with these verbs.
 
+### Orb Ensure (`flint orbh ensure`)
+
+The files that must be in the context of a session (NUU Orbh Notepad 112). Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`.
+
+```bash
+flint orbh ensure list [--json]                          # The ensure list; reads no transcript
+flint orbh ensure check [--json]                         # The verdict of each file: full, partial, stale, missing, confirmed, unreadable
+flint orbh ensure add <paths...> [--level advisory] [--life span] [--reason "<why>"]   # Default: required, for the session
+flint orbh ensure remove <paths...> [--owner <invocation id>]
+flint orbh ensure confirm <path> --reason "<why>"        # The check is wrong: the file is in the context, for this span
+```
+
+`add` refuses a file that it cannot read, and adds nothing. An `advisory` file shows only in `check`; a `required` file shows on the Page and in the reminders. The meaning of each verdict, the due rule, and the reminders are in [[dev-knw-foh-page]] § The ENSURE Block. The checker reads the native transcript of the current run with the evidence reader of the harness: Claude Code today. Another runtime gives `cannot check`.
+
 ### Event Subscription (`session await`)
 
 This is unrelated to the `--await` turn disposition. It subscribes to server events:

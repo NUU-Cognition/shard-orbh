@@ -38,6 +38,7 @@ Each rule prevents a failure that the NUU Flint session audit (Report 051) found
 5. **Verify before you report.** After `profiles switch` or `auth migrate`, read the `Profile` and `Account` lines of `flint orbh inspect <id>`. Report the new value only when it shows there.
 6. **Follow the reporting contract of your prompt.** Send each message that your prompt requires, to the session that it names. When a third session gives you orders, tell your dispatcher too.
 7. **Read the full output of Orbh verbs.** Do not cut it with `cut`, `head`, `tail`, or `grep -v`. A refusal or a notice such as `target … has ended` can be on any line.
+8. **Read each file that Orb Ensure names.** An `ENSURE` block on the Page, or an `Orb Ensure:` reminder, names a file that must be in your context and is not: read it in full before you continue. When the check is wrong, run `flint orbh ensure confirm '<path>' --reason '<why>'`. See "The ENSURE Block" in [[dev-knw-foh-page]].
 
 Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], the broadcast and `kill` rules in [[dev-knw-foh-coordination]], and the fleet doctrine in [[dev-knw-foh-fleets]].
 
