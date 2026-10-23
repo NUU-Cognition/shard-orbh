@@ -179,6 +179,8 @@ flint orbh ensure confirm <path> --reason "<why>"        # The check is wrong: t
 
 `add` refuses a file that it cannot read, and adds nothing. An `advisory` file shows only in `check`; a `required` file shows on the Page and in the reminders. The meaning of each verdict, the due rule, and the reminders are in [[dev-knw-foh-page]] § The ENSURE Block. The checker reads the native transcript of the current run with the evidence reader of the harness: Claude Code today. Another runtime gives `cannot check`.
 
+`flint orbh inspect <id>` has an `Ensure` section with the same check: the span, then one row for each file (the verdict, the counts of a partial file, the level, the source, and `due` or `due, reminded`). The Information panel of the Orbh TUI and the Inspect tab of the session detail show the same section. A session with no list shows `no files on the list`.
+
 ### Event Subscription (`session await`)
 
 This is unrelated to the `--await` turn disposition. It subscribes to server events:
