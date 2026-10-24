@@ -14,6 +14,7 @@ orbh-sessions:
 orb:
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
 orbh-fleet: kinship-1020
 ---
 
@@ -196,7 +197,7 @@ A session has an **ensure list**: the files that must be in your context (the sl
 
 | Source | Files | Life of the entry |
 |---|---|---|
-| The launch of a session in a Flint | `Shards/Flint/init-f.md` | The session |
+| The launch of a session in a Flint | `Shards/Flint/init-f.md` and `Shards/Orbh/init-foh.md`, each that exists | The session |
 | `flint shard start <ref>` | The init file of the shard | The current span: it ends at a compaction |
 | `flint shard invoke <ref> <workflow>` | The init file of the shard and the workflow file | Until the invocation closes |
 | `flint orbh ensure add <path>` | Any file | Until `flint orbh ensure remove <path>` |
