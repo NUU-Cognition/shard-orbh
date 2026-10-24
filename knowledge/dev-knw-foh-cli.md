@@ -18,6 +18,7 @@ orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
 orbh-fleet: kinship-1020
 ---
 
@@ -179,7 +180,7 @@ flint orbh ensure confirm <path> --reason "<why>"        # The check is wrong: t
 
 `add` refuses a file that it cannot read, and adds nothing. An `advisory` file shows only in `check`; a `required` file shows on the Page and in the reminders. The meaning of each verdict, the due rule, and the reminders are in [[dev-knw-foh-page]] § The ENSURE Block. The checker reads the native transcript of the current run with the evidence reader of the harness: Claude Code today. Another runtime gives `cannot check`.
 
-`flint orbh inspect <id>` has an `Ensure` section with the same check: the span, then one row for each file (the verdict, the counts of a partial file, the level, the source, and `due` or `due, reminded`). The Information panel of the Orbh TUI and the Inspect tab of the session detail show the same section. A session with no list shows `no files on the list`.
+`flint orbh inspect <id>` has an `Ensure` section with the same check: the span, then one row for each file, the file first and its status second: `✓ in context`, `✓ confirmed`, `✗ partial (N of M lines)`, `✗ stale (changed after the read)`, `✗ missing`, or `? not checked`. A file in the context is green, and a required file that is not is the warning color. A row adds `advisory` for an advisory file and `reminded` after a reminder. The Information panel of the Orbh TUI and the Inspect tab of the session detail show the same section. A session with no list shows `no files on the list`.
 
 ### Event Subscription (`session await`)
 
