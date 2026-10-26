@@ -82,27 +82,9 @@ Self Page reads may mutate Page counters and drain inbox state; observer reads d
 
 Other env knobs on this surface: `ORBH_PAGE_SELF_CHECK_GAP_MS`, `ORBH_PAGE_STALE_DESC_READS`, `ORBH_PAGE_RETURN_DISCIPLINE_READS`.
 
-## The TASK Line (`core/task`)
-
-The core function `core/task` shows the task pin of the session, right after the `FLEET` line. It shows one line while the session pins a task or a task group (`flint orbh task pin`), and nothing when the session has no pin:
-
-```
-TASK  Build the pin · doing · built · @v1/nuucognition/task.dev/k17abc0def#ops
-TASK  Build the pin · doing · built · @v1/nuucognition/task.dev/k17abc0def#ops · sync pending
-TASK  group Wave 1 · 2 tasks · @v1/nuucognition/taskgroup/k99group01#ops
-```
-
-- A task shows its title, its status (`todo`, `doing`, or `done`), its stage when it has one, and its address.
-- A task group shows `group`, its title, its count of tasks, and its address.
-- `sync pending` means that Ops does not have the attach of the session yet. Run `flint orbh task sync`.
-- The line reads only the session keys `core:task` and `core:task-info`. It makes no network call, so the values are the values of the last `pin`, `show`, or `sync`. Run `flint orbh task show` to refresh them from Ops.
-- When `core:task` holds an address with no record, the line shows only the address.
-
-The verbs and the keys are in [[dev-knw-foh-cli]] § The Task Pin.
-
 ## The WISP Line (`core/wisp`)
 
-The core function `core/wisp` shows the wisp of the session, right after the `TASK` line (task jn77hb87). It shows one line while the session is in a wisp, and nothing otherwise:
+The core function `core/wisp` shows the wisp of the session, right after the `FLEET` line (task jn77hb87). It shows one line while the session is in a wisp, and nothing otherwise:
 
 ```
 WISP  Rural Amazed Moonbeam · active · purpose: Build the lineage view · memory <orbRoot>/spaces/flint/spools/<wispId>/scratch/memory
@@ -116,7 +98,7 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 
 ## The KIN and PARTY Lines
 
-The core functions `core/kin` and `core/party` show two kinds of line right after the `WISP` line (task jn7d0191). The order is `FLEET`, `TASK`, `WISP`, `KIN`, `PARTY`, and then the procedure. The lines use the same reader and summary as `flint orbh kin`, `inspect`, `peek`, and the chrome.
+The core functions `core/kin` and `core/party` show two kinds of line right after the `WISP` line (task jn7d0191). The order is `FLEET`, `WISP`, `KIN`, `PARTY`, and then the procedure. The lines use the same reader and summary as `flint orbh kin`, `inspect`, `peek`, and the chrome.
 
 ```
 KIN  independent · 2 children · 0 siblings
@@ -279,6 +261,7 @@ Tools that changed data in this run (1):
 - **The part `Holds (<n>)`** has one line for the hold of each item, from the newest read: `<kind>: you hold it until <time>` for a hold of this session, or `<kind> by <holder> until <time>`. A hold of this session that Orbh does not renew shows `you held it at the last check …, with no renewal: flint orbh objects hold <id>`: run `take` to keep it. A hold of the session on an object that is not an item shows `<address> (not an item)`. Under each hold of this session, one line for each open request (at most 5), with the command of the answer. Answer each request: `share` (a chair only) when the requester can work beside you, `handover` when you are done, and `refuse` only with a reason in your result.
 - **The part of the uses:** one line for each use of a tool that changed data since the start of the current run (the newest 10): the time, the tool, `ok` or `error <code>`, the address, and the item id. `flint orbh objects list --used` prints the newest 50.
 - **The limits.** The section has the lowest priority of the Page, and it is at most 24 KiB. When a changed block does not fit, the item shows one line: `- <id> changed: <address> (version …). Read it: flint orbh objects show <id> --full`. When even the lines do not fit, the section is one line: `OBJECTS (<n>): not shown, the Page is full. …`, and the part of the holds is `Holds (<n>): not shown, the Page is full. Read each one: flint orbh objects hold <object>`.
+- **No TASK line.** The task pin and its `TASK` line are removed (NUU Flint Task 1323). An Ops task of the work is an item of this block.
 - **Notices between turns.** A change of a subscribed item comes as an `INBOX` message from `orbh:objects`, and it wakes an awaiting session ([[dev-knw-foh-cli]] § Objects).
 - **The overlay.** The Orbh menu (`Ctrl-]`) shows the section `Objects` under the pins: one row for each item, with its source, its mode, its state, and the hold (for example `you hold it (take)`), and the uses of tools of this run. The Markdown finder (`Ctrl-]`, then `o`) shows the group `Objects`.
 

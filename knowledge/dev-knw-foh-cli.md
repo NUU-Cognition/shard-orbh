@@ -138,38 +138,9 @@ flint orbh inspect <id> --results
 
 Common free-form keys are `phase`, `progress`, `blockers`, `artifacts`, and `confidence`. Leave `core:*` slices to Orbh/Page internals.
 
-### The Task Pin (`flint orbh task`)
-
-A session pins one Ops task or one Ops task group. The pin tells the Page, the commits, and Ops which task the session works on. The CLI `ops` holds the tasks; the verbs below call it.
-
-```bash
-flint orbh task pin <ref> [--org <slug>] [--no-sync]   # Pin a task or a task group, and attach the session in Ops
-flint orbh task unpin                                  # Clear the pin; it stays in the list of earlier pins
-flint orbh task show [--json]                          # Print the pin; refresh the title, the status, and the stage from Ops
-flint orbh task sync                                   # Attach the session in Ops again, with the current work state
-```
-
-- `<ref>` is a Convex id or an Ops address: `@v1/<org>/task/<id>#ops`, `@v1/<org>/task.dev/<id>#ops`, or `@v1/<org>/taskgroup/<id>#ops`. Give `--org` with a plain id when the default org of `ops` is not the org of the task.
-- `pin` resolves `<ref>` with `ops task show <ref> --json`, or `ops task group show <ref> --json` for a task group. Then it attaches the session: `ops task attach <address> session <session address> --session-id <id> --label "<session title>" --state <workState> --json`. The session address has the form `@v1/<org>/session/<uuid>#flint/<slug>#<machine>`.
-- When the attach fails, the pin is still set, and it is `sync pending`. The verb prints the retry command (`flint orbh task sync`). `--no-sync` pins with no attach; the pin is `sync pending` until `sync`.
-- A second pin replaces the first pin. The first pin goes to the list of earlier pins, and its Ops attachment stays. A pin of the same address again keeps its pin time.
-- `unpin` makes no Ops call. The Ops attachment stays as history.
-- `show` reads Ops when Ops answers. When Ops does not answer, it prints the stored values and says so.
-- `sync` also refreshes the pin from Ops before the attach: the title, the status, the stage, and the count of tasks of a task group.
-- When Ops gives another canonical address for the pinned task (for example a task that a replay of an undo revived with a new id), `show` and `sync` move the pin to the new address (both keys, under the session lock), keep the old address in the earlier pins, and say so. The Page and the commit hook then name the new address.
-- The org of the pin (`org` of `core:task-info`) is the Ops org slug of the task or the group (`orgSlug`). It can differ from the owner word of the address: a personal task has an org slug such as `user_…` and an address such as `@v1/qa-ada/task.dev/<id>#ops`. The attach of `pin` and `sync` gives the org slug to `--org`.
-- A verb never overwrites a pin that another verb changed while it waited for Ops. Each write expects the values that the verb read (a guarded write: the manager message `set-if`, or one compare-and-swap of the store). A refresh of `show` or `sync` that is too late is not stored, and the verb says so. `pin` and `unpin` read the keys again and try again, at most 3 times.
-- Each task verb also holds one advisory lock for each session across the read, the comparison, and the writes of the two keys. The lock is the folder `interface.lock` in the scratch folder of the spool, in the store that holds the spool, so every scope (`--path`, `--orb-root`, `--at`) finds the same lock. A verb waits at most 15 seconds for the lock. A lock of an ended process is removed: only one waiter at a time can do this (a reclaim mutex, and a check of the owner token). A lock of a live owner is never taken away; a waiter that waited 15 seconds fails and names the pid of the owner. A manager of an older build (until the session restarts) has no `set-if`. Its registry row has no `interfaceGuardCapable`, so the verb sends it no message and writes with one compare-and-swap of the store. An old manager of a large session can be slow, and each message waits in its queue, so this path does not wait for it.
-- Limit: a write of these keys that does not go through the task verbs (for example `flint orbh session set core:task …`) takes no lock, so on a manager of an older build it is not held back. Write the keys only with the task verbs.
-- `unpin` reports success only when the pin went to the list of earlier pins. Every reader treats an empty `core:task` as no pin.
-- `ops` is the command in `NUU_OPS_CLI`, default `ops`. A value that names a file runs that file; another value runs in `/bin/sh` (for example `NUU_OPS_CLI="node /path/to/cli.js"`).
-- Each verb targets your own session (`ORBH_SESSION_ID`). `--session <id>` targets another session. Do not pin a task to a session of another person.
-
-The pin is two interface keys. `core:task` holds the address; a session has a pin only while this key holds an address. `core:task-info` holds the JSON record: `{kind, address, org, id, title, status?, stage?, tasks?, pinnedAt, sync, previous}` (`tasks` is the count of tasks of a task group). After an unpin, `core:task-info` holds only `previous`. The Page shows the pin on the `TASK` line ([[dev-knw-foh-page]]), and the commit hook adds `Task: <address>` ([[dev-knw-foh-fleets]] § Commit trailers). Write the keys only with these verbs.
-
 ### Objects (`flint orbh objects`)
 
-An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations), a mesh document of a Flint, or a local file. The session is the actor of each call: the call carries the `by` address of `flint address me`, for the person of the NUU CLI sign-in (`nuu login`). The objects package never reads `NUU_ALL_SECRET`. The rules and the steps of a use are in the skill [[dev-sk-foh-use_object]]. The protocol is in Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
+An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations), a mesh document of a Flint, or a local file. The session is the actor of each call: the call carries the `by` address of `flint address me`, for the person of the NUU CLI sign-in (`nuu login`). The objects package never reads `NUU_ALL_SECRET`. The rules and the steps of a use are in the skill [[dev-sk-foh-use_object]]. An Ops task goes into a session as an object: `flint orbh objects add <task address> --subscribe`. This replaces the task pin (`flint orbh task`, the keys `core:task` and `core:task-info`, the `TASK` line, and the `Task:` commit trailer), which is removed (NUU Flint Task 1323). The protocol is in Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
 
 An `<object>` is an address (`nuu://<app>/<type>/<id>`, `@v1/<org>/<type>/<id>#<app>`, a braced cross-mesh reference, or `file:///<path>`), or the id (`ob-…`) or the exact address of an item. An `<item>` is the id or the exact address of an item. A read needs no item. An item keeps an object in the context of the session, and the Page shows it in the `OBJECTS` block ([[dev-knw-foh-page]] § The OBJECTS Block).
 

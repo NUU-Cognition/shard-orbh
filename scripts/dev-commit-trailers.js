@@ -5,15 +5,16 @@
 //   install --append    also add the call to a prepare-commit-msg hook that exists (else refused)
 //   uninstall           remove the hook body and the call; a hook of another owner keeps its other lines
 //   show                print the hook body
-//   selftest            commit in a scratch repository with fake flint readers and check the hook body
+//   selftest            commit in a scratch repository and check the hook body
 //                       (--body <file>: check that body, for example an older one); exit 1 on a failure
 //
-// The hook adds the trailers `Orbh-Fleet: <handle>`, `Orbh-Session: <id>`, and `Task: <address>` to
-// the message of a commit that an Orbh session makes. It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID
-// (the run environment of an Orbh session), and the task pin of the session (the key core:task, read
-// with `flint orbh session get core:task` in the Flint of ORBH_CWD, in at most 1 second). It changes
-// only the message: never the author, the committer, or the subject, and it never fails a commit.
-// With neither variable set, it does nothing.
+// The hook adds the trailers `Orbh-Fleet: <handle>` and `Orbh-Session: <id>` to the message of a
+// commit that an Orbh session makes. It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID (the run
+// environment of an Orbh session). It changes only the message: never the author, the committer, or
+// the subject, and it never fails a commit. With neither variable set, it does nothing.
+// v3 (NUU Flint Task 1323): the task pin is removed, so the hook adds no `Task:` trailer and reads
+// no key of the session. A session keeps an Ops task as an object; a task.dev records its commits
+// with `ops task commit`. An install of v3 replaces the body of v2.
 // --repo defaults to the current folder (the Flint root when flint runs the script).
 // See knw-foh-fleets, section "Commit trailers".
 'use strict';
@@ -26,14 +27,13 @@ const BODY_NAME = 'orbh-commit-trailers';
 const HOOK_NAME = 'prepare-commit-msg';
 const MARKER = '# orbh-commit-trailers';
 const CALL_LINE = `"$(dirname "$0")/${BODY_NAME}" "$@" || true`;
-const VERSION = 2;
+const VERSION = 3;
 
 const BODY = `#!/bin/sh
 ${MARKER} v${VERSION}: installed by \`flint shard orbh commit-trailers install\` (Orbh shard).
-# Adds the trailers Orbh-Fleet, Orbh-Session, and Task to the commit message of an Orbh session.
-# It reads ORBH_FLEET_HANDLE and ORBH_SESSION_ID, and the task pin of the session (the key
-# core:task). It changes only the message, never the author or the committer, and it always
-# exits 0, so it never stops a commit.
+# Adds the trailers Orbh-Fleet and Orbh-Session to the commit message of an Orbh session. It reads
+# ORBH_FLEET_HANDLE and ORBH_SESSION_ID. It changes only the message, never the author or the
+# committer, and it always exits 0, so it never stops a commit.
 msg_file="$1"
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
 
@@ -49,105 +49,9 @@ cc="$(git config --get core.commentChar 2>/dev/null)"
 case "$cc" in ''|auto) cc='#' ;; esac
 grep -v "^$cc" "$msg_file" | grep -q '[^[:space:]]' || exit 0
 
-# The task pin of the session: the key core:task, read in the Flint of the session (ORBH_CWD; with no
-# ORBH_CWD, the Flint and the store that the registry row of the manager of the session names; else
-# the working folder). The reader runs in its own process group. After at most about 2.5 seconds,
-# the hook stops the whole group with
-# SIGKILL (a signal that no process can ignore), reaps it, and removes its files, so no reader
-# outlives the hook. The traps do the same when the hook exits early or gets a signal; they are in
-# place before the temporary folder and the reader exist. Only a read that exits 0 gives a Task
-# trailer. A missing key, a missing flint command, an error, or a slow read gives no Task trailer.
-task=''
-reader=''
-dir=''
-stop_reader() {
-  if [ -n "$reader" ]; then
-    kill -KILL -- "-$reader" 2>/dev/null || kill -KILL "$reader" 2>/dev/null
-    wait "$reader" 2>/dev/null
-    reader=''
-  fi
-}
-remove_reader_dir() {
-  if [ -n "$dir" ]; then
-    rm -rf "$dir"
-    dir=''
-  fi
-}
-trap 'stop_reader; remove_reader_dir' EXIT
-trap 'stop_reader; remove_reader_dir; exit 0' HUP INT TERM
-if [ -n "$session" ] && command -v flint >/dev/null 2>&1; then
-  # The reader finds the Flint and the store of the session with one node call (a real JSON parse of
-  # the top-level fields of the registry row), before it changes folders: ORBH_CWD; with no ORBH_CWD,
-  # the flintPath and orbRootDir of the row of the manager of ORBH_SESSION_ID; else the working
-  # folder (also when ORBH_CWD names a folder that is gone). ORBH_ORB_ROOT_DIR, NUU_HOME, and ORBH_HOME
-  # of the environment are made absolute from the working folder and exported before the reader
-  # changes folders. A row whose folder is gone gives nothing (also not its store). With no node, the
-  # reader uses ORBH_CWD when that folder exists, else the working folder. The node call runs in the
-  # process group of the reader, so the limit covers it too.
-  resolve_pin='
-const fs = require("fs"); const path = require("path"); const os = require("os");
-const env = process.env; const home = env.HOME || os.homedir();
-const homePath = (value) => value === "~" ? home : value.startsWith("~/") ? path.join(home, value.slice(2)) : path.resolve(value);
-const isDir = (value) => { try { return fs.statSync(value).isDirectory(); } catch { return false; } };
-const text = (value) => typeof value === "string" && value.trim() !== "" && !/[\\n\\r]/.test(value) ? value : "";
-let dir = text(env.ORBH_CWD) ? path.resolve(env.ORBH_CWD) : "";
-let store = text(env.ORBH_ORB_ROOT_DIR) ? path.resolve(env.ORBH_ORB_ROOT_DIR) : "";
-if (!dir || !isDir(dir)) {
-  dir = "";
-  const orbhHome = text(env.ORBH_HOME) ? homePath(env.ORBH_HOME.trim())
-    : path.join(text(env.NUU_HOME) ? homePath(env.NUU_HOME.trim()) : path.join(home, ".nuucognition"), "orbh");
-  try {
-    const row = JSON.parse(fs.readFileSync(path.join(orbhHome, "managers", env.ORBH_SESSION_ID + ".json"), "utf8"));
-    const rowDir = row && typeof row === "object" ? text(row.flintPath) : "";
-    if (rowDir && path.isAbsolute(rowDir) && isDir(rowDir)) {
-      dir = rowDir;
-      const rowStore = text(row.orbRootDir);
-      if (!store && rowStore && path.isAbsolute(rowStore)) store = rowStore;
-    }
-  } catch {}
-}
-const nuuHome = text(env.NUU_HOME) ? homePath(env.NUU_HOME.trim()) : "";
-const orbhHomeOut = text(env.ORBH_HOME) ? homePath(env.ORBH_HOME.trim()) : "";
-process.stdout.write(["ok", dir, store, nuuHome, orbhHomeOut].map((value) => /[\\n\\r]/.test(value) ? "" : value).join("\\n") + "\\n");
-'
-  dir="$(mktemp -d "\${TMPDIR:-/tmp}/orbh-task.XXXXXX" 2>/dev/null)" || dir=''
-  if [ -n "$dir" ]; then
-    read_pin='resolved="$(node -e "$2" 2>/dev/null)" || resolved=""
-line() { printf "%s\\n" "$resolved" | sed -n "$1p"; }
-if [ "$(line 1)" = ok ]; then
-  pin_dir="$(line 2)"; pin_store="$(line 3)"; nuu_home="$(line 4)"; orbh_home="$(line 5)"
-  [ -n "$pin_dir" ] || pin_dir=.
-  if [ -n "$pin_store" ]; then export ORBH_ORB_ROOT_DIR="$pin_store"; fi
-  if [ -n "$nuu_home" ]; then export NUU_HOME="$nuu_home"; fi
-  if [ -n "$orbh_home" ]; then export ORBH_HOME="$orbh_home"; fi
-else
-  pin_dir=.
-  if [ -n "\${ORBH_CWD:-}" ] && [ -d "$ORBH_CWD" ]; then pin_dir="$ORBH_CWD"; fi
-fi
-cd "$pin_dir" 2>/dev/null && flint orbh session get core:task >"$1/out" 2>/dev/null </dev/null; echo "$?" >"$1/status.tmp" && mv "$1/status.tmp" "$1/status"'
-    if command -v setsid >/dev/null 2>&1; then
-      setsid /bin/sh -c "$read_pin" sh "$dir" "$resolve_pin" >/dev/null 2>&1 </dev/null &
-    else
-      set -m
-      /bin/sh -c "$read_pin" sh "$dir" "$resolve_pin" >/dev/null 2>&1 </dev/null &
-      set +m
-    fi
-    reader=$!
-    tries=0
-    while [ ! -f "$dir/status" ] && [ "$tries" -lt 25 ]; do sleep 0.1; tries=$((tries + 1)); done
-    stop_reader
-    [ "$(cat "$dir/status" 2>/dev/null)" = 0 ] && task="$(cat "$dir/out" 2>/dev/null)"
-    remove_reader_dir
-  fi
-fi
-# Only one line in the shape of an Ops address of a task or a task group reaches the message.
-[ "$(printf '%s' "$task" | wc -l | tr -d ' ')" = 0 ] || task=''
-printf '%s' "$task" | grep -Eq '^@v1/[a-z0-9][a-z0-9_-]{0,63}/(task([.][a-z][a-z0-9]{0,31})?|taskgroup)/[A-Za-z0-9_-]{1,128}#ops$' || task=''
-
 set --
 [ -n "$fleet" ] && set -- "$@" --trailer "Orbh-Fleet: $fleet"
 [ -n "$session" ] && set -- "$@" --trailer "Orbh-Session: $session"
-[ -n "$task" ] && set -- "$@" --trailer "Task: $task"
 git interpret-trailers --in-place --if-exists addIfDifferent "$@" "$msg_file" >/dev/null 2>&1 || true
 exit 0
 `;
@@ -263,49 +167,30 @@ function uninstall(repo) {
 }
 
 /**
- * The self test of a hook body. It makes a scratch repository with the body and the wrapper, puts
- * a fake `flint` first on PATH, and commits once for each mode of the fake reader:
- *   ok         prints a task address and exits 0: the commit gets the Task trailer
- *   error      prints a task address and exits 1: no Task trailer
- *   two-lines  prints two lines: no Task trailer
- *   where      prints the task address only in the expected folder with the expected store (a wrong
- *              address in a wrong Flint): with no ORBH_CWD, the commit gets the Task trailer from
- *              the top-level fields of the registry row; also a nested field of the same name, a
- *              relative or an absolute ORBH_ORB_ROOT_DIR, a row whose Flint is gone, and ORBH_HOME=~
- *   slow-ok    sleeps 1.5 s, then prints a task address: the commit still gets the Task trailer
- *   slow       ignores SIGTERM, starts a child, and sleeps 4 s: no Task trailer, the commit takes
- *              about 2.5 seconds at most, and no process of the reader is alive after the commit; one
- *              commit runs with SIGTERM ignored from its parent, one without
- * Git can reset the signals of a hook, so the slow mode also runs the body directly with SIGTERM
- * ignored. A last run sends SIGTERM to the body while its slow reader runs: the body must exit 0,
- * stop the reader, and remove its folder. Each commit must exit 0 and keep the Orbh-Session
- * trailer, and the hook must leave no files. A first commit with no Orbh variables warms up the
- * repository, so that the times compare.
+ * The self test of a hook body. It makes a scratch repository with the body and the wrapper, puts a
+ * fake `flint` first on PATH (it prints a task address and records each call), and commits:
+ *   - in an Orbh session of a fleet: the Orbh-Fleet and Orbh-Session trailers, no Task trailer, and
+ *     no call of flint (v3 reads no key of the session);
+ *   - a second commit with the same trailers: each trailer is in the message one time;
+ *   - with no Orbh variables: no trailer;
+ *   - with a session id and a handle of a wrong shape: no trailer;
+ *   - with an empty message: the commit aborts, as with no hook.
+ * Each commit with a message must exit 0, and the hook must leave no files.
  */
 function selftest(bodyFile) {
   const body = bodyFile ? fs.readFileSync(bodyFile, 'utf8') : BODY;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'orbh-trailers-selftest-'));
-  const pidsFile = path.join(root, 'pids');
+  const callsFile = path.join(root, 'calls');
   let failures = 0;
   const check = (ok, text) => {
     if (!ok) failures += 1;
     console.log(`${ok ? 'PASS' : 'FAIL'} ${text}`);
   };
-  const pids = () => (read(pidsFile) || '').split('\n').map((line) => Number(line.trim())).filter((pid) => pid > 0);
-  const alive = (pid) => {
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
-  };
   try {
     const repo = path.join(root, 'repo');
     const bin = path.join(root, 'bin');
     const tmp = path.join(root, 'tmp');
-    const flint = path.join(root, 'flint');
-    for (const dir of [repo, bin, tmp, flint]) fs.mkdirSync(dir, { recursive: true });
+    for (const dir of [repo, bin, tmp]) fs.mkdirSync(dir, { recursive: true });
     const git = (...gitArgs) => spawnSync('git', gitArgs, { cwd: repo, encoding: 'utf8' });
     git('init', '-q');
     git('config', 'user.name', 'Orbh Selftest');
@@ -314,182 +199,52 @@ function selftest(bodyFile) {
     writeExecutable(path.join(dir, BODY_NAME), body);
     writeExecutable(path.join(dir, HOOK_NAME), WRAPPER);
     writeExecutable(path.join(bin, 'flint'), `#!/bin/sh
-echo "$$" >> "$FAKE_PIDS"
-case "$FAKE_FLINT_MODE" in
-  ok) echo '@v1/test/task.dev/k17selftest#ops' ;;
-  error) echo '@v1/test/task.dev/k17selftest#ops'; exit 1 ;;
-  two-lines) printf '@v1/test/task/k17selftest#ops\\nEvil: yes\\n' ;;
-  slow-ok) sleep 1.5; echo '@v1/test/task.dev/k17selftest#ops' ;;
-  where) here="$(pwd -P)"
-    if [ "$here" = "$FAKE_WRONG_DIR" ]; then echo '@v1/test/task.dev/wrong#ops'
-    elif [ "$here" = "$FAKE_WANT_DIR" ] && [ "\${ORBH_ORB_ROOT_DIR:-}" = "$FAKE_WANT_STORE" ] \\
-      && { [ -z "\${FAKE_WANT_NUU_HOME:-}" ] || [ "$NUU_HOME" = "$FAKE_WANT_NUU_HOME" ]; } \\
-      && { [ -z "\${FAKE_WANT_ORBH_HOME:-}" ] || [ "$ORBH_HOME" = "$FAKE_WANT_ORBH_HOME" ]; }; then echo '@v1/test/task.dev/k17selftest#ops'
-    else exit 1; fi ;;
-  slow) trap '' TERM; sleep 4 & echo "$!" >> "$FAKE_PIDS"; wait; echo '@v1/test/task.dev/k17selftest#ops' ;;
-esac
+echo "$*" >> "$FAKE_CALLS"
+echo '@v1/test/task.dev/k17selftest#ops'
 `);
     const session = '00000000-0000-4000-8000-00000000c0de';
-    // The registry row of the manager of the session, in a scratch Orbh home: it names the Flint and the store.
-    const orbhHome = path.join(root, 'orbh-home');
-    const tildeHome = path.join(root, 'tilde-home');
-    const flintReal = fs.realpathSync(flint);
-    const repoReal = fs.realpathSync(repo);
-    const wrongReal = path.join(fs.realpathSync(root), 'wrong-flint');
-    const goneDir = path.join(fs.realpathSync(root), 'gone-flint');
-    fs.mkdirSync(wrongReal, { recursive: true });
-    const baseRow = {
-      id: session, pid: process.pid, pgid: null, socketPath: path.join(root, 'none.sock'), runtime: 'claude',
-      flintPath: flintReal, orbRootDir: path.join(flintReal, '.orb'), startedAt: new Date().toISOString(),
-    };
-    const writeRow = (home, row) => {
-      fs.mkdirSync(path.join(home, 'managers'), { recursive: true });
-      fs.writeFileSync(path.join(home, 'managers', `${session}.json`), `${JSON.stringify(row, null, 2)}\n`);
-    };
-    writeRow(orbhHome, baseRow);
-    writeRow(tildeHome, baseRow);
-    const commit = (mode, ignoreTerm, noCwd = false, extraEnv = {}) => {
-      fs.writeFileSync(pidsFile, '');
-      fs.writeFileSync(path.join(repo, 'file.txt'), `${mode} ${Date.now()}\n`);
+    const commit = (name, extraEnv, message = `selftest ${name}`) => {
+      fs.writeFileSync(callsFile, '');
+      fs.writeFileSync(path.join(repo, 'file.txt'), `${name} ${Date.now()}\n`);
       git('add', 'file.txt');
       const env = {
-        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
-        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint, ORBH_HOME: orbhHome,
-        FAKE_FLINT_MODE: mode, FAKE_PIDS: pidsFile, FAKE_WANT_DIR: flintReal, FAKE_WANT_STORE: path.join(flintReal, '.orb'),
-        FAKE_WRONG_DIR: wrongReal,
+        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp, FAKE_CALLS: callsFile,
+        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: root,
       };
-      delete env.ORBH_ORB_ROOT_DIR;
-      if (noCwd) delete env.ORBH_CWD;
       Object.assign(env, extraEnv);
       for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
       const started = Date.now();
-      const result = spawnSync('/bin/sh', ['-c', `${ignoreTerm ? "trap '' TERM; " : ''}exec git commit -q -m "selftest ${mode}"`], {
-        cwd: repo, env, encoding: 'utf8', timeout: 20000,
-      });
-      const ms = Date.now() - started;
-      const message = git('log', '-1', '--format=%B').stdout;
-      return { status: result.status, ms, message };
+      const result = spawnSync('git', ['commit', '-q', '-m', message], { cwd: repo, env, encoding: 'utf8', timeout: 20000 });
+      return { status: result.status, ms: Date.now() - started, message: git('log', '-1', '--format=%B').stdout, calls: (read(callsFile) || '').trim() };
     };
-    const label = (mode, ignoreTerm, noCwd) => `${mode}${ignoreTerm ? ' (SIGTERM ignored by the parent)' : ''}${noCwd ? ' (no ORBH_CWD: the Flint of the registry row)' : ''}`;
     fs.writeFileSync(path.join(repo, 'file.txt'), 'warm up\n');
     git('add', 'file.txt');
     git('commit', '-q', '-m', 'warm up');
-    const stopLeftovers = (left) => {
-      for (const pid of left) {
-        try {
-          process.kill(pid, 'SIGKILL');
-        } catch {
-          // Gone already.
-        }
-      }
-    };
-    const cases = [
-      ['ok', false, true], ['error', false, false], ['two-lines', false, false], ['where', false, true, true],
-      ['slow-ok', false, true], ['slow', false, false], ['slow', true, false],
-    ];
-    for (const [mode, ignoreTerm, wantTask, noCwd = false] of cases) {
-      const result = commit(mode, ignoreTerm, noCwd);
-      const name = label(mode, ignoreTerm, noCwd);
-      check(result.status === 0, `${name}: the commit exits 0`);
-      check(result.message.includes(`Orbh-Session: ${session}`), `${name}: the commit has the Orbh-Session trailer`);
-      check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops') === wantTask, `${name}: the commit ${wantTask ? 'has' : 'has no'} Task trailer`);
-      check(!result.message.includes('Evil:'), `${name}: no other trailer reaches the message`);
-      // The limit of the read is about 2.5 s: a commit with a fast reader stays short, and no commit waits longer.
-      const most = mode.startsWith('slow') ? 3500 : 2500;
-      check(result.ms <= most, `${name}: the commit takes ${result.ms} ms (at most ${most})`);
-      if (mode === 'slow') {
-        spawnSync('sleep', ['0.3']);
-        const left = pids().filter(alive);
-        check(left.length === 0, `${name}: no process of the reader is alive after the commit (alive: ${left.join(', ') || 'none'})`);
-        stopLeftovers(left);
-      }
-    }
-    // The Flint and the store of the reader with no ORBH_CWD (fix round 1 of the hook v2 live fix).
-    const rowCase = (name, setup, extraEnv) => {
-      setup();
-      const result = commit('where', false, true, extraEnv);
-      writeRow(orbhHome, baseRow);
-      check(result.status === 0, `${name}: the commit exits 0`);
-      check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops'), `${name}: the commit has the Task trailer of the session`);
-      check(!result.message.includes('wrong#ops'), `${name}: no Task trailer from another store`);
-    };
-    rowCase('a row with nested fields of the same names before the top-level fields', () => writeRow(orbhHome, {
-      extra: { flintPath: wrongReal, orbRootDir: path.join(wrongReal, '.orb') }, ...baseRow,
-    }), {});
-    rowCase('a relative ORBH_ORB_ROOT_DIR: it is made absolute from the working folder of the commit', () => undefined,
-      { ORBH_ORB_ROOT_DIR: 'local-store', FAKE_WANT_STORE: path.join(repoReal, 'local-store') });
-    rowCase('an absolute ORBH_ORB_ROOT_DIR wins over the store of the row', () => undefined,
-      { ORBH_ORB_ROOT_DIR: path.join(repoReal, 'local-store'), FAKE_WANT_STORE: path.join(repoReal, 'local-store') });
-    rowCase('a row whose Flint is gone: the working folder, and not the store of the row', () => writeRow(orbhHome, {
-      ...baseRow, flintPath: goneDir, orbRootDir: path.join(goneDir, '.orb'),
-    }), { FAKE_WANT_DIR: repoReal, FAKE_WANT_STORE: '' });
-    rowCase('ORBH_HOME of exactly ~: the row under HOME/managers', () => undefined,
-      { ORBH_HOME: '~', HOME: tildeHome });
-    // Fix round 2: a rejected ORBH_CWD, relative homes, and no node.
-    const emptyHome = path.join(root, 'empty-orbh-home');
-    fs.mkdirSync(emptyHome, { recursive: true });
-    const plainCase = (name, noCwd, extraEnv) => {
-      const result = commit('where', false, noCwd, extraEnv);
-      check(result.status === 0, `${name}: the commit exits 0`);
-      check(result.message.includes('Task: @v1/test/task.dev/k17selftest#ops'), `${name}: the commit has the Task trailer of the session`);
-    };
-    plainCase('an ORBH_CWD that is gone, and no registry row: the working folder of the commit', false,
-      { ORBH_CWD: goneDir, ORBH_HOME: emptyHome, FAKE_WANT_DIR: repoReal, FAKE_WANT_STORE: '' });
-    writeRow(path.join(repo, 'relative-home', 'orbh'), baseRow);
-    plainCase('a relative NUU_HOME (the row under it): the reader gets it as an absolute path', true,
-      { ORBH_HOME: undefined, NUU_HOME: 'relative-home', FAKE_WANT_NUU_HOME: path.join(repoReal, 'relative-home') });
-    writeRow(path.join(repo, 'relative-orbh-home'), baseRow);
-    plainCase('a relative ORBH_HOME (the row under it): the reader gets it as an absolute path', true,
-      { ORBH_HOME: 'relative-orbh-home', FAKE_WANT_ORBH_HOME: path.join(repoReal, 'relative-orbh-home') });
-    plainCase('no node on PATH: the reader uses ORBH_CWD', false,
-      { PATH: `${bin}${path.delimiter}/usr/bin${path.delimiter}/bin`, FAKE_WANT_STORE: '' });
-    {
-      // The body itself with SIGTERM ignored from its parent: git does not reset the signals here.
-      fs.writeFileSync(pidsFile, '');
-      const msg = path.join(root, 'message.txt');
-      fs.writeFileSync(msg, 'selftest direct\n');
-      const env = {
-        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
-        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint,
-        FAKE_FLINT_MODE: 'slow', FAKE_PIDS: pidsFile,
-      };
-      const started = Date.now();
-      const result = spawnSync('/bin/sh', ['-c', `trap '' TERM; exec /bin/sh "$0" "$1"`, path.join(dir, BODY_NAME), msg], {
-        cwd: repo, env, encoding: 'utf8', timeout: 20000,
-      });
-      const ms = Date.now() - started;
-      const name = 'slow, the body run directly with SIGTERM ignored';
-      const message = read(msg) || '';
-      check(result.status === 0, `${name}: the body exits 0`);
-      check(message.includes(`Orbh-Session: ${session}`) && !message.includes('Task:'), `${name}: the message has the Orbh-Session trailer and no Task trailer`);
-      check(ms <= 3500, `${name}: the body takes ${ms} ms (at most 3500)`);
-      spawnSync('sleep', ['0.3']);
-      const left = pids().filter(alive);
-      check(left.length === 0, `${name}: no process of the reader is alive after the body (alive: ${left.join(', ') || 'none'})`);
-      stopLeftovers(left);
-    }
-    {
-      // SIGTERM to the body while its slow reader runs: the traps stop the reader and remove its folder.
-      fs.writeFileSync(pidsFile, '');
-      const msg = path.join(root, 'message-term.txt');
-      fs.writeFileSync(msg, 'selftest term\n');
-      const env = {
-        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp,
-        ORBH_SESSION_ID: session, ORBH_FLEET_HANDLE: 'selftest-fleet', ORBH_CWD: flint,
-        FAKE_FLINT_MODE: 'slow', FAKE_PIDS: pidsFile,
-      };
-      const result = spawnSync('/bin/sh', ['-c', '/bin/sh "$0" "$1" & hook=$!; i=0; while [ ! -s "$FAKE_PIDS" ] && [ "$i" -lt 40 ]; do sleep 0.05; i=$((i + 1)); done; sleep 0.1; kill -TERM "$hook"; wait "$hook"; echo "exit=$?"', path.join(dir, BODY_NAME), msg], {
-        cwd: repo, env, encoding: 'utf8', timeout: 20000,
-      });
-      const name = 'slow, SIGTERM to the body while the reader runs';
-      check(result.stdout.includes('exit=0'), `${name}: the body exits 0 (${result.stdout.trim() || 'no output'})`);
-      spawnSync('sleep', ['0.3']);
-      const left = pids().filter(alive);
-      check(pids().length > 0 && left.length === 0, `${name}: the reader started, and no process of it is alive after the body (alive: ${left.join(', ') || 'none'})`);
-      stopLeftovers(left);
-      const folders = fs.readdirSync(tmp).filter((entry) => entry.startsWith('orbh-task.'));
-      check(folders.length === 0, `${name}: the body removed its folder (found: ${folders.join(', ') || 'none'})`);
-    }
+
+    const first = commit('session', {});
+    check(first.status === 0, 'a session of a fleet: the commit exits 0');
+    check(first.message.includes(`Orbh-Session: ${session}`) && first.message.includes('Orbh-Fleet: selftest-fleet'), 'a session of a fleet: the commit has the Orbh-Session and Orbh-Fleet trailers');
+    check(!first.message.includes('Task:'), 'a session of a fleet: the commit has no Task trailer');
+    check(first.calls === '', `a session of a fleet: the hook calls no flint (calls: ${first.calls || 'none'})`);
+    check(first.ms <= 2500, `a session of a fleet: the commit takes ${first.ms} ms (at most 2500)`);
+
+    const again = commit('again', {}, `selftest again\n\nOrbh-Session: ${session}`);
+    check(again.status === 0 && again.message.split(`Orbh-Session: ${session}`).length === 2, 'a message that has the trailer already: the trailer is in it one time');
+
+    const plain = commit('plain', { ORBH_SESSION_ID: undefined, ORBH_FLEET_HANDLE: undefined });
+    check(plain.status === 0 && !/Orbh-|Task:/.test(plain.message), 'no Orbh variables: the commit has no trailer');
+
+    const bad = commit('bad', { ORBH_SESSION_ID: 'not-a-session', ORBH_FLEET_HANDLE: 'Bad Handle' });
+    check(bad.status === 0 && !/Orbh-|Task:/.test(bad.message), 'a session id and a handle of a wrong shape: no trailer');
+
+    fs.writeFileSync(path.join(repo, 'file.txt'), `empty ${Date.now()}\n`);
+    git('add', 'file.txt');
+    const empty = spawnSync('git', ['commit', '-q', '-m', ''], {
+      cwd: repo, encoding: 'utf8', timeout: 20000,
+      env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`, TMPDIR: tmp, ORBH_SESSION_ID: session },
+    });
+    check(empty.status !== 0, 'an empty message: the commit aborts, as with no hook');
+
     const leftFiles = fs.readdirSync(tmp);
     check(leftFiles.length === 0, `the hook leaves no files in TMPDIR (found: ${leftFiles.join(', ') || 'none'})`);
   } finally {

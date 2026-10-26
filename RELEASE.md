@@ -1,3 +1,10 @@
+# 0.8.0
+
+- **The task pin is removed; objects replace it** (NUU Flint Task 1323). `flint orbh task pin|unpin|show|sync`, the keys `core:task` and `core:task-info`, the Page line `TASK`, the menu row "Pinned task", and the Ops attach of the session are gone from the Flint CLI. A session keeps an Ops task as an object: `flint orbh objects add <task address> --subscribe`, and `take` or `chair` only for a change that must not collide. `flint helper pins add` refuses an Ops task (pins are files and links); a stored task pin of an earlier build reads as a link.
+- **The commit-trailer hook, body v3.** It adds only `Orbh-Fleet` and `Orbh-Session`, and reads no key of the session. Run `flint shard orbh commit-trailers install --repo <repo>` in each repository that has body v2.
+- **Docs.** `knw-foh-cli` has the section Objects in place of The Task Pin, `knw-foh-page` has The OBJECTS Block in place of The TASK Line, `knw-foh-fleets` describes hook v3, and `init-foh` says that an Ops task is an object, not a pin.
+- Requires a Flint CLI with Task 1323 (no `flint orbh task`).
+
 # 0.7.3
 
 - **The purpose and the proper name of a wisp** (revision R30 of NUU Orbh Mission 027). `knw-foh-identity`: the `mission` of a wisp is now its `purpose` (`flint orbh wisp gain --purpose "<text>"`; `--mission` stays as a hidden alias for one release, and an old `mission` reads as the purpose). The new verb `flint orbh wisp purpose "<text>"` sets the purpose of an active wisp later. A person sees the alias as a proper name ("Rural Amazed Moonbeam"); the stored alias and each address keep the lowercase form. No Roman numeral is added to an alias.
