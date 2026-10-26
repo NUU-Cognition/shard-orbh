@@ -150,14 +150,14 @@ flint orbh session ask "<question>"                           # blocking; suspen
 | `skills/dev-sk-foh-join_party.md` | Join a node to an open party. |
 | `skills/dev-sk-foh-leave_party.md` | Take a node out of a party. |
 | `skills/dev-sk-foh-close_party.md` | Close a party when its work is done. |
-| `skills/dev-sk-foh-use_object.md` | Use an object of the Objects Protocol (`flint orbh objects`): read it, read its tools, run a tool with the session as the actor, hold it in the session context, and find the context around it. |
+| `skills/dev-sk-foh-use_object.md` | Use an object of the Objects Protocol (`flint orbh objects`): read it, read its tools, run a tool with the session as the actor, keep it in the session context, take or chair it, answer requests, and find the context around it. |
 | `workflows/dev-wkfl-foh-consume_sessions.md` | Consume sessions or a wisp into this session: the sources, the consume, the check of each handoff, the moved obligations, and the record. |
 | `knowledge/dev-knw-foh-kinship.md` | The three layers, the node kinds, the two rules, the origin record and its parent side, the spawn relations, each rite with its record and an example, siblings, and the views. Read before you spawn, fork, birth, or consume. |
 | `knowledge/dev-knw-foh-membership.md` | Parties (the verbs, the members, the founder, the notices), fleets as a membership, a recruit with no kinship, and which group to use. Read before you create or join a party. |
-| `knowledge/dev-knw-foh-cli.md` | Core verbs, turn dispositions and scheduling flags, awaiting/list hygiene, store scoping, accounts and `auth migrate`, and the map to deeper references. |
+| `knowledge/dev-knw-foh-cli.md` | Core verbs, turn dispositions and scheduling flags, awaiting/list hygiene, store scoping, the task pin, the object verbs (`flint orbh objects`: reads, items, holds, exit codes), accounts and `auth migrate`, and the map to deeper references. |
 | `knowledge/dev-knw-foh-profiles.md` | Choose an exact `runtime/profile` target, and change the profile of a session that already exists. |
 | `knowledge/dev-knw-foh-coordination.md` | Launch peers; dispatch, continue, and collect subagents; message, room, interrupt, respond, kill; `peek`, `timeline`, `ping`, `switch`, `fork`. |
-| `knowledge/dev-knw-foh-page.md` | The Page, the one-shot pager and wake delivery, procedures, jobs, group barriers, and scheduled wakes. |
+| `knowledge/dev-knw-foh-page.md` | The Page, the one-shot pager and wake delivery, the TASK line, the INVOCATIONS, ENSURE, and OBJECTS blocks (with the holds and the uses of tools), procedures, jobs, group barriers, and scheduled wakes. |
 | `knowledge/dev-knw-foh-machinery.md` | Stations, cron schedules, workers, procedures, cross-session workflow chaining, and the `update`/`approval`/`improve` channels. |
 | `knowledge/dev-knw-foh-compaction.md` | Self-compaction doctrine: CONTEXT occupancy, the 80% threshold, compact start/handoff/finish, the agent-authored handoff (`HANDOFF_ARTIFACT_V1`, purpose compact), the scratch folder (`ORBH_SCRATCH_DIR`), relaunched-context duty, and compacting into a different runtime/profile/account. |
 | `knowledge/dev-knw-foh-internals.md` | Orb spool model and store layout, five work states, run/result correlation, pager/delivery slices, spaces, bundles, and repair. |

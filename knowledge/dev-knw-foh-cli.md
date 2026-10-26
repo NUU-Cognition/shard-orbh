@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, the object verbs (`flint orbh objects`: reads, items, holds, exit codes), accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -19,6 +19,7 @@ orb:
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
   - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
 orbh-fleet: kinship-1020
 ---
 
@@ -165,6 +166,58 @@ flint orbh task sync                                   # Attach the session in O
 - Each verb targets your own session (`ORBH_SESSION_ID`). `--session <id>` targets another session. Do not pin a task to a session of another person.
 
 The pin is two interface keys. `core:task` holds the address; a session has a pin only while this key holds an address. `core:task-info` holds the JSON record: `{kind, address, org, id, title, status?, stage?, tasks?, pinnedAt, sync, previous}` (`tasks` is the count of tasks of a task group). After an unpin, `core:task-info` holds only `previous`. The Page shows the pin on the `TASK` line ([[dev-knw-foh-page]]), and the commit hook adds `Task: <address>` ([[dev-knw-foh-fleets]] § Commit trailers). Write the keys only with these verbs.
+
+### Objects (`flint orbh objects`)
+
+An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations), a mesh document of a Flint, or a local file. The session is the actor of each call: the call carries the `by` address of `flint address me`, for the person of the NUU CLI sign-in (`nuu login`). The objects package never reads `NUU_ALL_SECRET`. The rules and the steps of a use are in the skill [[dev-sk-foh-use_object]]. The protocol is in Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
+
+An `<object>` is an address (`nuu://<app>/<type>/<id>`, `@v1/<org>/<type>/<id>#<app>`, a braced cross-mesh reference, or `file:///<path>`), or the id (`ob-…`) or the exact address of an item. An `<item>` is the id or the exact address of an item. A read needs no item. An item keeps an object in the context of the session, and the Page shows it in the `OBJECTS` block ([[dev-knw-foh-page]] § The OBJECTS Block).
+
+```bash
+# Read and use (no item needed)
+flint orbh objects get <object> [--describe] [--full] [--json]    # Read one time: the block (guidance, content, tools, mesh, version, hold); --describe: the title, the type, the link
+flint orbh objects tools <object> [--json]                        # The tools: the name, read or mutates, and the flags of use
+flint orbh objects use <object> <tool> --help                     # The flags of one tool, from its input schema; no call
+flint orbh objects use <object> <tool> [--<flag> <value>]... [--input <json> | --input-file <path>] [--json]   # Run one tool
+
+# Items: objects in the context of the session
+flint orbh objects add <address> [--mode import|link] [--subscribe] [--json]   # import: a copy, one time; link (default): read again at each turn; --subscribe: a message when it changes
+flint orbh objects list [--used] [--json]                         # The items; --used: the record of the uses of tools that changed data (the newest 50)
+flint orbh objects show <item> [--full] [--tools] [--json]        # The block of an item: the copy of an import, or a fresh read of a link; --tools: each inputSchema
+flint orbh objects refresh [<item>] [--json]                      # Read each link item again (or the one named), and print each block
+flint orbh objects remove <item> [--json]                         # Remove an item; its record stays as a tombstone
+
+# Holds (a cloud object that supports them: today a task of NUU Operations)
+flint orbh objects hold <object> [--json]                         # The hold: the kind, the holder, the end of the lease, the shares, the open requests
+flint orbh objects take <object> [--lease <seconds>]              # Only this session changes the object while the hold lasts; a take of your own hold renews it
+flint orbh objects chair <object> [--lease <seconds>]             # This session, and each actor that it answers with share, change the object
+flint orbh objects request <object> [--note <text>]               # Ask the holder for the hold, or for a share of a chair
+flint orbh objects answer <object> <request id> share|handover|refuse   # As the holder: share (a chair only), handover (the hold moves to the requester), or refuse
+flint orbh objects return <object>                                # End the hold (the holder only)
+
+# The watcher
+flint orbh objects watch [--session <id>] [--once [--force]] [--interval <seconds>] [--json]   # Check the subscribed items in the foreground, and send a message for each change
+```
+
+- Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`. `watch` with no `--session` checks the items of each session of the store.
+- A session holds at most 20 items. `flint orbh launch … --object <address>[=import|link|subscribe]` gives items to a new session (at most 20 flags).
+- **The flags of a tool** come from its input schema: the field name in kebab case (`expectHash` is `--expect-hash`). A string takes `--<name> <text>`, or `--<name>-file <path>` for a long text. A number or an integer is parsed and checked. A boolean is `--<name>` or `--no-<name>`. An enum takes one of its values. An array takes the flag one time for each item. An object (and each other schema) takes a JSON value. A bound field has no flag: the object gives its value. A required field that is missing refuses before the call. A field whose flag is a fixed flag of the verb (`--session`, `--json`, `--input`, `--input-file`, `--path`, `--orb-root`, `--at`, `--create-store`, `--help`) is set only through `--input`.
+- **The output of `use`** is `ok: <message>` and the result as JSON (cut at 12000 characters), or `error <code>: <message>`. Orbh records each use of a tool that changes data: `list --used` and the Page show it.
+- **Holds.** A hold is a lease of 600 s by default (60 to 3600 with `--lease`). While the session lives, the orchestrator renews each hold that the session took before half of its lease. It returns each hold when the session closes or finishes. A lease with no renewal ends, and the source records the end (NUU Operations writes `task.hold.expire`). A person in the web app can still change a held object (the owner override): read the object again before you continue.
+- **Notices.** The orchestrator reads each subscribed item again (about each 60 s, with a longer wait after an error), and sends one message from `orbh:objects` for each change: `object <id> changed: <address> (version <version>). Read it again: flint orbh objects show <id>`. The message wakes an awaiting session. `watch` does the same check in the foreground: use it to test, not in place of the orchestrator.
+
+| Exit | Code | Meaning |
+|---|---|---|
+| 0 | `ok` | The verb ran |
+| 1 | `bad-flag`, `unknown-tool`, `not-supported`, `not-holder`, `no-hold` | A refusal of a flag or a name, a tool that the object does not have, a verb that the object does not support, a verb that only the holder can run, or no hold to return |
+| 2 | `bad-address`, `no-adapter` | The address does not parse, or no adapter reads it |
+| 3 | `not-configured` | No sign-in for a cloud object: ask the person to run `nuu login` |
+| 4 | `unreachable` | The source did not answer |
+| 5 | `not-found` | The source has no such object |
+| 6 | `denied` | The person of the sign-in has no access |
+| 7 | `bad-response` | The source gave an answer that the CLI cannot read |
+| 8 | `tool-failed` | `use`: the tool ran and refused (`ok: false`); read the message, and correct the input |
+| 9 | `held` | `use` and the hold verbs: another actor holds the object; send a `request`, and do not get around the hold |
 
 ### Orb Ensure (`flint orbh ensure`)
 

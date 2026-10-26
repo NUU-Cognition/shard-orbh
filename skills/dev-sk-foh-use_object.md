@@ -37,6 +37,7 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
    ```bash
    flint orbh objects get <address>              # the context package: guidance, content, tools, mesh, version
    flint orbh objects get <address> --describe   # small: the title, the type, the link
+   flint orbh objects get <address> --full       # the body with no cut (a long body is cut at 12000 characters)
    ```
 
 2. **Read its tools.**
@@ -65,11 +66,14 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 4. **Keep the object in the session context when the work goes on.** When later turns need the object, add it (this is not a hold: step 5 is the hold):
 
    ```bash
-   flint orbh objects add <address> [--mode import|link] [--subscribe]
-   flint orbh objects list | show <id> | refresh [<id>] | remove <id>
+   flint orbh objects add <address> [--mode import|link] [--subscribe]   # the block of the new item, with its id (ob-…)
+   flint orbh objects list                    # the items: the id, the mode, the state, the version, the address
+   flint orbh objects show <id> [--full]      # the block: the copy of an import, or a fresh read of a link (--tools: each inputSchema)
+   flint orbh objects refresh [<id>]          # read each link item again (or one), and print each block
+   flint orbh objects remove <id>             # remove the item when the work no longer needs it (the record stays as a tombstone)
    ```
 
-   `import` is a copy, one time. `link` (the default) reads the object again at each turn boundary. `--subscribe` also sends a message from `orbh:objects` when the object changes, and that message wakes an awaiting session. A session holds at most 20 items. A dispatcher gives items to a new session with `flint orbh launch … --object <address>[=import|link|subscribe]`.
+   `import` is a copy, one time. `link` (the default) reads the object again at each turn boundary. `--subscribe` also sends a message from `orbh:objects` when the object changes, and that message wakes an awaiting session. A session holds at most 20 items. A dispatcher gives items to a new session with `flint orbh launch … --object <address>[=import|link|subscribe]`. The Page shows each item in the `OBJECTS` block, and a changed item as its full block with `state: changed`. The orchestrator checks the subscribed items for you; `flint orbh objects watch --once` runs one check in the foreground, for a test only.
 
 5. **Hold the object when the work must not collide.** A cloud object that supports holds (a task of NUU Operations) shows its hold in its block (`hold: take by <holder> until <time>`, or `hold: none`).
 
@@ -84,6 +88,8 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 
    - Take or chair an object only for the time of a change that must not collide (a series of mesh writes, a stage change). Return it when the change is done. Orbh renews your holds while the session lives, and returns them when the session closes or finishes.
    - When a tool answers `held` (exit 9), another actor holds the object. Do not try to get around the hold. Send a `request` with a short note, and tell the person or your dispatcher.
+   - A hold verb refuses with exit 1 and a code: `not-holder` (only the holder can answer or return), `no-hold` (no hold to return), or `not-supported` (the object has no holds). The other exits are the exits of step 3.
+   - The Page shows your holds in the part `Holds (<n>)` of the `OBJECTS` block, with one line for each open request and the command of its answer.
    - Answer each open request to you (the Page shows them). Use `share` when the requester can work beside you, `handover` when you are done, and `refuse` only with a reason in your result.
    - A person in the web app can change a held object (the owner override). Read the object again before you continue.
 
@@ -116,6 +122,7 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 
 # Notes
 
+- The reference of each verb, each flag, and each exit code is [[dev-knw-foh-cli]] § Objects. The `OBJECTS` block of the Page and its part `Holds` are in [[dev-knw-foh-page]] § The OBJECTS Block.
 - The first host of holds is NUU Operations (tasks). A local document or file has no holds. Participants and join notices are not built.
 - The protocol: the section "Objects Protocol" of NUU Mesh, and `Repos/main/packages/objects/CONTRACT.md`. The decisions: Notepad 246 of the NUU Flint.
 - Requires a Flint CLI with `flint orbh objects` (NUU Flint Tasks 1314 and 1320) and the objects wrapper of NUU Flint Tasks 1315 and 1319 (the actor on the wire, the NUU CLI sign-in, the holds). The contract: Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
