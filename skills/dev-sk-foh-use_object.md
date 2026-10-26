@@ -1,5 +1,5 @@
 ---
-description: "Use an object of the Objects Protocol from an Orbh session: read it, read its tools, run a tool with the session as the actor, hold it in the session context, and find the context around it"
+description: "Use an object of the Objects Protocol from an Orbh session: read it, read its tools, run a tool with the session as the actor, keep it in the session context, take or chair it, and find the context around it"
 orb:
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
 ---
@@ -11,6 +11,8 @@ Run `flint shard start orbh` if you haven't already.
 # Skill: Use Object
 
 An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations, a thread of NUU Chat, or an opinion of NUU Track), a mesh document of a Flint, or a local file. An object answers three verbs: `get`, `use`, and `subscribe`. A local Orbh session uses an object through the CLI `flint orbh objects`, as a NUU Chat thread and an orb use it through model tools. The session is the actor: each call carries the v1 address of the session (the `by` of `flint address me`), for the person of the session.
+
+**Sign-in.** A cloud object is read and used as the person of the NUU CLI sign-in (`nuu login`; `$NUU_HOME/auth.json`, or `auth.local.json` with `NUU_OBJECTS_MODE=dev`). The objects package never reads `NUU_ALL_SECRET`. With no sign-in, a cloud object gives `not-configured`: ask the person to run `nuu login`. A local object (a mesh document, a file) needs no sign-in.
 
 Use this skill when the person or the prompt names an object (an address, a `nuu://` URI, or a link of an app), and the work reads it or changes it. Use it also when an item of the `OBJECTS` block of your Page is part of the work.
 
@@ -57,9 +59,10 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
    | 0 | The tool ran: `ok: <message>` and the result |
    | 8 | `tool-failed`: the tool ran and refused. Read the message, and correct the input |
    | 1 | A flag or a name is wrong, the tool is unknown (`unknown-tool`), or the object has no `use` (`not-supported`) |
+   | 9 | `held`: another actor holds the object (step 5) |
    | 2 to 7 | `bad-address` or `no-adapter`, `not-configured`, `unreachable`, `not-found`, `denied`, `bad-response` |
 
-4. **Hold the object when the work goes on.** When later turns need the object, add it to the session context:
+4. **Keep the object in the session context when the work goes on.** When later turns need the object, add it (this is not a hold: step 5 is the hold):
 
    ```bash
    flint orbh objects add <address> [--mode import|link] [--subscribe]
@@ -68,7 +71,23 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 
    `import` is a copy, one time. `link` (the default) reads the object again at each turn boundary. `--subscribe` also sends a message from `orbh:objects` when the object changes, and that message wakes an awaiting session. A session holds at most 20 items. A dispatcher gives items to a new session with `flint orbh launch … --object <address>[=import|link|subscribe]`.
 
-5. **Find the context around the object.** Use four layers, in this order:
+5. **Hold the object when the work must not collide.** A cloud object that supports holds (a task of NUU Operations) shows its hold in its block (`hold: take by <holder> until <time>`, or `hold: none`).
+
+   ```bash
+   flint orbh objects hold <object>                          # the state: the kind, the holder, the lease, the open requests
+   flint orbh objects take <object> [--lease <seconds>]      # exclusive use: each other actor gets "taken by <you>"
+   flint orbh objects chair <object> [--lease <seconds>]     # the soft hold: others can read and join, but must request before they act
+   flint orbh objects request <object> [--note <text>]       # ask the holder for use or for the hold
+   flint orbh objects answer <object> <request id> share|handover|refuse   # as the holder
+   flint orbh objects return <object>                        # end your hold
+   ```
+
+   - Take or chair an object only for the time of a change that must not collide (a series of mesh writes, a stage change). Return it when the change is done. Orbh renews your holds while the session lives, and returns them when the session closes or finishes.
+   - When a tool answers `held` (exit 9), another actor holds the object. Do not try to get around the hold. Send a `request` with a short note, and tell the person or your dispatcher.
+   - Answer each open request to you (the Page shows them). Use `share` when the requester can work beside you, `handover` when you are done, and `refuse` only with a reason in your result.
+   - A person in the web app can change a held object (the owner override). Read the object again before you continue.
+
+6. **Find the context around the object.** Use four layers, in this order:
 
    | Layer | Where | How |
    |---|---|---|
@@ -87,7 +106,7 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 
    Example, a task of NUU Operations: use the object first. Its tools are the mesh tools of the task (`mesh_list`, `mesh_read`, `mesh_write`). To change the stage, write a comment, or close the task, load the Operations shard and use the `ops` CLI.
 
-6. **Report.** In your result or your reply, name each object that you changed: its address and the tool. `flint orbh objects list --used` shows the uses of the tools that changed data in this session.
+7. **Report.** In your result or your reply, name each object that you changed (its address and the tool), and each hold that you took and returned. `flint orbh objects list --used` shows the uses of the tools that changed data in this session.
 
 # Output
 
@@ -97,6 +116,6 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
 
 # Notes
 
-- The verbs `take`, `return`, `chair`, and `request` are not built. No NUU app can hold an object yet.
+- The first host of holds is NUU Operations (tasks). A local document or file has no holds. Participants and join notices are not built.
 - The protocol: the section "Objects Protocol" of NUU Mesh, and `Repos/main/packages/objects/CONTRACT.md`. The decisions: Notepad 246 of the NUU Flint.
-- Requires a Flint CLI with `flint orbh objects` (NUU Flint Task 1314) and, for the actor on the wire, the objects wrapper of NUU Flint Task 1315.
+- Requires a Flint CLI with `flint orbh objects` (NUU Flint Tasks 1314 and 1320) and the objects wrapper of NUU Flint Tasks 1315 and 1319 (the actor on the wire, the NUU CLI sign-in, the holds). The contract: Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
