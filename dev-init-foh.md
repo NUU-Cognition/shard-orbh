@@ -3,6 +3,7 @@ description: "Orbh agent rules: turns and returns, the agent rules, pins, the pa
 orb:
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
 orbh-fleet: kinship-1020
 ---
 
@@ -149,6 +150,7 @@ flint orbh session ask "<question>"                           # blocking; suspen
 | `skills/dev-sk-foh-join_party.md` | Join a node to an open party. |
 | `skills/dev-sk-foh-leave_party.md` | Take a node out of a party. |
 | `skills/dev-sk-foh-close_party.md` | Close a party when its work is done. |
+| `skills/dev-sk-foh-use_object.md` | Use an object of the Objects Protocol (`flint orbh objects`): read it, read its tools, run a tool with the session as the actor, hold it in the session context, and find the context around it. |
 | `workflows/dev-wkfl-foh-consume_sessions.md` | Consume sessions or a wisp into this session: the sources, the consume, the check of each handoff, the moved obligations, and the record. |
 | `knowledge/dev-knw-foh-kinship.md` | The three layers, the node kinds, the two rules, the origin record and its parent side, the spawn relations, each rite with its record and an example, siblings, and the views. Read before you spawn, fork, birth, or consume. |
 | `knowledge/dev-knw-foh-membership.md` | Parties (the verbs, the members, the founder, the notices), fleets as a membership, a recruit with no kinship, and which group to use. Read before you create or join a party. |
@@ -165,4 +167,4 @@ flint orbh session ask "<question>"                           # blocking; suspen
 
 ## Loading on Demand
 
-Load a kinship or party skill, or the consume workflow, only when you do that action. Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load a kinship or party skill, or the consume workflow, only when you do that action. Load the use_object skill when the work reads or changes an object (an address, a `nuu://` URI, or an item of the `OBJECTS` block of the Page). Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
