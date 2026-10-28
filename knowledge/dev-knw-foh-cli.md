@@ -451,6 +451,22 @@ flint orbh party close <handle> [--reason "<why>"] [--force] [--json]
 - **A party notice** goes to each other member at each join, leave, and close. It never wakes a session. The Page shows it one time on a `PARTY` line ([[dev-knw-foh-page]] § The KIN and PARTY Lines).
 - `inspect` has the sections Kinship and Membership, and `peek` has a `Kin:` line and a `Parties:` line.
 
+## Lanes: `lane`
+
+An orchestrator session opens lanes (interactive sessions in their own Obsidian tabs) and gives one task at a time to a lane. The human marks a task done in the lane tab with `!flint orbh lane done`; the lane keeps its session. The rules are in [[dev-knw-foh-coordination]] § Lanes.
+
+```bash
+flint orbh lane start <count> [--target <runtime/profile>] [--account <name>] [--party <handle>] [--json]
+flint orbh lane add <session> [--party <handle>] [--json]
+flint orbh lane assign <lane|next> "<task>" [--task-file <path>] [--force] [--json]
+flint orbh lane done [<lane>] [--note "<text>"] [--json]
+flint orbh lane list [--orchestrator <session>] [--json]
+flint orbh lane focus <lane>
+```
+
+- A `<lane>` is a number (`2`, `lane-2`, `Lane 2`), or a session id or a prefix of 4 or more characters.
+- The refusal codes: `lane-needs-session`, `lane-needs-obsidian`, `lane-no-obsidian-manager`, `lane-old-obsidian-plugin`, `lane-launch-failed`, `lane-session-missing`, `lane-none-idle`, `lane-busy`, `lane-ended`, `lane-not-orchestrator`, `lane-in-lane`, `lane-no-lanes`, `lane-not-found`, `lane-changed`, `lane-party-taken`, `lane-party-closed`.
+
 ## Page, Pager, and List Hygiene
 
 ```bash

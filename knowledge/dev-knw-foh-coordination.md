@@ -1,5 +1,5 @@
 ---
-description: "Operating on other sessions — peers, collector-backed subagents, turn-correlated results, trees/caps, the parent shard invocation of a child session, inspection (peek/timeline), messages, rooms, interrupt, respond, kill, and the ping/switch/fork one-shots"
+description: "Operating on other sessions — peers, collector-backed subagents, turn-correlated results, trees/caps, the parent shard invocation of a child session, inspection (peek/timeline), messages, rooms, interrupt, respond, kill, lanes (an orchestrator and its lane tabs), and the ping/switch/fork one-shots"
 orbh-sessions:
   - "[[45853056-d24f-4891-b46b-aeebd82cbad1]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -206,6 +206,27 @@ flint orbh kill [id] [--force]
 `interrupt` is explicit escalation for a working headless/subagent: record the message, terminate the live run, and resume with an interrupt digest. Against an awaiting target it behaves as a wake; against a terminal target it only queues unless explicitly revived by the appropriate surface. `respond` returns blocking `ask` input in place or resumes a deferred requester. `kill` terminates the run and records session abandonment, so a collector resolves as `abandoned`; kill/interrupt paths do not trigger un-returned re-prompts.
 
 **Before `kill`, check the target for live descendants.** Run `flint orbh peek <id>` and read the `Subagents:` line (`N live · M direct`). `kill` lists live descendants and refuses to kill the target while they run. Use `--force` to override this guard. A forced kill stops only the target session and its process group. Child sessions continue to run in their own process groups. A killed manager cannot collect their results. Its awaiting children can still wake through other sources, such as their own children or jobs. Do not decide that a session is idle from `duration` or `updated`: `duration` counts from the start of the session, and delivery health checks change `updated` about every 5 minutes.
+
+## Lanes: an Orchestrator and Its Lane Tabs
+
+A lane is a long-lived interactive session in its own Obsidian tab. An orchestrator session opens lanes and gives one task at a time to a lane. A human works with the lane in its tab and reviews the work. Use lanes for a long list of similar tasks that each need a human review, for example many UI changes of one web app (NUU Orbh Task 749).
+
+```bash
+flint orbh lane start <count> [--target <runtime/profile>] [--account <name>] [--party <handle>] [--json]   # the orchestrator: open <count> lane tabs (no focus)
+flint orbh lane add <session> [--party <handle>] [--json]          # the orchestrator: make a session that exists a lane (no launch, no kinship record)
+flint orbh lane assign <lane|next> "<task>" [--task-file <path>] [--force] [--json]   # the orchestrator: give one task
+flint orbh lane done [<lane>] [--note "<text>"] [--json]           # the human in the lane tab (!flint orbh lane done), or the orchestrator with a lane
+flint orbh lane list [--orchestrator <session>] [--json]           # from the orchestrator or from a lane
+flint orbh lane focus <lane>                                       # bring the tab of a lane to the front
+```
+
+- **`lane start` needs an orchestrator in an Obsidian tab.** It refuses outside a session, when the session has no attached Obsidian binding, and when no Obsidian manager serves the vault. Each lane opens through the manager of the vault with a pre-allocated session id and no focus. The default target and account are those of the orchestrator. A later `lane start` adds lanes with the next numbers.
+- **The three layers.** A lane of `lane start` is a kinship child of the orchestrator (rite spawn, relation child) with no `for` parent: it is not a dispatch, so it is not in `DISPATCHES`, and nobody collects it. `list`, `active`, and the cockpit show it under the orchestrator. All lanes of one orchestrator are members of one party (default handle `lanes-<first 8 characters of the orchestrator id>`), founded by the orchestrator session.
+- **The state.** The interface key `lane` of each lane session holds one JSON value: the orchestrator, the party, the number, the state (`idle` or `working`), the task, the last task, and the count of tasks done. The key `lanes` of the orchestrator holds the party. Each state write is a guarded write of the whole value, so two `assign next` calls never take one lane.
+- **`assign`** sets the lane to working and sends the task as a message that starts with `LANE TASK`. `next` takes the idle lane with the lowest number. With no idle lane, it refuses (`lane-none-idle`): the orchestrator keeps the task until a `LANE DONE` message comes. A working lane refuses a second task unless `--force`.
+- **`done` closes nothing.** In a lane, the human runs `!flint orbh lane done`: the `!` runs the command in the shell of the lane, where `ORBH_SESSION_ID` is set. The lane becomes idle, keeps the task as its last task, and the orchestrator gets one message that starts with `LANE DONE`. The lane session keeps its context for the next task. A done of an idle lane sends nothing. When the orchestrator marks a lane done, the lane gets the message.
+- **A lane agent does not mark its own task done.** Its first prompt tells it to wait for the human, and to send a message to the orchestrator only when it is blocked. When the context of a lane fills, the lane compacts as any interactive session: the lane keeps its session id, so it stays the same lane.
+- Lanes outside Obsidian are not in this build. `lane add` makes any session a lane, with no launch.
 
 ## Cheap One-Shots and Mode Changes
 
