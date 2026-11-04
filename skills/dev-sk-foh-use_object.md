@@ -68,7 +68,7 @@ Use this skill when the person or the prompt names an object (an address, a `nuu
    - `add <words>`, `open <words>`, and `launch --object <words>` take words. They act on the one clear match: the only row, or the only row whose title is an exact match. Else they refuse with exit 1 and the code `ambiguous`, print the rows, and name the address of row 1. Give the address of the row that you want.
    - `flint orbh objects pick [words]` opens the pick panel in a terminal: type to search, `Enter` prints the address, and `Esc` exits with 130. `add <words> --pick` opens the panel and adds the object that you pick. With no TTY, `pick` refuses with exit 1 and names `find`. A headless session has no TTY: use `find`.
 
-1. **Read the object.** `get`, `tools`, and `use` take an address (from a row of `find`) or an item of the session. They do not take words.
+1. **Read the object.** `get`, `tools`, and `use` take an address (from a row of `find`) or an item of the session. They do not take words: words give exit 2 (`bad-address`) and the next command `flint orbh objects find`.
 
    ```bash
    flint orbh objects get <address>              # the context package: guidance, content, tools, mesh, version
