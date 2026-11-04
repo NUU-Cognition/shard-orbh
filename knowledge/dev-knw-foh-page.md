@@ -278,20 +278,20 @@ The object finder panel is the TUI form of `flint orbh objects find` ([[dev-knw-
 - **In the cockpit** (`flint orbh list` in a TTY): select a session, then press `O`. The panel adds to that session.
 - **From the Markdown finder** (`Ctrl-]`, then `o`): the group `Objects` has the row `Find more objects…`. It opens the panel with the text of the query.
 - **In the launch prompt of a new session** (the cockpit): `Ctrl-O` opens the panel. `Enter` picks the object. The prompt shows a chip line `Objects (<n>): <titles>`, and the launch sends each object as `--object <address>` (a link). The launch reads each object before the session starts, and a refusal starts nothing.
-- **In a terminal:** `flint orbh objects pick [words]`. `Enter` prints the address and exits 0. `Esc` exits 130.
+- **In a terminal:** `flint orbh objects pick [words]`. `Enter` prints the address and exits 0. `Esc` exits 130. It works inside `$(...)`: the panel draws on `/dev/tty`, and stdout gets only the address.
 
 **A live pane needs a restart.** A manager keeps the build that it started with. A pane whose manager started before the build with the panel has no `f` in its menu. The panel shows in that pane only after its manager starts again on the new build.
 
-**What it shows:** one search line; the groups `Held`, `Recent`, `Types`, `On this computer` (the registry), `Sessions`, `Mesh`, and `Cloud`, or `Neighbours of <title>` during a walk; a status line; and a footer with the keys of the selected row. On a terminal of 120 columns or more, a preview pane on the right shows the facts, the address, the key, the link, and the first lines of `describe` (read 150 ms after a selection). A source that did not answer yet shows `Searching…` in its group. A slow cloud source never blocks a key. An empty line shows `Type a title, a type word (task/), or paste an address.`
+**What it shows:** one search line; the groups `In this session` (the items of the session), `Recent`, `Types`, `On this computer` (the registry), `Sessions`, `Mesh`, and `Cloud`, or `Neighbours of <title>` during a walk; a status line; and a footer with the keys of the selected row. The facts of a row use one word for an item: `attached here (<mode>)` for an item of this session, and `<n> session(s) attached` for the sessions that have it. A hold is only a take or a chair (`take by <holder>`, `chair by <holder>`). On a terminal of 120 columns or more, a preview pane on the right shows the facts, the address, the key, the link, and the first lines of `describe` (read 150 ms after a selection). A source that did not answer yet shows `Searching…` in its group. A slow cloud source never blocks a key. An empty line shows `Type a title, a type word (task/), or paste an address.`
 
 **The keys:**
 
 - Type to search: a title, a type word (`task/`), or a pasted address. `Ctrl-U` clears the line.
 - `Up` and `Down` move. `PageUp` and `PageDown` move by half a screen.
-- `Enter` adds the object to the session as a `link`. On a held object, `Enter` shows its block: `Up` and `Down` scroll it, and `Esc`, `Enter`, or `q` go back to the list.
+- `Enter` adds the object to the session as a `link`. On an item of this session (`attached here`), `Enter` shows its block: `Up` and `Down` scroll it, and `Esc`, `Enter`, or `q` go back to the list.
 - `Ctrl-S` adds it as a `link` with `subscribe`: an edit of the object wakes the session with one message.
 - `Ctrl-I` adds it as an `import` (a copy, one time). A terminal with no kitty keyboard protocol sends `Ctrl-I` as `Tab`. Then open the menu of the panel (`Ctrl-]`) and use its action `Add it as an import (Ctrl-I)`.
-- `Ctrl-D` removes a held object from the session.
+- `Ctrl-D` removes an item of this session.
 - `Ctrl-O` opens the link of the object. `Ctrl-Y` copies its address.
 - `Tab` completes a type word, or walks to the neighbours of the object (its relations). `Backspace` on an empty line goes back one step of the walk.
 - `Esc` closes the panel. In the mode pick, `Enter` picks the object.
