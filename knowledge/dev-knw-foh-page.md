@@ -266,7 +266,7 @@ Tools that changed data in this run (1):
 - **The limits.** The section has the lowest priority of the Page, and it is at most 24 KiB. When a changed block does not fit, the item shows one line: `- <id> changed: <address> (version …). Read it: flint orbh objects show <id> --full`. When even the lines do not fit, the section is one line: `OBJECTS (<n>): not shown, the Page is full. …`, and the part of the holds is `Holds (<n>): not shown, the Page is full. Read each one: flint orbh objects hold <object>`.
 - **No TASK line.** The task pin and its `TASK` line are removed (NUU Flint Task 1323). An Ops task of the work is an item of this block.
 - **Notices between turns.** A change of a subscribed item comes as an `INBOX` message from `orbh:objects`, and it wakes an awaiting session ([[dev-knw-foh-cli]] § Objects).
-- **The overlay.** The Orbh menu (`Ctrl-]`) shows the section `Objects` under the pins: one row for each item, with its source, its mode, its state, and the hold (for example `you hold it (take)`), and the uses of tools of this run. The Markdown finder (`Ctrl-]`, then `o`) shows the group `Objects`.
+- **The overlay.** The Orbh menu (`Ctrl-]`) shows the section `Objects` above the pins: one row for each item, with its source, its mode, its state, and the hold (for example `you hold it (take)`), and the uses of tools of this run. The Markdown finder (`Ctrl-]`, then `o`) shows the group `Objects`.
 
 ### The Object Finder Panel
 
