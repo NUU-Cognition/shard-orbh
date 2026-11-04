@@ -155,33 +155,33 @@ Common free-form keys are `phase`, `progress`, `blockers`, `artifacts`, and `con
 
 An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations), a mesh document of a Flint, or a local file. The session is the actor of each call: the call carries the `by` address of `flint address me`, for the person of the NUU CLI sign-in (`nuu login`). The objects package never reads `NUU_ALL_SECRET`. The rules and the steps of a use are in the skill [[dev-sk-foh-use_object]]. An Ops task goes into a session as an object: `flint orbh objects add <task address> --subscribe`. This replaces the task pin (`flint orbh task`, the keys `core:task` and `core:task-info`, the `TASK` line, and the `Task:` commit trailer), which is removed (NUU Flint Task 1323). The protocol is in Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
 
-An `<object>` is an address (`nuu://<app>/<type>/<id>`, `@v1/<org>/<type>/<id>#<app>`, a braced cross-mesh reference, or `file:///<path>`), or the id (`ob-…`) or the exact address of an item. `add`, `open`, and `--object` also take words of a title: they act on the one clear match (see "The finder" below). An `<item>` is the id or the exact address of an item. A read needs no item. An item keeps an object in the context of the session, and the Page shows it in the `OBJECTS` block ([[dev-knw-foh-page]] § The OBJECTS Block).
+An `<object>` is an address (`nuu://<app>/<type>/<id>`, `@v1/<org>/<type>/<id>#<app>`, a braced cross-mesh reference, or `file:///<path>`), or the id (`ob-…`) or the exact address of an item. `add`, `open`, `get`, `tools`, `relations`, `walk`, `hold`, and `--object` also take words of a title: they act on the one clear match (see "The finder" below). `use` takes an address or an item only. An `<item>` is the id or the exact address of an item. A read needs no item. An item keeps an object in the context of the session, and the Page shows it in the `OBJECTS` block ([[dev-knw-foh-page]] § The OBJECTS Block).
 
 `flint orbh objects --help` lists the verbs in four groups: find an object, hold it in the context of a session, use it, and the registry of this computer. It ends with three start commands: `status`, `find <words>`, and `add <words>`.
 
 ```bash
 # Find an object (no session needed)
-flint orbh objects find [text...] [--type <type>] [--source <name>]... [--limit <n>] [--refresh] [--json]   # One line for each object: the title, the kind, the facts, the address; the last line is the next command
-flint orbh objects pick [text...]                                 # The pick panel in this terminal: type to search, Enter prints the address, Esc exits 130
+flint orbh objects find [text...] [--type <type>] [--source <name>]... [--limit <n>] [--refresh] [--json]   # 1 to 50 rows (default 20); one line for each object: the title, the kind, the facts, the address; the last line is the next command
+flint orbh objects pick [text...]                                 # The pick panel in this terminal: type to search, Enter prints the address, Esc exits 130; works inside $(...)
 flint orbh objects open <object...>                               # Open the link of the object in the browser or its app; with no TTY, print the link
-flint orbh objects get <object> [--describe] [--full] [--json]    # Read one time: the block (guidance, content, tools, mesh, version, hold); --describe: the title, the type, the link
-flint orbh objects relations <object> [--json]                    # The relations of one object: the kind, the target key, and the title (one fresh read)
-flint orbh objects walk <object> [--depth <n>] [--json]           # Follow the outward relations (1 to 4 steps; default 2; at most 50 objects)
+flint orbh objects get <object...> [--describe] [--full] [--json] # Read one time: the block (guidance, content, tools, mesh, version, hold); --describe: the title, the type, the link
+flint orbh objects relations <object...> [--json]                 # The relations of one object: the kind, the target key, and the title (one fresh read)
+flint orbh objects walk <object...> [--depth <n>] [--json]        # Follow the outward relations (1 to 4 steps; default 2; at most 50 objects)
 
 # Use it: its tools (no item needed)
-flint orbh objects tools <object> [--json]                        # The tools: the name, read or mutates, and the flags of use
+flint orbh objects tools <object...> [--json]                     # The tools: the name, read or mutates, and the flags of use
 flint orbh objects use <object> <tool> --help                     # The flags of one tool, from its input schema; no call
 flint orbh objects use <object> <tool> [--<flag> <value>]... [--input <json> | --input-file <path>] [--json]   # Run one tool
 
 # Items: objects in the context of the session
-flint orbh objects add <object or words...> [--mode import|link] [--subscribe] [--pick] [--json]   # import: a copy, one time; link (default): read again at each turn; --subscribe: a message when it changes; --pick: the pick panel
+flint orbh objects add <object or words...> [--mode import|link] [--subscribe] [--pick] [--json]   # import: a copy, one time; link (default): read again at each Page; --subscribe: a message when it changes; --pick: the pick panel; refuses an object that is an item already (already-held)
 flint orbh objects list [--used] [--json]                         # The items; --used: the record of the uses of tools that changed data (the newest 50)
 flint orbh objects show <item> [--full] [--tools] [--json]        # The block of an item: the copy of an import, or a fresh read of a link; --tools: each inputSchema
 flint orbh objects refresh [<item>] [--json]                      # Read each link item again (or the one named), and print each block
 flint orbh objects remove <item> [--json]                         # Remove an item; its record stays as a tombstone
 
 # Holds (a cloud object that supports them: today a task of NUU Operations)
-flint orbh objects hold <object> [--json]                         # The hold: the kind, the holder, the end of the lease, the shares, the open requests
+flint orbh objects hold <object...> [--json]                      # The hold (a take or a chair): the kind, the holder, the end of the lease, the shares, the open requests
 flint orbh objects take <object> [--lease <seconds>]              # Only this session changes the object while the hold lasts; a take of your own hold renews it
 flint orbh objects chair <object> [--lease <seconds>]             # This session, and each actor that it answers with share, change the object
 flint orbh objects request <object> [--note <text>]               # Ask the holder for the hold, or for a share of a chair
@@ -193,25 +193,26 @@ flint orbh objects watch [--session <id>] [--once [--force]] [--interval <second
 
 # The registry of this computer
 flint orbh objects status [--json]                                # One view: the session, its items and holds, the registry, the app, the sign-in, the sources of the finder, the cache; one Next: line for each problem
-flint orbh objects app [status|up|open|stop]                      # The NUU Objects app: the registry backend and its web app (see below)
+flint orbh objects app [up|status|open|stop]                      # The NUU Objects app: the registry backend and its web app (see below)
 flint orbh objects registry [status|bind|unbind] [--json]         # The registry, and the keys that this computer binds
 ```
 
 - Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`. `watch` with no `--session` checks the items of each session of the store.
 - **A person with no session.** With no `ORBH_SESSION_ID` and no `--session`, the actor is a person in a terminal: the computer, `@v1/<org>/computer/<machine>`, for the person of the sign-in. `find`, `pick`, `open`, `get`, `relations`, `walk`, `tools`, `use`, `hold`, and `status` work. `add`, `list`, `show`, `refresh`, and `remove` write the record of a session: they refuse with exit 1 (`no-session`), and the `Next:` line names the same verb with `--session <id>` (the ids: `flint orbh list`).
-- A session holds at most 20 items. `flint orbh launch … --object <address or words>[=import|link|link+subscribe]` gives items to a new session (at most 20 flags; also `request` and `i`). The default is `link`. Words resolve as `add` resolves them, before the session starts: with no clear match, nothing starts. `--object` cannot go with `--continue`.
+- A session has at most 20 items. `flint orbh launch … --object <address or words>[=import|link|link+subscribe]` gives items to a new session (at most 20 flags; also `request` and `i`). The default is `link`. Words resolve as `add` resolves them, before the session starts: with no clear match, nothing starts. `--object` cannot go with `--continue`.
 
 **The finder.** `find` searches five sources with one engine (`@nuucognition/reference`: the same grammar, ranker, and cache as the NUU picker of the web apps). The contract is `Repos/main/packages/objects/FINDER.md`.
 
-- **The text.** Words of the title (`find spec definition`). A type word: `task/` lists the tasks, and `task/spec` finds the tasks with `spec` in the title (`--type task` is the same as `task/`). An owner word: `@me/task/` lists the tasks that you own. A pasted address gives that one object.
-- **The sources.** `held`: the items and holds of the session (no network). `registry`: the bound objects of this computer, from the snapshot of the registry. `sessions`: the live sessions of this store. `mesh`: the Markdown files under `Mesh/` of the Flint (kind `file`, a `file:///` address). `cloud`: NUU Connect, as the person of `nuu login`. A source that cannot run is left out; it gives a `note:` line only when `--source` names it. `--source <name>` is repeatable (or one list with commas).
-- **The row.** The number, the title, the kind (`ops.task`, `file`), the facts, and the address. The facts: `bound`, `stale`, or `not in the registry`; `linked here`, `subscribed here`, or `imported here`; `held by <actor>` or `chaired by <actor>`; `<n> session(s) attached`; `<n> relation(s)`. A row with no facts names its source. Each text from a source is one escaped line at a bound.
-- **The order.** The held objects first, then the recent objects, then the ranked rows. A registry row gets a boost over a cloud row. One key gives one row, with the facts of its sources merged.
+- **The text.** Words of the title (`find spec definition`). A type word: `task/` lists the tasks, and `task/spec` finds the tasks with `spec` in the title (`--type task` is the same as `task/`). An owner word: `@me/task/` lists the tasks that you own. A pasted address gives that one object. A pasted link of NUU Operations (`https://ops.nuucognition.com/…`) acts as its address. A bare id acts as the address of the one row of this computer (an item or a registry row) with that id.
+- **The sources.** `held`: the items and holds of the session (no network). `registry`: the bound objects of this computer, from the snapshot of the registry. `sessions`: the live sessions of this store. `mesh`: the Markdown files under `Mesh/` of the Flint (kind `file`, a `file:///` address; at most 5 rows, unless `--source mesh` is the only source). `cloud`: NUU Connect, as the person of `nuu login`. A source that cannot run is left out; it gives a `note:` line only when `--source` names it. `--source <name>` is repeatable (or one list with commas).
+- **The row.** The number, the title, the kind (`ops.task`, `file`), the facts, and the address. The facts: `bound`, `stale`, or `not in the registry`; `linked here`, `subscribed here`, or `imported here`; `held by <actor>` or `chaired by <actor>`; `<n> session(s) attached`; `<n> relation(s)`. A row with no facts names its source (`cloud`, `a Mesh file`). Each text from a source is one escaped line at a bound.
+- **The order.** The items of the session first, then the recent objects, then the ranked rows. A registry row gets a boost over a cloud row. One key gives one row, with the facts of its sources merged.
 - **The end of the text.** A count line (`<n> object(s) in <ms> ms · cache <n> hit(s), <n> miss(es)`), then `Next: flint orbh objects add '<address>'`. With no session, a line `Read it: flint orbh objects get '<address>'` comes first, and the add names `--session <id>`. With no rows, `No object matches "<text>".` and one `Next:` line: `find <fewer words>` or a type word, or `status` when a source failed.
 - **`--json`** prints the `FinderAnswer`: `rows`, `errors` (`source`, `code`, `message`), `ms`, and `cache` (`hits`, `filtered`, `stale`, `misses`, `writes`, `flushes`, `bytes`).
 - **The cache.** One file for each person: `$NUU_HOME/objects/finder/<person>.json` (mode 0600). A second find of the same text, also in a new process, reads it. `--refresh` searches each source again.
-- **One clear match.** `add <words>`, `open <words>`, and `--object <words>` take the only row, or the only row whose title is an exact match. Else `add` refuses with exit 1 and the code `ambiguous`: it prints the rows, and the `Next:` line names the address of row 1 and `add <words> --pick`. No row: exit 5 (`not-found`).
-- **The pick panel.** `pick [text...]` and `add <words> --pick` need a TTY on stdin and stdout. `pick` prints the picked address on stdout and exits 0. `Esc` exits 130, and `add --pick` then changes nothing. With no TTY, both refuse with exit 1 (`no-tty`) and name `find`. The keys of the panel are in [[dev-knw-foh-page]] § The OBJECTS Block.
+- **One clear match.** Words in `add`, `open`, `get`, `tools`, `relations`, `walk`, `hold`, and `--object` take the only row, or the only row whose title is an exact match. Else the verb refuses with exit 1 and the code `ambiguous`: it prints the rows, and the `Next:` line names the address of row 1 and the pick panel. No row: exit 5 (`not-found`).
+- **`already-held`.** `add` refuses an object that the session has already as an item: exit 1, and `Next: flint orbh objects show <id>` (or `remove <id>`). A session has one item for each object. To change the mode, remove the item first.
+- **The pick panel.** `pick [text...]` and `add <words> --pick` need a terminal on stdin. When stdout is not a terminal, the panel draws on `/dev/tty`, so `A=$(flint orbh objects pick spec)` gets only the address. `pick` prints the picked address on stdout and exits 0. `Esc` exits 130, and `add --pick` then changes nothing. With no terminal on stdin, both refuse with exit 1 (`no-tty`) and name `find`. The keys of the panel are in [[dev-knw-foh-page]] § The OBJECTS Block.
 - **`open`.** The link of an item comes from its record, else from one describe read (5 s). A `file:` address is its own link. With no TTY, `open` prints the link only. An object with no link refuses with exit 1 (`no-link`) and names `get`.
 - **`status`** answers with no cloud call. It shows the session (or `none: a person in a terminal`), each item and hold, the registry (`up`, `down`, or `not-configured`, its URL, the protocol, and the counts), the app, the sign-in, each source of the finder with one word (`ready` or `off: <why>`), the cache file, and the opted-out keys. It ends with `No problems. …`, or one `Problem:` and one `Next:` line for each problem.
 - **The flags of a tool** come from its input schema: the field name in kebab case (`expectHash` is `--expect-hash`). A string takes `--<name> <text>`, or `--<name>-file <path>` for a long text. A number or an integer is parsed and checked. A boolean is `--<name>` or `--no-<name>`. An enum takes one of its values. An array takes the flag one time for each item. An object (and each other schema) takes a JSON value. A bound field has no flag: the object gives its value. A required field that is missing refuses before the call. A field whose flag is a fixed flag of the verb (`--session`, `--json`, `--input`, `--input-file`, `--path`, `--orb-root`, `--at`, `--create-store`, `--help`) is set only through `--input`.
@@ -223,7 +224,7 @@ flint orbh objects registry [status|bind|unbind] [--json]         # The registry
 |---|---|---|
 | 0 | `ok` | The verb ran |
 | 1 | `bad-flag`, `unknown-tool`, `not-supported`, `not-holder`, `no-hold` | A refusal of a flag or a name, a tool that the object does not have, a verb that the object does not support, a verb that only the holder can run, or no hold to return |
-| 1 | `ambiguous`, `no-session`, `no-tty`, `no-link` | Words match more than one object (give the address of one row); a verb that writes a session record has no session; the pick panel has no TTY; the object has no link to open |
+| 1 | `ambiguous`, `already-held`, `no-session`, `no-tty`, `no-link` | Words match more than one object (give the address of one row); `add` of an object that is an item already; a verb that writes a session record has no session; the pick panel has no terminal on stdin; the object has no link to open |
 | 2 | `bad-address`, `no-adapter` | The address does not parse, or no adapter reads it |
 | 3 | `not-configured` | No sign-in for a cloud object: ask the person to run `nuu login` |
 | 4 | `unreachable` | The source did not answer |
@@ -246,10 +247,11 @@ flint orbh objects app open                  # Open the web app in the browser (
 flint orbh objects app stop [--dir <path>]   # Stop the backend and the web app that up started
 ```
 
-- `up` runs `node scripts/up.mjs` in the folder of the app. The first `up` needs `--dir <Repos/main/apps/nuu-objects>`. Then `registry.json` records `appDir` and `appUrl`, and later commands find the app from any folder. In the folder of the app, `node scripts/up.mjs` does the same. Do not run `pnpm up`: it is `pnpm update`, and it can change the lockfile.
+- Start the app with `flint orbh objects app up`. It runs `node scripts/up.mjs` in the folder of the app. The first `up` needs `--dir <Repos/main/apps/nuu-objects>`. Then `registry.json` records `appDir` and `appUrl`, and later commands find the app from any folder.
+- The second way: in the folder of the app, run `node scripts/up.mjs`. It does the same. Run the script with `node`: pnpm runs a dependency step of the monorepo before each script.
 - `up` is safe to run two times: it starts only the part that does not answer. Both parts keep running after the command ends. The logs are in `$NUU_HOME/objects/logs/` (`backend.log`, `web.log`, and one `app-up-<time>.log` for each `up`). A script that does not end in 180 s refuses with exit 4 (`timeout`).
 - `stop` stops only the parts that `up` started (`$NUU_HOME/objects/app.json`). A part that a person started in a terminal stops there. `app status` says which.
-- `app open` refuses with exit 4 (`app-down`) and names `app up` when the app does not answer.
+- `app open` refuses with exit 4 (`app-down`) and names `app up` when the app does not answer. A word that is not `up`, `status`, `open`, or `stop` refuses with exit 1 (`bad-flag`).
 - In the app: `Cmd-K` finds a bound object (the same type words, for example `task/`). The page of an object has `Copy address`, `Copy CLI command` (`flint orbh objects add '<address>'`), and `Open source`. The views are `/` (the bound objects and each event), `/topology`, `/registry`, `/objects/<key>`, `/audit`, `/telemetry`, and `/protocol`.
 
 ### Orb Ensure (`flint orbh ensure`)
