@@ -1,5 +1,5 @@
 ---
-description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the KIN and PARTY lines, the INVOCATIONS block of shard invocations, the OBJECTS block with its holds and uses, awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
+description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the KIN and PARTY lines, the INVOCATIONS block of shard invocations, the OBJECTS block with its holds and uses, the object finder panel of the TUI (Ctrl-] then f, O in the cockpit, Ctrl-O in the launch prompt), awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[521efa86-61d9-4156-92ba-c40ef56d9e3d]]"
@@ -16,7 +16,10 @@ orb:
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
   - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
-orbh-fleet: kinship-1020
+  - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
+orbh-fleet:
+  - kinship-1020
+  - objects-finder-1105
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -264,6 +267,36 @@ Tools that changed data in this run (1):
 - **No TASK line.** The task pin and its `TASK` line are removed (NUU Flint Task 1323). An Ops task of the work is an item of this block.
 - **Notices between turns.** A change of a subscribed item comes as an `INBOX` message from `orbh:objects`, and it wakes an awaiting session ([[dev-knw-foh-cli]] § Objects).
 - **The overlay.** The Orbh menu (`Ctrl-]`) shows the section `Objects` under the pins: one row for each item, with its source, its mode, its state, and the hold (for example `you hold it (take)`), and the uses of tools of this run. The Markdown finder (`Ctrl-]`, then `o`) shows the group `Objects`.
+
+### The Object Finder Panel
+
+The object finder panel is the TUI form of `flint orbh objects find` ([[dev-knw-foh-cli]] § Objects). A person types words, sees the rows of each source, and adds an object to a session with one key. It uses the same engine, sources, and cache as `find`.
+
+**How to open it:**
+
+- **In a session pane:** `Ctrl-]` opens the Orbh menu, then `f` (`Find an object`). The panel adds to the session of the pane.
+- **In the cockpit** (`flint orbh list` in a TTY): select a session, then press `O`. The panel adds to that session.
+- **From the Markdown finder** (`Ctrl-]`, then `o`): the group `Objects` has the row `Find more objects…`. It opens the panel with the text of the query.
+- **In the launch prompt of a new session** (the cockpit): `Ctrl-O` opens the panel. `Enter` picks the object. The prompt shows a chip line `Objects (<n>): <titles>`, and the launch sends each object as `--object <address>` (a link). The launch reads each object before the session starts, and a refusal starts nothing.
+- **In a terminal:** `flint orbh objects pick [words]`. `Enter` prints the address and exits 0. `Esc` exits 130.
+
+**A live pane needs a restart.** A manager keeps the build that it started with. A pane whose manager started before the build with the panel has no `f` in its menu. The panel shows in that pane only after its manager starts again on the new build.
+
+**What it shows:** one search line; the groups `Held`, `Recent`, `Types`, `On this computer` (the registry), `Sessions`, `Mesh`, and `Cloud`, or `Neighbours of <title>` during a walk; a status line; and a footer with the keys of the selected row. On a terminal of 120 columns or more, a preview pane on the right shows the facts, the address, the key, the link, and the first lines of `describe` (read 150 ms after a selection). A source that did not answer yet shows `Searching…` in its group. A slow cloud source never blocks a key. An empty line shows `Type a title, a type word (task/), or paste an address.`
+
+**The keys:**
+
+- Type to search: a title, a type word (`task/`), or a pasted address. `Ctrl-U` clears the line.
+- `Up` and `Down` move. `PageUp` and `PageDown` move by half a screen.
+- `Enter` adds the object to the session as a `link`. On a held object, `Enter` shows its block: `Up` and `Down` scroll it, and `Esc`, `Enter`, or `q` go back to the list.
+- `Ctrl-S` adds it as a `link` with `subscribe`: an edit of the object wakes the session with one message.
+- `Ctrl-I` adds it as an `import` (a copy, one time). A terminal with no kitty keyboard protocol sends `Ctrl-I` as `Tab`. Then open the menu of the panel (`Ctrl-]`) and use its action `Add it as an import (Ctrl-I)`.
+- `Ctrl-D` removes a held object from the session.
+- `Ctrl-O` opens the link of the object. `Ctrl-Y` copies its address.
+- `Tab` completes a type word, or walks to the neighbours of the object (its relations). `Backspace` on an empty line goes back one step of the walk.
+- `Esc` closes the panel. In the mode pick, `Enter` picks the object.
+
+**The writes.** The panel adds and removes through the same functions as `flint orbh objects add` and `remove`. It makes no other write. The new item shows in the `OBJECTS` block at the next Page read.
 
 ## Procedures: Durable Step State
 
