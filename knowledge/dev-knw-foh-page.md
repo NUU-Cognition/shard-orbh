@@ -282,7 +282,7 @@ The object finder panel is the TUI form of `flint orbh objects find` ([[dev-knw-
 
 **A live pane needs a restart.** A manager keeps the build that it started with. A pane whose manager started before the build with the panel has no `f` in its menu. The panel shows in that pane only after its manager starts again on the new build.
 
-**What it shows:** one search line; the groups `In this session` (the items of the session), `Recent`, `Types`, `On this computer` (the registry), `Sessions`, `Mesh`, and `Cloud`, or `Neighbours of <title>` during a walk; a status line; and a footer with the keys of the selected row. The facts of a row use one word for an item: `attached here (<mode>)` for an item of this session, and `<n> session(s) attached` for the sessions that have it. A hold is only a take or a chair (`take by <holder>`, `chair by <holder>`). On a terminal of 120 columns or more, a preview pane on the right shows the facts, the address, the key, the link, and the first lines of `describe` (read 150 ms after a selection). A source that did not answer yet shows `Searching…` in its group. A slow cloud source never blocks a key. An empty line shows `Type a title, a type word (task/), or paste an address.`
+**What it shows:** one search line; the groups `In this session` (the items of the session), `Recent`, `Types`, `On this computer` (the registry), `Sessions`, `Mesh`, and `Cloud`, or `Neighbours of <title>` during a walk; a status line; and a footer with the keys of the selected row. The facts of a row use one word for an item: `attached here (<mode>)` for an item of this session, and `<n> session(s) attached` for the sessions that have it. A hold is only a take or a chair (`take by <holder>`, `chair by <holder>`). On a terminal of 120 columns or more, a preview pane on the right shows the facts, the address, the key, the link, and the first lines of `describe` (read 150 ms after a selection). A source that did not answer yet shows `Searching…` in its group. A slow cloud source never blocks a key. An empty line shows the items of the session, then the recent objects, then the rest. With no rows, it shows `Type a title, a type word (task/), or paste an address.`
 
 **The keys:**
 
@@ -290,7 +290,7 @@ The object finder panel is the TUI form of `flint orbh objects find` ([[dev-knw-
 - `Up` and `Down` move. `PageUp` and `PageDown` move by half a screen.
 - `Enter` adds the object to the session as a `link`. On an item of this session (`attached here`), `Enter` shows its block: `Up` and `Down` scroll it, and `Esc`, `Enter`, or `q` go back to the list.
 - `Ctrl-S` adds it as a `link` with `subscribe`: an edit of the object wakes the session with one message.
-- `Ctrl-I` adds it as an `import` (a copy, one time). A terminal with no kitty keyboard protocol sends `Ctrl-I` as `Tab`. Then open the menu of the panel (`Ctrl-]`) and use its action `Add it as an import (Ctrl-I)`.
+- `Ctrl-I` adds it as an `import` (a copy, one time). A terminal with no kitty keyboard protocol sends `Ctrl-I` as `Tab`. Then open the menu of the panel (`Ctrl-]`) and use its action `Add it as an import`.
 - `Ctrl-D` removes an item of this session.
 - `Ctrl-O` opens the link of the object. `Ctrl-Y` copies its address.
 - `Tab` completes a type word, or walks to the neighbours of the object (its relations). `Backspace` on an empty line goes back one step of the walk.
