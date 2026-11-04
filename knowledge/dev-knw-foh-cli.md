@@ -15,6 +15,7 @@ orbh-sessions:
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
   - "[[1762640c-f5b8-48de-b6fc-8f7b2f91dcf1]]"
 orb:
+  - "@v1/nuucognition/session/342542ae-e47b-4383-9837-13aaabc74c64#flint/nuu-orbh"
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
@@ -131,6 +132,15 @@ flint orbh result <id>                 # latest returned turn
 flint orbh result <id> --run <n>       # specific 1-based run
 flint orbh inspect <id> --results
 ```
+
+### The Client Host
+
+The client host says where the attach client of a live manager runs: `obsidian` in a terminal tab of Obsidian, `terminal` in each other place. It is one fact of the current manager, for each tool that needs it. Do not read the environment or the parent processes of the manager for this fact: a person can attach from another terminal than the terminal that started the manager.
+
+- **Read it.** `flint orbh inspect <id>` has the row `Client` in the section `State`: `attached · in Obsidian`, `attached · in a terminal`, `attached` (no report yet, or an older build), or `not attached`. A session with no live attachable manager has no row. The registry row of the manager (`clientHost`, beside `clientAttached`) holds the same value.
+- **Who writes it.** The client asks the plugin of Obsidian to walk its parent processes (`terminal-by-ancestor-pid`), and it sends the answer in the attach frame `ClientHost` after each attach. The attach does not wait for the answer. With a plugin that runs on the machine and names no tab, the answer comes after the retries of the walk (12 s on a machine with many vaults open). With no plugin, it comes at once. A pin that the person presses before the answer waits for it.
+- **It holds for the current client only.** A takeover, a detach, and a lost client clear it.
+- **The menu of the App Layer** uses the host of its own process: a Markdown pin opens in Obsidian when the host is `obsidian`, else in the Markdown viewer.
 
 ### Ask, Notes, and Interface Keys
 

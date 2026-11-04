@@ -1,6 +1,7 @@
 ---
 description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, and the map of the Orbh skills and knowledge"
 orb:
+  - "@v1/nuucognition/session/342542ae-e47b-4383-9837-13aaabc74c64#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
@@ -45,7 +46,7 @@ Managers also follow "Manager Rules" in [[dev-knw-foh-orchestrator]], the broadc
 
 ## Pin Relevant Files
 
-Each session has a list of pins. A pin is a Markdown file or an HTML file in the Flint, or a link. An Ops task is not a pin: keep it in the session as an object ([[dev-sk-foh-use_object]]), and the menu shows it in the section `Objects`. The human opens the Orbh menu of your session with `Ctrl-]`, and the Markdown finder with `Ctrl-]` then `o`. The menu shows the first nine pins, and the finder shows your pins above all other files. The latest pin is at the top of both. Keep this list correct, so that the human can find the things of your work quickly.
+Each session has a list of pins. A pin is a Markdown file or an HTML file in the Flint, or a link. An Ops task is not a pin: keep it in the session as an object ([[dev-sk-foh-use_object]]), and the menu shows it in the section `Objects`. The human opens the Orbh menu of your session with `Ctrl-]`, and the Markdown finder with `Ctrl-]` then `o`. A Markdown pin of the menu opens in Obsidian when the pane of the human runs in Obsidian, else in the Markdown viewer. The menu shows the first nine pins, and the finder shows your pins above all other files. The latest pin is at the top of both. Keep this list correct, so that the human can find the things of your work quickly.
 
 - **Pin the files of your work.** A relevant file is a Flint file that you work on, create, or discuss with the human: the task, the spec, the plan, the report, the note, or the shard file.
 - **Pin when the work starts.** Pin a file when you start to work on it, or right after you create it. Do not wait for a workflow to tell you. A workflow step that pins a file is an addition to this rule, not a replacement.
