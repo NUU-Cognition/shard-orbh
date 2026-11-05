@@ -7,7 +7,10 @@ orb:
   - "@v1/nuucognition/session/1329c745-63ed-4a01-b598-bf588a84df0e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
-orbh-fleet: kinship-1020
+  - "@v1/nuucognition/session/a44a4188-6dff-40db-9dcd-9103c9004acc#flint/nuu-flint"
+orbh-fleet:
+  - kinship-1020
+  - steel-map-refresh-1104
 ---
 
 # Knowledge: Declared Fleets
@@ -182,7 +185,6 @@ A wave that runs on one account stops when that account reaches its limit. Repor
 
 - Run `flint orbh auth refresh`, then `flint orbh auth usage`. Read the 5-hour and the weekly window of each allowed account, and the reset times.
 - Do not use an account that the operator excludes (for example a work account). Do not put a fleet on the account of a live interactive session of a person (the `Account` line of `flint orbh inspect <id>`).
-- Spread each wave over two or more accounts with `--account <name>`. Put **at most 3 concurrent writers on one account**.
 - A high-effort profile uses quota fast. In the overnight program of 2026-10-06, `o55xh` used about 16 times the quota of `o55h`: an `o55xh` fleet of 8 sessions filled one Max 5-hour window in 15 minutes. Use an `xh` profile only for code writers. Use `o55h` or a research runtime for analysis and review.
 - Put the critical path on the account with the most room. Plan the waves around the reset times.
 - When a child stops on a limit with a long reset, move it (`flint orbh auth migrate <account> --session <id>`), or close it and dispatch the work again on another allowed account. Do not let a lane wait for hours.
