@@ -168,7 +168,8 @@ flint orbh launch <target> --no-chat …                     # Start a session w
 - **The priority.** The Page shows the block `CHAT` first after the header, and the INBOX does not show the chat records again. The INBOX shows the notices of `orbh:objects` before the other messages. The wake digest shows chat, then the notices of objects, then the rest.
 - **No interrupt.** A chat message does not stop a run that works. The agent sees it at its next step boundary. A headless session that waits gets a wake at once.
 - **Refusals.** A session with its chat off refuses a message with `chat-off`; a session that ended refuses with `session-ended`. `chat send` refuses when the chat is off.
-- **The command handler.** `flint orbh chat deliver <session> --id <id> --from-id <id> --from-name <name> --sent-at <ms> --json -- <text>` is hidden from the help. The NUU client runs it: it prints `{ "messageId": "<id>" }` or `{ "refusal": { "code": "chat-off" | "session-ended" } }`.
+- **The command handler.** `flint orbh chat deliver <session> --id <id> --from-id <id> --from-name <name> --sent-at <ms> --json -- <text>` is hidden from the help. The NUU client runs it: it prints `{ "messageId": "<id>", "wake": "<code>" }` or `{ "refusal": { "code": "chat-off" | "session-ended" } }`. `wake` is `woke`, or why the session did not wake (`not-awaiting`, `claimed`, `timeout`, …). For a session that waits, it starts the hidden child `chat wake` in its own process group: the child wakes the session and stays as the manager of the new run, so `chat deliver` answers at once.
+- **The bound.** The chat keeps the newest 200 messages and at most 256 KiB of text. An unread message whose inbox record is pending always stays.
 
 ### Objects (`flint orbh objects`)
 
