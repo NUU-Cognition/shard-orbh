@@ -169,7 +169,8 @@ flint orbh launch <target> --no-chat …                     # Start a session w
 - **No interrupt.** A chat message does not stop a run that works. The agent sees it at its next step boundary. A headless session that waits gets a wake at once.
 - **Refusals.** A session with its chat off refuses a message with `chat-off`; a session that ended refuses with `session-ended`. `chat send` refuses when the chat is off.
 - **The command handler.** `flint orbh chat deliver <session> --id <id> --from-id <id> --from-name <name> --sent-at <ms> --json -- <text>` is hidden from the help. The NUU client runs it: it prints `{ "messageId": "<id>", "wake": "<code>" }` or `{ "refusal": { "code": "chat-off" | "session-ended" } }`. `wake` is `woke`, or why the session did not wake (`not-awaiting`, `claimed`, `timeout`, …). For a session that waits, it starts the hidden child `chat wake` in its own process group: the child wakes the session and stays as the manager of the new run, so `chat deliver` answers at once.
-- **The bound.** The chat keeps the newest 200 messages and at most 256 KiB of text. An unread message whose inbox record is pending always stays.
+- **The bound.** The chat keeps the newest 200 messages and at most 256 KiB of text. An unread message that leaves the chat keeps its pending inbox record: the Page and the wake show it from the record.
+- **A comment as a chat message.** When a person writes a comment on an Ops object of the session, the web also sends the text as a chat message with the mark `comment: { object, ref? }`. The block `CHAT`, the wake, and `chat read` show one more line for it. Answer with a comment on that object (not in the chat), and then do the work that the comment asks for. When the session holds the object, the line names its item id: `flint orbh objects tools <id>` lists the tool for a comment. The notice of the object with the same text is the same comment: answer it one time.
 
 ### Objects (`flint orbh objects`)
 
