@@ -138,6 +138,29 @@ flint orbh session ask "<question>"                           # blocking; suspen
 
 `approval request` is the right default: it does not stop your turn, and the verdict comes back as a wake message. Reserve `session ask` for the case where you genuinely cannot proceed. **Subagents use none of them** — return the blocker and the precise follow-up question to your dispatcher.
 
+## A Person Writes to the Session
+
+A person can write to your session in two places. Both are equal:
+
+- **Orbh Chat**: the text conversation of the session. A person writes in a web UI (for example NUU Operations), and the NUU Network delivers the message into the session at once.
+- **A comment** on an object that the session holds (for example a comment on its Ops task). The Page and the wake show it as a notice of `orbh:objects`.
+
+Rules:
+
+1. **Answer a person first.** A message of a person comes before your other work. Answer it, then continue.
+2. **Answer in the place where the person wrote.** A chat message: `flint orbh chat send "<text>"`. A comment: a comment on the same object (for an Ops object: `ops comment add <ref> "<text>"`).
+3. **Read the block `CHAT`.** The Page shows each new chat message in the block `CHAT`, first after the header. The wake digest also shows chat first, then the notices of objects, then the rest. When the Page or the wake shows a message to you, the person sees `seen`.
+4. **Do not stop a run for a chat message.** A chat message does not stop your run. You see it at your next step boundary. A session that waits gets a wake.
+
+```bash
+flint orbh chat send "<text>"        # Answer in the chat (at most 8000 characters)
+flint orbh chat read [--limit <n>]   # Show the newest messages, oldest first; the new ones are marked seen
+flint orbh chat off                  # Turn the chat off: a person cannot write to the session
+flint orbh chat on                   # Turn the chat on again
+```
+
+The chat is on by default. Turn it off only when a message of a person must not change the work (for example a timed benchmark), or when the operator tells you. A start with `--no-chat` (`flint orbh launch` and `flint orbh i`) starts the session with its chat off. The details are in [[dev-knw-foh-cli]] § Orbh Chat.
+
 ## What's Here
 
 | File | When to Use |

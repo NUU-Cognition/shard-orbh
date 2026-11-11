@@ -151,6 +151,25 @@ The client host says where the attach client of a live manager runs: `obsidian` 
 
 Common free-form keys are `phase`, `progress`, `blockers`, `artifacts`, and `confidence`. Leave `core:*` slices to Orbh/Page internals.
 
+### Orbh Chat (`flint orbh chat`)
+
+Orbh Chat is one text conversation between the people who can run a session and the session. A person writes in a web UI. The NUU Network sends the command `session.chat` to the computer of the session, and the computer delivers the message into the session at once. The agent answers in the chat. A comment on an object that the session holds is equal to a chat message: answer it as a comment.
+
+```bash
+flint orbh chat send "<text>" [--session <id>] [--json]   # Add one answer to the chat (at most 8000 characters)
+flint orbh chat read [--limit <n>] [--json] [--session <id>]   # The newest messages, oldest first; marks the new ones seen (only in the session itself)
+flint orbh chat on|off [--session <id>]                    # Turn the chat of the session on or off
+flint orbh launch <target> --no-chat …                     # Start a session with its chat off (also flint orbh i)
+```
+
+- **The slice.** The conversation is the slice `core:chat` of the session: `state` (`on` or `off`; absent: on) and `messages` (the newest 200, oldest first). A message has `id`, `dir` (`in` from a person, `out` from the agent), `at` (milliseconds), `text`, `from` (`{ id, name }` of the person, for `in`), and `seenAt` (milliseconds, for `in`). The NUU client reads this slice from the snapshot of the session.
+- **The delivery.** One locked write adds the `in` message to `core:chat` and one record to the inbox: the id `chat-<id>`, the sender `chat`, and `delivered: false`. So the wake, the wake digest, the pager, and the managed delivery carry it with no new path. A second delivery of the same id writes nothing. The text of the record is complete on its own, with the absolute answer command: an agent whose `flint` has no `chat` verb can still answer.
+- **Seen.** An `in` message is seen when it has `seenAt`, or when its inbox record is delivered. Each point that delivers an inbox record also sets `seenAt`: the Page, the pager, the managed delivery, the wake, the message sweep, and `chat read`.
+- **The priority.** The Page shows the block `CHAT` first after the header, and the INBOX does not show the chat records again. The INBOX shows the notices of `orbh:objects` before the other messages. The wake digest shows chat, then the notices of objects, then the rest.
+- **No interrupt.** A chat message does not stop a run that works. The agent sees it at its next step boundary. A headless session that waits gets a wake at once.
+- **Refusals.** A session with its chat off refuses a message with `chat-off`; a session that ended refuses with `session-ended`. `chat send` refuses when the chat is off.
+- **The command handler.** `flint orbh chat deliver <session> --id <id> --from-id <id> --from-name <name> --sent-at <ms> --json -- <text>` is hidden from the help. The NUU client runs it: it prints `{ "messageId": "<id>" }` or `{ "refusal": { "code": "chat-off" | "session-ended" } }`.
+
 ### Objects (`flint orbh objects`)
 
 An object is a NUU entity with one address: a cloud entity of a NUU Connect app (for example a task of NUU Operations), a mesh document of a Flint, or a local file. The session is the actor of each call: the call carries the `by` address of `flint address me`, for the person of the NUU CLI sign-in (`nuu login`). The objects package never reads `NUU_ALL_SECRET`. The rules and the steps of a use are in the skill [[dev-sk-foh-use_object]]. An Ops task goes into a session as an object: `flint orbh objects add <task address> --subscribe`. This replaces the task pin (`flint orbh task`, the keys `core:task` and `core:task-info`, the `TASK` line, and the `Task:` commit trailer), which is removed (NUU Flint Task 1323). The protocol is in Revisions 5 and 6 of `Repos/main/packages/objects/CONTRACT.md`.
