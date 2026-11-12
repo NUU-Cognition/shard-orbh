@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, the object verbs (`flint orbh objects`: the finder with `find`, `pick`, `open`, and `status`, reads, items, holds, exit codes, and the NUU Objects app), accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, the object verbs (`flint orbh objects`: the finder with `find`, `pick`, `open`, and `status`, reads, items, holds, exit codes, and the NUU Objects app), NUU Artifacts (`flint orbh artifacts`: publish, list, get, open, versions, delete), accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -275,6 +275,37 @@ flint orbh objects app stop [--dir <path>]   # Stop the backend and the web app 
 - `stop` stops only the parts that `up` started (`$NUU_HOME/objects/app.json`). A part that a person started in a terminal stops there. `app status` says which.
 - `app open` refuses with exit 4 (`app-down`) and names `app up` when the app does not answer. A word that is not `up`, `status`, `open`, or `stop` refuses with exit 1 (`bad-flag`).
 - In the app: `Cmd-K` finds a bound object (the same type words, for example `task/`). The page of an object has `Copy address`, `Copy CLI command` (`flint orbh objects add '<address>'`), and `Open source`. The views are `/` (the bound objects and each event), `/topology`, `/registry`, `/objects/<key>`, `/audit`, `/telemetry`, and `/protocol`.
+
+### NUU Artifacts (`flint orbh artifacts`)
+
+A **NUU Artifact** is one HTML page that the app NUU Artifacts keeps for an org (or the personal workspace of a person), with its versions (fleet storage-1112). It is an object of the Objects Protocol. It is not a Mesh artifact: `flint orbh artifact <id> "<path>"` (no `s`) and the key `artifacts` record Mesh files. The steps of a publish are in the skill [[dev-sk-foh-publish_artifact]].
+
+| Name | Form |
+|---|---|
+| Address | `@v1/<org>/artifact/<id>#artifacts`; one version: `@v1/<org>/artifact/<id>@<n>#artifacts` |
+| URI | `nuu://artifacts/artifact/<id>` |
+| Web | `https://artifacts.nuucognition.com/<org>/<id>` (`?v=<n>`: one version); dev `http://localhost:3066` |
+| Id | 32 characters `[a-z0-9]` |
+| `<org>` | The slug of the org; for the personal workspace, the owner text of the person |
+
+```bash
+flint orbh artifacts publish <file.html> [--title <text>] [--description <text>] [--org <slug> | --personal] [--update <id|address|uri>] [--no-add] [--json]
+flint orbh artifacts list [--org <slug> | --personal] [--mine] [--query <text>] [--limit <n>] [--json]
+flint orbh artifacts get <id|address|uri> [--source] [--out <file>] [--version <n>] [--json]
+flint orbh artifacts open <id|address|uri> [--version <n>] [--print]
+flint orbh artifacts versions <id|address|uri> [--json]
+flint orbh artifacts delete <id|address|uri> [--yes] [--json]
+```
+
+- **`publish`** sends one HTML file (1 to 10 000 000 bytes, `text/html; charset=utf-8`) and makes a new NUU Artifact, or a new version with `--update`. The workspace is `--org`, else `--personal`, else the org of the Flint above the working folder (`flint.json#org.slug`), else the personal workspace. The title is `--title`, else the text of `<title>` of the file, else the file name. It prints the title and the version, `Address: <address>`, and `URL: <url>`. With `ORBH_SESSION_ID` set and no `--no-add`, it adds the NUU Artifact to the session as an object (the logic of `flint orbh objects add`) and prints `Object: added to session <id>`. A failed add is a warning, not a failure of the publish.
+- **Access.** In the personal workspace, only the person. In an org, each member reads and publishes a new NUU Artifact. The owner (the person who published it first) and each org `owner` or `admin` publish a new version, rename, and delete. A person who is not a member gets `not-found`.
+- **`list`** gives the newest first (`--limit` default 50, max 200). With no `--org` and no `--personal`, it gives each workspace that the person can read.
+- **`get`** prints the facts. `--source` prints the HTML to stdout. `--out <file>` writes the HTML to a file. **`open`** opens the web URL; `--print` only prints it. **`versions`** gives each version: the number, the size, the SHA-256, the time, and the author.
+- **`delete`** is a soft delete: the files go 30 days later. In a terminal it asks for a confirmation. With no terminal, `--yes` is required.
+- **Sign-in** is the token of `nuu login`, as for `flint orbh objects` (`$NUU_HOME/auth.json`, or `auth.local.json` with `NUU_OBJECTS_MODE=dev`). The site is the registry entry of the app `artifacts`; the env `NUU_CONNECT_ARTIFACTS_URL` wins.
+- **The object surface.** `flint orbh objects get <address>` gives the card (the title, `v<n> · <org>`, the address, the URL) and the HTML source of the current version (cut at 40 000 characters). The tools: `read_source` (`version`, `offset`, `limit`), `publish_version` (`html`, `title`, `description`; owner; at most 2 000 000 characters), `rename_artifact` (`title`, `description`; owner), and `publish_artifact` (`title`, `html`, `org`, `description`; a new NUU Artifact). Run one with `flint orbh objects use <address> <tool> …`. A NUU Artifact has no holds.
+- **The page runs in a sandbox.** The viewer shows the page in a frame with `sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads"` and no same origin. A page cannot read the cookies of `nuucognition.com`. Give one self-contained file: a relative link to another file does not work.
+- **Errors** (`error <code>: <message>`): `unauthenticated` (run `nuu login`), `bad-request`, `not-found`, `forbidden` (not the owner), `too-large`, `hash-mismatch` and `upload-missing` (publish again one time), `limit`, `not-configured` (the app has no storage for this mode), and `internal`. Exit codes: 0 ok; 1 a refusal of the server or a failed request; 2 a wrong command line.
 
 ### Orb Ensure (`flint orbh ensure`)
 

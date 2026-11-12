@@ -1,5 +1,5 @@
 ---
-description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, and the map of the Orbh skills and knowledge"
+description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, NUU Artifacts for HTML pages, and the map of the Orbh skills and knowledge"
 orb:
   - "@v1/nuucognition/session/342542ae-e47b-4383-9837-13aaabc74c64#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
@@ -54,6 +54,7 @@ Each session has a list of pins. A pin is a Markdown file or an HTML file in the
 - **Pin the files of your work.** A relevant file is a Flint file that you work on, create, or discuss with the human: the task, the spec, the plan, the report, the note, or the shard file.
 - **Pin when the work starts.** Pin a file when you start to work on it, or right after you create it. Do not wait for a workflow to tell you. A workflow step that pins a file is an addition to this rule, not a replacement.
 - **Pin a link when the human will open it.** For example, a web page that you discuss with the human, or an HTML report that you made. Give a link a name with `--name`.
+- **Publish an HTML page that a person must open as a NUU Artifact.** Run `flint orbh artifacts publish <file.html>`: it adds the NUU Artifact to the session as an object. Then pin its URL with `--name`. A new version of the same page: `--update <address>`. The steps are in [[dev-sk-foh-publish_artifact]].
 - **Do not pin every file that you read.** Pin a file only when the human is likely to open it.
 - **Keep the pins.** Keep a pin after the work on the file is done. Remove a pin only when the file is no longer relevant. After a rename, remove the old path and add the new path.
 
@@ -176,6 +177,7 @@ The chat is on by default. Turn it off only when a message of a person must not 
 | `skills/dev-sk-foh-join_party.md` | Join a node to an open party. |
 | `skills/dev-sk-foh-leave_party.md` | Take a node out of a party. |
 | `skills/dev-sk-foh-close_party.md` | Close a party when its work is done. |
+| `skills/dev-sk-foh-publish_artifact.md` | Publish an HTML file as a NUU Artifact (`flint orbh artifacts publish`, a new artifact or `--update` for a new version), pin its URL, keep it as an object of the session, and give the address and the URL in the report. |
 | `skills/dev-sk-foh-use_object.md` | Use an object of the Objects Protocol (`flint orbh objects`): find it by words first (`find`, not grep), read it, read its tools, run a tool with the session as the actor, keep it in the session context, take or chair it, answer requests, and find the context around it. |
 | `workflows/dev-wkfl-foh-consume_sessions.md` | Consume sessions or a wisp into this session: the sources, the consume, the check of each handoff, the moved obligations, and the record. |
 | `knowledge/dev-knw-foh-kinship.md` | The three layers, the node kinds, the two rules, the origin record and its parent side, the spawn relations, each rite with its record and an example, siblings, and the views. Read before you spawn, fork, birth, or consume. |
@@ -193,4 +195,4 @@ The chat is on by default. Turn it off only when a message of a person must not 
 
 ## Loading on Demand
 
-Load a kinship or party skill, or the consume workflow, only when you do that action. Load the use_object skill when the work reads or changes an object (an address, a `nuu://` URI, or an item of the `OBJECTS` block of the Page). Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load a kinship or party skill, or the consume workflow, only when you do that action. Load the publish_artifact skill when the work makes an HTML page that a person must open. Load the use_object skill when the work reads or changes an object (an address, a `nuu://` URI, or an item of the `OBJECTS` block of the Page). Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
