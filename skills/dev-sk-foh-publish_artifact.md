@@ -41,8 +41,11 @@ Use this skill when the work makes an HTML page that a person must open: a repor
    flint orbh artifacts publish "<file.html>" --update "<address>" --json                                                              # a new version
    ```
 
-   The output gives the title, the version, the address, and the URL. With `ORBH_SESSION_ID` set, the CLI also adds the NUU Artifact to the session as an object (`Object: added to session <id>`). `--no-add` stops that add.
-4. **Check the object.** The output has one of three lines. `Object: added to session <id>`: correct. `Object: session <id> holds it already (<item>)`: correct after a new version. `Warning: the object was not added to session <id>: <reason>` (on stderr): the publish is done; add the object yourself with `flint orbh objects add "<address>"`.
+   With `--json`, stdout holds one JSON document: `{ artifact, version, created, added }`. Read `artifact.address`, `artifact.url`, and `version`. `created` is `true` for a new NUU Artifact and `false` for a new version. With `ORBH_SESSION_ID` set, the CLI also adds the NUU Artifact to the session as an object. `--no-add` stops that add.
+4. **Check the object** in the JSON:
+   - `added` is `{ sessionId, itemId, already }`. `sessionId` is your session, and `itemId` is the item. `already: true` is correct after a new version: the session held the object before.
+   - `added` is `null` with `ORBH_SESSION_ID` set and no `--no-add`: the add failed, and the publish is done. stderr has `Warning: the object was not added to session <id>: <reason>`. Add the object yourself: `flint orbh objects add "<artifact.address>"`.
+   - With no `--json`, the text lines are `Published <title> (v<n>)` (or `Updated <title> (v<n>)`), `Address: <address>`, `URL: <url>`, then `Object: added to session <id>` or `Object: session <id> holds it already (<item>)`. The warning of a failed add is on stderr.
 5. **Pin the URL**, so that the person opens it from the Orbh menu: `flint helper pins add "<url>" --name "<title>"`. After a new version the URL does not change: keep the pin.
 6. **Record it.** Write the address and the URL in the Mesh file of the work (the report, the task note, or the notepad), and in the result of the turn. For an Ops task, a short comment can give the URL: `ops comment add <task> "<title>: <url>"`.
 
@@ -54,7 +57,7 @@ flint orbh artifacts get "<address>" [--version <n>] [--json]                   
 flint orbh artifacts get "<address>" --source [--version <n>]                       # the HTML on stdout
 flint orbh artifacts get "<address>" --out "<file.html>" [--version <n>]            # the HTML into a file
 flint orbh artifacts open "<address>" [--version <n>] [--print]                     # open the web URL (--print: only print it)
-flint orbh artifacts versions "<address>" [--json]                                  # each version: number, size, SHA-256, time, author
+flint orbh artifacts versions "<address>" [--json]                                  # text: v<n>, size, date, creator, current; --json for the SHA-256
 flint orbh artifacts delete "<address>" --yes [--json]                              # a soft delete; ask the person first
 ```
 
