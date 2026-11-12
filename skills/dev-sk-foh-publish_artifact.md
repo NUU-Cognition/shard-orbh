@@ -42,7 +42,7 @@ Use this skill when the work makes an HTML page that a person must open: a repor
    ```
 
    The output gives the title, the version, the address, and the URL. With `ORBH_SESSION_ID` set, the CLI also adds the NUU Artifact to the session as an object (`Object: added to session <id>`). `--no-add` stops that add.
-4. **Check the object.** When the output has a warning in place of `Object: added …`, add it yourself: `flint orbh objects add "<address>"`. A second add of the same object answers `already-held`: that is correct after a new version.
+4. **Check the object.** The output has one of three lines. `Object: added to session <id>`: correct. `Object: session <id> holds it already (<item>)`: correct after a new version. `Warning: the object was not added to session <id>: <reason>` (on stderr): the publish is done; add the object yourself with `flint orbh objects add "<address>"`.
 5. **Pin the URL**, so that the person opens it from the Orbh menu: `flint helper pins add "<url>" --name "<title>"`. After a new version the URL does not change: keep the pin.
 6. **Record it.** Write the address and the URL in the Mesh file of the work (the report, the task note, or the notepad), and in the result of the turn. For an Ops task, a short comment can give the URL: `ops comment add <task> "<title>: <url>"`.
 
