@@ -102,7 +102,7 @@ Use this part when the work needs the answer of a person in a form: feedback, a 
 
    Check `added.subscribed` in the JSON: `true` means that a response sends a message to your session. When it is `false` or `added` is `null`, subscribe yourself: `flint orbh objects add "<artifact.address>" --subscribe`. A new version (`--update`) keeps the audience; `--respond off` ends it.
 3. **Give the person the URL** (pin it, and name it in your message). Say what you ask and who can answer.
-4. **Wait for the response.** In a headless session, return with `flint orbh session return --await "<what you wait for, with the URL>"`: the message of `orbh:objects` wakes the session. In an interactive session, the Page shows the item with `state: changed` at the next turn. The check of a subscribed object runs each 60 seconds, so a response can take one minute to arrive.
+4. **Wait for the response.** In a headless session, return with `flint orbh session return --await "<what you wait for, with the URL>"`: the message of `orbh:objects` wakes the session. In an interactive session, the Page shows the item with `state: changed` at the next turn. The artifact has a push for the person who published it: the orchestrator reads the artifact at once, and the message arrives about 3 seconds after the response. A session of another person (for example an admin of the org who did not publish the artifact) has no push: its timed read runs each 60 seconds, so a response can take one minute to arrive.
 5. **Read the responses.**
 
    ```bash
