@@ -405,9 +405,9 @@ flint orbh auth default <runtime> --clear       # clear the default (name requir
 flint orbh auth remove <runtime> <name> [--yes] # remove an isolated account home
 flint orbh auth deactivate <runtime> <name>     # hide an account whose subscription lapsed; the home stays
 flint orbh auth reactivate <runtime> <name>     # bring a deactivated account back
-flint orbh auth usage [runtime] [name]          # live quota / rate-limit windows, read-only
+flint orbh auth usage [runtime] [name]          # live quota / rate-limit windows; in a terminal it also refreshes a stale login [--refresh --no-refresh --json]
 flint orbh auth ccusage [--dry-run] [args…]     # run ccusage across Orbh account homes + vanilla defaults
-flint orbh auth refresh [runtime] [name]        # re-auth expired accounts via one throwaway session each
+flint orbh auth refresh [runtime] [name]        # re-auth expired accounts: start each harness until its login changes [--dry-run --json]
 flint orbh auth migrate <account> [--session <id>] [--force]   # move THIS session (or --session <id>) to another account
 flint orbh auth fallback show [runtime] [--json]               # the fallback lists and the state of each listed account
 flint orbh auth fallback set <runtime> <account...>            # the ordered fallback list of one runtime (turns the autoswitch on)
@@ -494,6 +494,11 @@ flint orbh auth fallback show claude                             # the list, and
 ```
 
 **The config.** The key `accountUsage` of the Orbh machine settings file (`~/.nuucognition/orbh/settings.json`, or `ORBH_SETTINGS_PATH`) holds the lists (`fallback`), the switch percent (`switchPercent`, default 90), and the refresh interval (`refreshMinutes`, default 5; 0 turns the refresh off). The `auth fallback` commands write it and keep the other keys of the file. The owner module is `packages/orbh/src/usage/account-switch.ts`.
+
+**The login refresh (Ops task jn7daqb5).** A `needs-reauth` row has a `cause`: `access-expired` (the refresh token is still good), `token-rejected` (a 401), `login-required` (the refresh token expired), or `no-credentials`. A start of the harness can fix the first two: the harness refreshes the access token about one second after it starts.
+- `flint orbh auth refresh` refreshes each account with a cause that a start can fix, in parallel. A runtime with the start step (Claude Code) starts the harness directly under the account home with the model of `<runtime>/small-default`, stops it when the stored login changes (about 1 to 2 s), and makes no Orbh session. Each other runtime launches one ping session and waits for its turn. The verdict is the usage read after the attempt. An account that needs a new login is skipped with its reason, and the command exits 1. A manual-only account is skipped too, also when the command names it.
+- `flint orbh auth usage` in a terminal does the same refresh with no flag: it prints the usage at once, and the accounts that refresh show a running line at the end that changes to their usage. In a pipe or with `--json` it refreshes nothing, unless `--refresh` is set; with `--refresh --json`, each row that needs re-auth has a `refresh` field. `--no-refresh` turns it off.
+- Each attempt writes `login-refresh.json` in the account home (the time, the status, the way). After a failed attempt, the refresh of `auth usage` does not try that account again for 30 min; `auth refresh` tries at once. `login-refresh.lock` lets one refresh of an account run at a time on the machine; a second command waits for it and reads the result.
 
 **The usage snapshot.** Each account home has `usage-state.json`: the windows of the last usage read (5-hour, weekly, weekly per model) and the read time. `auth usage` writes it. The orchestrator also refreshes it in the background for each account of a fallback list: at most once per `refreshMinutes` for each account, one account at a time, with a 10-second bound, also when a read fails. An account outside every list gets no background read. Other code reads the snapshot with `readLastKnownAccountUsage`.
 
