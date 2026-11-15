@@ -11,11 +11,13 @@ orbh-sessions:
   - "[[3aa03722-903e-417a-aa51-1dc28bc6f162]]"
   - "[[419ba025-bf1e-4db4-b74a-79f0f862cf19]]"
   - "[[7105ef37-eaed-41b3-9485-2d04ebef1905]]"
+orb:
+  - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
 ---
 
 # Knowledge: Orbh Profiles
 
-Profiles are pre-configured runtime targets — a bundle of model + reasoning effort + harness args under a short code. A target is `runtime/profile`, e.g. `claude/o5mx` or `codex/solxh`. `request` and `job run --agent` create collected subagents; bare `launch` creates an uncollected peer; `i` creates an interactive session. All accept these targets.
+Profiles are pre-configured runtime targets — a bundle of model + reasoning effort + harness args under a short code. A target is `runtime/profile`, e.g. `claude/o55mx` or `codex/s61xh`. `request` and `job run --agent` create collected subagents; bare `launch` creates an uncollected peer; `i` creates an interactive session. All accept these targets.
 
 ## Resolution Rules
 
@@ -43,8 +45,8 @@ A small utility launch uses `<runtime>/small-default`. When that profile does no
 flint orbh profiles                              # List all profiles, grouped by runtime
 flint orbh profiles claude                       # Filter to one runtime
 flint orbh runtimes                              # Which runtimes are installed on this machine
-flint orbh launch claude/o5mx "<prompt>"         # Launch a peer with an explicit profile
-flint orbh request -q codex/solxh "<prompt>"      # Dispatch a collected subagent
+flint orbh launch claude/o55mx "<prompt>"         # Launch a peer with an explicit profile
+flint orbh request -q codex/s61xh "<prompt>"      # Dispatch a collected subagent
 ```
 
 ## The Default Target List
@@ -91,7 +93,7 @@ The machine config (schema `orbh-machine-config/1`) is the read model of the pro
 
 ## The Live Profile Set (verify with `flint orbh profiles`)
 
-As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The Opus 5.5 row was added on 2026-09-27. The Haiku 5.5, Sonnet 5.5, GPT-6.1 Sol, and Grok 4.7 rows were added on 2026-10-08 from the shared `default.json`. The code pattern is `<model-family><effort>`: `f51` = Fable 5.1, `f5` = Fable 5, `o55` = Opus 5.5, `o5` = Opus 5, `o48` = Opus 4.8, `s55` = Sonnet 5.5, `s5` = Sonnet 5, `h55` = Haiku 5.5, `a6` = GPT-6 Astra, `s61` = GPT-6.1 Sol, `sol`/`ter`/`lun` = GPT-5.6 Sol/Terra/Luna, `g47`/`g46`/`g45` = Grok 4.7/4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Sol and Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
+As observed on 2026-09-16, regenerated from live `flint orbh profiles` after `flint orbh profiles update` reported the shared layer already up to date. The Opus 5.5 row was added on 2026-09-27. The Haiku 5.5, Sonnet 5.5, GPT-6.1 Sol, and Grok 4.7 rows were added on 2026-10-08 from the shared `default.json`. On 2026-11-10, the Fable 5.2, GPT-6.1 Terra, and GPT-6 Luna rows were added, and the Opus 4.8, Opus 5, Sonnet 5, Fable 5, and GPT-5.6 rows were removed. The code pattern is `<model-family><effort>`: `f52` = Fable 5.2, `f51` = Fable 5.1, `o55` = Opus 5.5, `s55` = Sonnet 5.5, `h55` = Haiku 5.5, `a6` = GPT-6 Astra, `s61` = GPT-6.1 Sol, `t61` = GPT-6.1 Terra, `l6` = GPT-6 Luna, `g47`/`g46`/`g45` = Grok 4.7/4.6/4.5. Effort suffixes are `l` (low), `m` (medium), `h` (high), `xh` (xhigh), `mx` (max), `u` (ultra — Terra only), `uc` (ultracode — Claude Code multi-agent mode at xhigh).
 
 Runtime availability on this machine (`flint orbh runtimes`, 2026-09-27): `claude`, `codex`, `cursor`, `grok`, `opencode` are installed. `agy`, `droid`, `kimi`, `muse` are registered names but are **not installed**. `agy`, `cursor`, `droid`, `kimi`, and `muse` have **no profiles** in the shared layer — do not target them with a profile.
 
@@ -99,13 +101,10 @@ Runtime availability on this machine (`flint orbh runtimes`, 2026-09-27): `claud
 
 | Code | Model | Effort | Notes |
 |------|-------|--------|-------|
-| `f51xh` / `f51h` | Fable 5.1 (`claude-fable-5-1`) | xhigh / high | Newest Claude — highest capability. Only these two efforts exist; there is no `f51m`, `f51mx`, or `f51uc` |
-| `f5uc` / `f5mx` / `f5xh` / `f5h` / `f5m` / `f5l` | Fable 5 (`claude-fable-5`) | ultracode / max / xhigh / high / medium / low | Previous Fable generation; full effort ladder including ultracode |
-| `o55uc` / `o55mx` / `o55xh` / `o55h` / `o55m` / `o55l` | Opus 5.5 (`claude-opus-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Opus. `claude/o55h` is the first target of the shipped default target list |
-| `o5uc` / `o5mx` / `o5xh` / `o5h` / `o5m` / `o5l` | Opus 5 (`claude-opus-5`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus. The workflow child target (`workflow after` / `after-procedure` `--target`) is now `default`: the default target list |
-| `o48uc` / `o48mx` / `o48xh` / `o48h` / `o48m` / `o48l` | Opus 4.8 (`claude-opus-4-8`) | ultracode / max / xhigh / high / medium / low | Previous-generation Opus; strong agentic coding & enterprise work |
-| `s55uc` / `s55mx` / `s55xh` / `s55h` / `s55m` / `s55l` | Sonnet 5.5 (`claude-sonnet-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Sonnet. The API default effort is `high` |
-| `s5uc` / `s5mx` / `s5xh` / `s5h` / `s5m` / `s5l` | Sonnet 5 (`claude-sonnet-5`) | ultracode / max / xhigh / high / medium / low | Best speed/intelligence balance; everyday default |
+| `f52uc` / `f52mx` / `f52xh` / `f52h` / `f52m` / `f52l` | Fable 5.2 (`claude-fable-5-2`) | ultracode / max / xhigh / high / medium / low | Newest Claude — highest capability (released 2026-11-09). The API default effort is `high` |
+| `f51xh` / `f51h` | Fable 5.1 (`claude-fable-5-1`) | xhigh / high | Previous Fable generation. Only these two efforts exist; there is no `f51m`, `f51mx`, or `f51uc` |
+| `o55uc` / `o55mx` / `o55xh` / `o55h` / `o55m` / `o55l` | Opus 5.5 (`claude-opus-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Opus. `claude/o55h` is the first target of the shipped default target list. The workflow child target (`workflow after` / `after-procedure` `--target`) is `default`: the default target list |
+| `s55uc` / `s55mx` / `s55xh` / `s55h` / `s55m` / `s55l` | Sonnet 5.5 (`claude-sonnet-5-5`) | ultracode / max / xhigh / high / medium / low | Newest Sonnet. Best speed/intelligence balance; everyday default. The API default effort is `high` |
 | `h55uc` / `h55mx` / `h55xh` / `h55h` / `h55m` / `h55l` | Haiku 5.5 (`claude-haiku-5-5`) | ultracode / max / xhigh / high / medium / low | Smallest and fastest Claude (released 2026-10-07). 1M context, 128K output. The API default effort is `medium`. Use it for classification, routing, extraction, and wide subagent fan-outs |
 
 The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort xhigh`.
@@ -116,9 +115,8 @@ The `*uc` profiles pass `--settings {"ultracode":true}` in addition to `--effort
 |------|-------|--------|-------|
 | `a6mx` / `a6xh` / `a6h` / `a6m` / `a6l` | GPT-6 Astra (`gpt-6-astra`) | max / xhigh / high / medium / low | Most capable Codex model; no `ultra` profile. `codex/a6h` is the fallback of the shipped default target list |
 | `s61mx` / `s61xh` / `s61h` / `s61m` / `s61l` | GPT-6.1 Sol (`gpt-6.1-sol`) | max / xhigh / high / medium / low | Mid-tier, Astra-class model of GPT-6.1; no `ultra` profile |
-| `solu` / `solmx` / `solxh` / `solh` / `solm` / `soll` | GPT-5.6 Sol (`gpt-5.6-sol`) | ultra / max / xhigh / high / medium / low | GPT-5.6 flagship — strongest 5.6 coding/agent work |
-| `teru` / `termx` / `terxh` / `terh` / `term` / `terl` | GPT-5.6 Terra (`gpt-5.6-terra`) | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse, lower cost than Sol |
-| `lunmx` / `lunxh` / `lunh` / `lunm` / `lunl` | GPT-5.6 Luna (`gpt-5.6-luna`) | max / xhigh / high / medium / low | Fast/affordable; no `ultra` (model does not support it) |
+| `t61u` / `t61mx` / `t61xh` / `t61h` / `t61m` / `t61l` | GPT-6.1 Terra (`gpt-6.1-terra`) | ultra / max / xhigh / high / medium / low | Balanced everyday workhorse, lower cost than Sol. The only Codex model with an `ultra` profile. Needs Codex CLI 0.159.0 or later |
+| `l6mx` / `l6xh` / `l6h` / `l6m` / `l6l` | GPT-6 Luna (`gpt-6-luna`) | max / xhigh / high / medium / low | Fast/affordable; no `ultra` profile |
 
 ### `gemini`
 
@@ -158,21 +156,21 @@ Pick by task, not by habit. Workspace guidance:
 
 | Task Type | Suggested target | Why |
 |-----------|------------------|-----|
-| Implement code, refactor, write tests | `codex/solxh` (workspace default subagent; `codex/terxh` for cheaper balanced) | GPT-5.6 Sol / Terra at xhigh |
-| Research, design, review, Mesh artifacts | `claude/f51xh` (or `claude/o5mx` / `claude/f5mx`) | Strongest Claude reasoning; Fable 5.1 tops out at xhigh |
-| Long standing multi-stage coding session | `claude/f5uc` / `claude/o5uc` / `claude/s5uc` | Ultracode: xhigh effort + standing dynamic-workflow orchestration (no Fable 5.1 ultracode yet) |
-| Everyday balanced Claude work | `claude/s5h` or `claude/s5xh` | Sonnet 5 — speed + intelligence |
-| Fast / lightweight / cheap | `claude/h55m` / `claude/h55l`, `claude/s5l`, `claude/s5m`, `codex/lunl` / `codex/soll` | Lower cost, quick turnaround. Haiku 5.5 is the cheapest Claude model |
-| Very large context (whole-repo reads, long transcripts) | Fable / Opus / Sonnet 5 all ship 1M context | No special `[1m]` suffix needed on current models |
-| Parallel batch throughput (wide fan-outs) | `claude/h55m`, `codex/solm` / `codex/term` / `codex/lunm` / `claude/s5m` | Good throughput per dollar |
-| Hardest single-task reasoning | `codex/a6mx` / `codex/a6xh`, `claude/f51xh`, `codex/solu` | GPT-6 Astra or Fable 5.1 at max depth, or Sol ultra (Codex auto task delegation) |
+| Implement code, refactor, write tests | `codex/s61xh` (workspace default subagent; `codex/t61xh` for cheaper balanced) | GPT-6.1 Sol / Terra at xhigh |
+| Research, design, review, Mesh artifacts | `claude/f52xh` (or `claude/o55mx` / `claude/f52mx`) | Strongest Claude reasoning |
+| Long standing multi-stage coding session | `claude/f52uc` / `claude/o55uc` / `claude/s55uc` | Ultracode: xhigh effort + standing dynamic-workflow orchestration |
+| Everyday balanced Claude work | `claude/s55h` or `claude/s55xh` | Sonnet 5.5 — speed + intelligence |
+| Fast / lightweight / cheap | `claude/h55m` / `claude/h55l`, `claude/s55l`, `claude/s55m`, `codex/l6l` / `codex/s61l` | Lower cost, quick turnaround. Haiku 5.5 is the cheapest Claude model |
+| Very large context (whole-repo reads, long transcripts) | All current Claude models ship 1M context | No special `[1m]` suffix needed on current models |
+| Parallel batch throughput (wide fan-outs) | `claude/h55m`, `codex/s61m` / `codex/t61m` / `codex/l6m` / `claude/s55m` | Good throughput per dollar |
+| Hardest single-task reasoning | `codex/a6mx` / `codex/a6xh`, `claude/f52mx`, `codex/t61u` | GPT-6 Astra or Fable 5.2 at max depth, or Terra ultra (Codex auto task delegation) |
 | Second opinion / cross-model review | `grok/g46xh` / `grok/g46h`, `opencode/fireworks-kimi`, `opencode/fireworks-minimax` | Different model family, different failure modes (prefer these over `gemini/*` — see the runtime caveat above) |
 
 Rules of thumb:
 
-- **Default subagent for code work is `codex/solxh`** — the standard delegation target in this workspace (see [[dev-knw-foh-orchestrator]]).
-- **Claude tier pick:** Fable 5.1 is the newest and most capable, but ships only `h` and `xh`. Use Fable 5 or Opus 5 when you need `mx` or `uc`. Opus 4.8 remains available as the previous generation. Sonnet 5 for everyday speed/intelligence balance.
-- **Codex tier pick:** Astra (GPT-6) for the hardest work; Sol for hard open-ended 5.6-class work; Terra for everyday; Luna for clear high-volume tasks. Only Sol and Terra have `ultra`.
+- **Default subagent for code work is `codex/s61xh`** — the standard delegation target in this workspace (see [[dev-knw-foh-orchestrator]]).
+- **Claude tier pick:** Fable 5.2 is the newest and most capable, with all six efforts. Fable 5.1 stays available with only `h` and `xh`. Sonnet 5.5 for everyday speed/intelligence balance.
+- **Codex tier pick:** Astra (GPT-6) for the hardest work; Sol (GPT-6.1) for hard open-ended work; Terra for everyday; Luna for clear high-volume tasks. Only Terra has `ultra`.
 - **Effort is the main dial within a family.** Drop from `xh`/`mx` to `m` when the task is mechanical or you're fanning out wide; climb to `mx`/`u` only when the task genuinely needs maximum depth (or ultra's subagent delegation).
 - When in doubt, run `flint orbh profiles` and read the descriptions — the live listing is the source of truth, not this table.
 

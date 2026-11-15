@@ -10,6 +10,7 @@ orbh-sessions:
   - "[[ec13c5bf-9eab-4982-b35a-cffc13d48950]]"
 orb:
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
+  - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
 ---
 
 # Knowledge: Self-Compaction at 80%
@@ -81,7 +82,7 @@ flint orbh compact handoff --into <runtime/profile> [--account <name>]
 ```
 
 - `--into` takes a **profile registry key** — the same `runtime/profile` target `launch`, `request`, and `i` accept (see [[dev-knw-foh-profiles]]). Confirm it with `flint orbh profiles` first; resolution is exact and an unknown name errors.
-- **Cross-runtime is allowed** (an interactive session additionally requires the target runtime to support interactive launch). A `claude` session may compact into `codex/solxh`. Your handoff is the entire channel to the successor, which is precisely why this works — the new runtime shares none of your native context, and was never going to.
+- **Cross-runtime is allowed** (an interactive session additionally requires the target runtime to support interactive launch). A `claude` session may compact into `codex/s61xh`. Your handoff is the entire channel to the successor, which is precisely why this works — the new runtime shares none of your native context, and was never going to.
 - `--account <name>` selects the harness account for the fresh run. It **requires** `--into`.
 - The session id, spool, inbox, jobs, rooms, stations, scratch, and collector anchors are unchanged. An interactive pane keeps its manager and swaps only the harness child.
 

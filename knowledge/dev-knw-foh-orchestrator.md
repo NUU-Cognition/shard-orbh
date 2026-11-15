@@ -8,6 +8,8 @@ orbh-sessions:
   - "[[0a96d4be-c368-430e-84a6-3ba0366bc6f8]]"
   - "[[9eb39a19-e277-46e8-92af-127d080c3ed1]]"
   - "[[78241877-1d07-40de-882e-06a58eb86e19]]"
+orb:
+  - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
 ---
 
 # Knowledge: Orbh Orchestration
@@ -29,7 +31,7 @@ Pick the shape before picking the verb. They differ in who owns the result and w
 | **Peer** | `launch <target> "<duty>"` | No, and no collector at all | The duty outlives you or belongs to nobody. Coordinate by message/room. |
 | **Station** | `station send <name> "<text>"` / `station request …` | `send` no, `request` yes | The endpoint should be durable and the serving session interchangeable. |
 | **Cron** | `cron create <name> --expr … --prompt …` | n/a | The work is scheduled, not requested. |
-| **Workflow clause** | `workflow after <id> --then "<prompt>"` | n/a — declarative | "When that session next returns, launch this." Children default to `claude/o5h`. |
+| **Workflow clause** | `workflow after <id> --then "<prompt>"` | n/a — declarative | "When that session next returns, launch this." Children default to the default target list. |
 
 Stations, cron, workers and workflow chaining are covered in [[dev-knw-foh-machinery]].
 
@@ -38,7 +40,7 @@ Stations, cron, workers and workflow chaining are covered in [[dev-knw-foh-machi
 Dispatch collected work with a quiet blocking request, run through the harness's native background execution:
 
 ```bash
-flint orbh request -q codex/solxh "<complete, self-contained prompt>"
+flint orbh request -q codex/s61xh "<complete, self-contained prompt>"
 ```
 
 `request` creates a subagent, anchors collection to the initiated turn, and prints only that turn's correlated result in quiet mode. Run it in the background because the shell call intentionally blocks; do not poll it or add a routine timeout.
@@ -65,8 +67,8 @@ For a small fan-out, start several background `request -q` calls. Each completio
 > **Temporary rule (Report 076, defect D1).** Until Task 712 is done and its build is the live CLI, do not start many concurrent `request -q` calls from one parent. They fail on the lock `<parent>.dispatch-reservations.lock` after 15 to 55 seconds, and a child can start while its collector exits 1 with no child id. Dispatch parallel children with `job run --agent` and a group barrier (below), or start one `request -q` at a time, about 15 seconds apart. When a `request -q` exits 1, read `flint orbh list` before you dispatch again: collect a child that exists with `flint orbh wait <id>`.
 
 ```bash
-flint orbh job run --agent codex/solxh "<prompt A>" --group wave-1
-flint orbh job run --agent codex/solxh "<prompt B>" --group wave-1
+flint orbh job run --agent codex/s61xh "<prompt A>" --group wave-1
+flint orbh job run --agent codex/s61xh "<prompt B>" --group wave-1
 flint orbh session return --await --until-group wave-1 "Wave 1 dispatched; awaiting leaf results."
 ```
 
@@ -86,8 +88,8 @@ Subagents may themselves manage subagents. An interior manager can dispatch dept
 
 ```bash
 # Interior manager, turn N
-flint orbh job run --agent codex/solxh "<leaf A>" --group wave-1
-flint orbh job run --agent codex/solxh "<leaf B>" --group wave-1
+flint orbh job run --agent codex/s61xh "<leaf A>" --group wave-1
+flint orbh job run --agent codex/s61xh "<leaf B>" --group wave-1
 flint orbh session return --await --until-group wave-1 "Wave 1 dispatched; awaiting leaf results."
 
 # The orchestrator sweep resumes the manager with a coalesced digest; turn N+1

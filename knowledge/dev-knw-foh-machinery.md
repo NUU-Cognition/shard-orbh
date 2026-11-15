@@ -5,6 +5,8 @@ orbh-sessions:
   - "[[ffb27033-03e2-4fb2-850c-a9f83a880880]]"
   - "[[5e7386c8-d7ac-4fbb-886d-6f9e5a41023b]]"
   - "[[7becb153-fc6a-4037-a359-23744241a409]]"
+orb:
+  - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
 ---
 
 # Knowledge: Durable Orbh Machinery
@@ -54,7 +56,7 @@ If you are bound to a station, queued items appear on your Page and wake you whi
 Minute-resolution 5-field cron expressions, stored in the Orb store of the flint. The per-machine orchestrator sweeps schedules every **60 s** and launches a fresh headless session with the schedule's prompt on its target; **no server is required**. Records the fire before launching, so a crash is findable rather than silent.
 
 ```bash
-flint orbh cron create <name> --expr "*/30 * * * *" --prompt "<complete prompt>" --target claude/o5h \
+flint orbh cron create <name> --expr "*/30 * * * *" --prompt "<complete prompt>" --target claude/o55h \
   [--timezone <iana>] [--misfire coalesce|skip] [--overlap skip|allow] [--description <text>]
 flint orbh cron list | show <name> | pause <name> | resume <name> | run-now <name> | delete <name>
 ```
@@ -158,7 +160,7 @@ What matters when you use it:
 - **Arm-time anchor.** Trigger subjects are resolved and anchored when you arm. A clause armed on "the NEXT return" cannot be settled by the turn before it, and a `pending` verdict leaves the clause armed.
 - **Firing is in-process.** `session return` (every disposition), a self `flint orbh end`, and the mutating procedure verbs (`step`/`skip`/`finish`/`abandon` — not `start`) fire the chokepoint themselves. Failures there are non-fatal by design — a workflow error never breaks your `return`. `fire-event` is the manual driver / repair path, not the only one. (Its own help string still says harness chokepoints will call it "in a later integration wave" — that wave has landed; the string is stale.)
 - **Templates resolve at fire time.** `--then` prompts keep `{{…}}` tokens until they fire, including `{{result:subject}}` and `{{result:<label>}}`.
-- **`--target` defaults to `claude/o5h`** for launched children; `arm --max-children` defaults to 16.
+- **`--target` defaults to `default`** (the default target list) for launched children; `arm --max-children` defaults to 16.
 - **`manage` attaches a pure consumer.** The manager is woken with a digest; it never collects children and never advances clauses. Do not write one that tries to.
 - `close` discharges the duty and `cancel` abandons it; either way armed clauses stop matching.
 

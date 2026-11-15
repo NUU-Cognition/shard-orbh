@@ -17,6 +17,7 @@ orb:
   - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
   - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
+  - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
 orbh-fleet:
   - kinship-1020
   - objects-finder-1105
@@ -339,8 +340,8 @@ An agent job wraps `request -q`; the subagent's correlated result becomes job ou
 The modern in-turn form is `session return --await --until-group`, because it delivers the turn's result to your collector **and** arms the barrier in one verb:
 
 ```bash
-flint orbh job run --agent codex/solxh "review module A" --group fan
-flint orbh job run --agent codex/solxh "review module B" --group fan
+flint orbh job run --agent codex/s61xh "review module A" --group fan
+flint orbh job run --agent codex/s61xh "review module B" --group fan
 flint orbh job run "pnpm test" --group fan --timeout 1800
 flint orbh session return --await --until-group fan "Fan-out dispatched; awaiting the wave."
 ```
