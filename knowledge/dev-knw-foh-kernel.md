@@ -255,7 +255,11 @@ The order of the lines is: State, Names, Running, Not reported yet, Lost in the 
 
 ## Rules of Use
 
-1. **Use the kernel when it saves work:** for data that is large or that you will read again (load it into a name, then print only the part that you need), for a loop of many commands, and for long work.
+1. **Use the kernel when it saves work.** These events are the signs:
+   - The harness says that an output is too large, saves it to a file, or shows only a part of a file (in Claude Code: `Output too large`, `PARTIAL view`); or you must read more than about 300 lines of a file, a diff, a log, or JSON. Load it into a name, then print only the part that you need.
+   - You will read the same files or commits again in the task. Load them one time, and read them through small helpers (for example `show(path, a, b)` and `grep(path, pattern)`).
+   - A build or a test run can take more than one minute. Use `exec --detach` (rule 4).
+   - You run a loop of many commands.
 2. **Use your normal tools for small reads and for edits.** Use the Edit tool of the harness for a change that a person reviews: a write from kernel code does not show as an edit.
 3. **Do not block the loop.** Use `await asyncio.to_thread(fn, …)` for long synchronous work, not a plain thread that submits work to the loop.
 4. **Detach long work** with `exec --detach`. Do other work, or end the turn with `return --await`: the message wakes the session.
@@ -263,3 +267,7 @@ The order of the lines is: State, Names, Running, Not reported yet, Lost in the 
 6. **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command. Give it the same care.
 7. **Read the state after a new context:** the `[kernel-state]` notice, or the `KERNEL` line, then `flint orbh kernel names`. Before you make a name again, check in a cell that it is absent (`'<name>' in globals()`).
 8. **Temporary files still go to `$ORBH_SCRATCH_DIR`.** Do not write into the kernel folder: it belongs to the host.
+9. **A name keeps the old text.** After an edit of a file, load the file again, or read it through a function that reads the disk each time. Else you reason over text that is not in the file any more.
+10. **After kernel code wrote a file, read it again before an Edit.** The Edit tool of the harness works from its own read of the file. Before an Edit that depends on the lines around the change, read those lines again with the read tool of the harness.
+11. **Do not pipe a command to `tail` or `head` inside `bash()`.** The exit code of a pipe is the exit code of its last command, so `r.exit_code` is then the exit code of `tail`, not of the build or the check. Run the command with no pipe, and cut the output in Python (for example `r.output[-2000:]`).
+12. **Cut each long line before you print it.** One long line (a minified file, a line of an HTML report) can fill the context. Use a slice in Python (`line[:200]`), or `grep -o`. The kernel saves context only when the printed part is small.
