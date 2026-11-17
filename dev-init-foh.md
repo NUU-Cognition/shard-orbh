@@ -94,7 +94,7 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 Each session can have one persistent Python kernel. Orbh owns it, not the harness. Its names, imports, and `bash()` commands stay across turns, compaction, resume, and a change of runtime.
 
 - **Run a cell** with `flint orbh kernel exec`. Give the code as a heredoc (`flint orbh kernel exec <<'PY'` … `PY`). The first `exec` starts the kernel.
-- **Use it when it saves work**: data that is large or that you will read again (load it into a name, then print only the part that you need), a loop of many commands, and long work. Use your normal tools for small reads and for edits.
+- **Use it at these signs**: the harness says that an output is too large, saves it to a file, or shows only a part of a file, or you must read more than about 300 lines of a file, a diff, a log, or JSON; you will read the same files or commits again; a build or a test run can take more than one minute; you run a loop of many commands. Load the data into a name, then print only the part that you need. Use your normal tools for small reads, for edits, and for a file that a rule tells you to read in full.
 - **Detach long work**: `flint orbh kernel exec --detach`. The result comes as a `KERNEL RESULT` message from `orbh:kernel`. Do not poll: the message reaches a live turn and wakes an awaiting session.
 - **Stop a cell with `flint orbh kernel interrupt <cell>`** when the harness sends no signal. Esc in Claude Code interrupts a blocking `exec`; Esc in Codex does not, and the cell continues.
 - **One end can come two times**: in the output of `exec` or `wait`, and as a `KERNEL RESULT` message. Do not run the work again because of that. When you are not sure, read `flint orbh kernel result <cell>`.
