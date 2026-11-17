@@ -116,12 +116,12 @@ KERNEL stopped · snapshot with 14 names · 2 ends not reported (c-10, c-12)
 ```
 
 - The states are `starting`, `running`, `sleeping`, `stopped`, and `crashed`. A `starting` or `running` status whose host process is not alive shows as `crashed`, with the note `the host process ended with no stop`.
-- `running` shows the count of names, the running cells (one cell with its age, and `(detached)` when no client waits for it), and the count of background `bash()` commands. While a cell or a command runs, it shows the Python version. An idle kernel shows `idle` and the time until it sleeps.
+- `running` shows the count of names, the running cells (one cell with its age, and `(detached)` when no client waits for it), and the count of background `bash()` commands. While a cell or a command runs, it shows the Python version. An idle kernel shows `idle` and the time until it sleeps (`… · idle · sleeps in 28s`). A read verb (`status`, `cells`, `result`, `names`, `commands list`, `commands tail`) does not restart that time; each other verb does.
 - `BLOCKED by <cell> for <time>` (or `BLOCKED by native code`) means that code blocks the loop. A new cell does not start while the loop is blocked: after 5 seconds, `exec` refuses it as busy (with `--queue`, it waits). Interrupt the blocking cell (`flint orbh kernel interrupt <cell>`), or wait for it.
-- `sleeping` and `crashed` show the snapshot: the next `exec` restores its names.
+- `sleeping` and `crashed` show the snapshot: the next `exec` restores its names. A crash of an idle kernel sends no message: this line, `status`, and the notice are then the only report.
 - `<n> ends not reported (<cells>)` names the cells whose end did not reach the session yet. The host sends their `KERNEL RESULT` message. Read one with `flint orbh kernel result <cell>`.
 - The line has at most 200 characters. Each value of the kernel in it is data: escaped to one line and cut. The read never blocks: a status file that is not a regular file, or that is larger than 256 KiB, gives no line, and so does a file that it cannot read. A snapshot-only render gives no line.
-- The line does not show the lost names: read the `[kernel-state]` notice or `flint orbh kernel status`.
+- The line does not show the lost names: read the `[kernel-state]` notice or `flint orbh kernel status` (`Lost in the crash …`, `Not saved in the snapshot …`, `Lost at …`).
 - The line is read-only. `flint orbh kernel status` gives the details. The kernel is in [[dev-knw-foh-kernel]].
 
 ## The KIN and PARTY Lines

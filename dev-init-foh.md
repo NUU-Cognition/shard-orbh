@@ -96,6 +96,7 @@ Each session can have one persistent Python kernel. Orbh owns it, not the harnes
 - **Run a cell** with `flint orbh kernel exec`. Give the code as a heredoc (`flint orbh kernel exec <<'PY'` … `PY`). The first `exec` starts the kernel.
 - **Use it when it saves work**: data that is large or that you will read again (load it into a name, then print only the part that you need), a loop of many commands, and long work. Use your normal tools for small reads and for edits.
 - **Detach long work**: `flint orbh kernel exec --detach`. The result comes as a `KERNEL RESULT` message from `orbh:kernel`. Do not poll: the message reaches a live turn and wakes an awaiting session.
+- **Stop a cell with `flint orbh kernel interrupt <cell>`** when the harness sends no signal. Esc in Claude Code interrupts a blocking `exec`; Esc in Codex does not, and the cell continues.
 - **One end can come two times**: in the output of `exec` or `wait`, and as a `KERNEL RESULT` message. Do not run the work again because of that. When you are not sure, read `flint orbh kernel result <cell>`.
 - **Do not block the loop.** Long synchronous work blocks all cells: use `await asyncio.to_thread(fn, …)`.
 - **Read the state after a new context.** The Page has a `KERNEL` line. After a compaction or a headless resume, a `[kernel-state]` notice names the state and the names. Use the names; do not load the data again.
