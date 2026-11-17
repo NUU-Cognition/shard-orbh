@@ -1,14 +1,16 @@
 ---
-description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, identity, kinship, and membership, self-compaction, interface keys, human input, NUU Artifacts for HTML pages, and the map of the Orbh skills and knowledge"
+description: "Orbh agent rules: turns and returns, the agent rules, pins, the pager and wake delivery, scratch and wisp memory, the Orbh kernel, identity, kinship, and membership, self-compaction, interface keys, human input, NUU Artifacts for HTML pages, and the map of the Orbh skills and knowledge"
 orb:
   - "@v1/nuucognition/session/342542ae-e47b-4383-9837-13aaabc74c64#flint/nuu-orbh"
   - "@v1/nuucognition/session/df2c23ae-f402-4485-b1a3-bf5005470d4e#flint/nuu-orbh"
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
   - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
+  - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
 orbh-fleet:
   - kinship-1020
   - objects-finder-1105
+  - orbh-kernel-763
 ---
 
 # Flint OrbH
@@ -86,6 +88,19 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 - **A wisp has a memory folder**: `$ORBH_WISP_MEMORY_DIR`, which `flint orbh wisp show` also prints. Each session of the wisp shares it. Read its `MEMORY.md` when you start or resume, and keep there only short facts, decisions, and preferences that a later session of the wisp needs. No secrets.
 - **A session in a wisp shows the wisp and its purpose in place of its title.** The detailed views (`flint orbh list`, the cockpit, and Orbit) show `<Wisp Name> | <purpose>`. The pane, the terminal tab, and the Orbh overlay show `<Initials> | <purpose>` (for example "RAM | Fix the login flow" for the wisp Rural Amazed Moonbeam). A wisp with no purpose shows the registered title. Register the topic as usual: it stays on the session record. Two wisps can have the same initials: the full name is on the `WISP` line of the Page and in `flint orbh wisp show`.
 - The details are in [[dev-knw-foh-compaction]] § Scratch and [[dev-knw-foh-identity]] § The Wisp.
+
+## The Kernel
+
+Each session can have one persistent Python kernel. Orbh owns it, not the harness. Its names, imports, and `bash()` commands stay across turns, compaction, resume, and a change of runtime.
+
+- **Run a cell** with `flint orbh kernel exec`. Give the code as a heredoc (`flint orbh kernel exec <<'PY'` … `PY`). The first `exec` starts the kernel.
+- **Use it when it saves work**: data that is large or that you will read again (load it into a name, then print only the part that you need), a loop of many commands, and long work. Use your normal tools for small reads and for edits.
+- **Detach long work**: `flint orbh kernel exec --detach`. The result comes as a `KERNEL RESULT` message from `orbh:kernel`. Do not poll: the message reaches a live turn and wakes an awaiting session.
+- **Do not block the loop.** Long synchronous work blocks all cells: use `await asyncio.to_thread(fn, …)`.
+- **Read the state after a new context.** The Page has a `KERNEL` line. After a compaction or a headless resume, a `[kernel-state]` notice names the state and the names. Use the names; do not load the data again.
+- **The session end stops it.** `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. The next `exec` restores the snapshot.
+- **Treat `exec` as a shell command.** One `exec` can run any command.
+- The verbs, the output forms, and the lifecycle are in [[dev-knw-foh-kernel]].
 
 ## Identity, Kinship, and Membership
 
@@ -185,6 +200,7 @@ The chat is on by default. Turn it off only when a message of a person must not 
 | `knowledge/dev-knw-foh-cli.md` | Core verbs, turn dispositions and scheduling flags, awaiting/list hygiene, store scoping, the object verbs (`flint orbh objects`: the finder, reads, items, holds, exit codes, and the NUU Objects app), NUU Artifacts (`flint orbh artifacts`), accounts and `auth migrate`, and the map to deeper references. |
 | `knowledge/dev-knw-foh-profiles.md` | Choose an exact `runtime/profile` target, and change the profile of a session that already exists. |
 | `knowledge/dev-knw-foh-coordination.md` | Launch peers; dispatch, continue, and collect subagents; message, room, interrupt, respond, kill; lanes (an orchestrator and its lane tabs in Obsidian); `peek`, `timeline`, `ping`, `switch`, `fork`. |
+| `knowledge/dev-knw-foh-kernel.md` | The Orbh kernel (`flint orbh kernel`): the model, each verb, the forms of the `exec` output, the `KERNEL RESULT` message, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle (checkpoint, sleep, restore, crash, stop), and the rules of use. Read before you use a kernel verb other than `exec`, or run long work in the kernel. |
 | `knowledge/dev-knw-foh-page.md` | The Page, the one-shot pager and wake delivery, the INVOCATIONS, ENSURE, and OBJECTS blocks (with the holds and the uses of tools), procedures, jobs, group barriers, and scheduled wakes. |
 | `knowledge/dev-knw-foh-machinery.md` | Stations, cron schedules, workers, procedures, cross-session workflow chaining, and the `update`/`approval`/`improve` channels. |
 | `knowledge/dev-knw-foh-compaction.md` | Self-compaction doctrine: CONTEXT occupancy, the 80% threshold, compact start/handoff/finish, the agent-authored handoff (`HANDOFF_ARTIFACT_V1`, purpose compact), the scratch folder (`ORBH_SCRATCH_DIR`), relaunched-context duty, and compacting into a different runtime/profile/account. |
@@ -195,4 +211,4 @@ The chat is on by default. Turn it off only when a message of a person must not 
 
 ## Loading on Demand
 
-Load a kinship or party skill, or the consume workflow, only when you do that action. Load the publish_artifact skill when the work makes an HTML page that a person must open. Load the use_object skill when the work reads or changes an object (an address, a `nuu://` URI, or an item of the `OBJECTS` block of the Page). Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, and machinery knowledge before building anything that must outlive one turn. Otherwise keep depth references out of context until needed.
+Load a kinship or party skill, or the consume workflow, only when you do that action. Load the publish_artifact skill when the work makes an HTML page that a person must open. Load the use_object skill when the work reads or changes an object (an address, a `nuu://` URI, or an item of the `OBJECTS` block of the Page). Load kinship knowledge before you spawn, fork, birth, or consume, and membership knowledge before you create or join a party. Load orchestrator knowledge before delegation, fleet knowledge before you run a program of many sessions, identity knowledge before you gain a wisp, fork in parallel, birth, or consume, machinery knowledge before building anything that must outlive one turn, and kernel knowledge before you use a kernel verb other than `exec`. Otherwise keep depth references out of context until needed.

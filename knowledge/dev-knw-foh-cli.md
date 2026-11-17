@@ -1,5 +1,5 @@
 ---
-description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, the object verbs (`flint orbh objects`: the finder with `find`, `pick`, `open`, and `status`, reads, items, holds, exit codes, and the NUU Objects app), NUU Artifacts (`flint orbh artifacts`: publish, list, get, open, versions, responses, delete; a page that sends a response of its viewer), accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
+description: "Core `flint orbh` reference — targets and the default target list, turn dispositions and wake scheduling, awaiting, session verbs, collection, operator lifecycle, the `--with` and `--no-behaviours` flags of shard invocations, the object verbs (`flint orbh objects`: the finder with `find`, `pick`, `open`, and `status`, reads, items, holds, exit codes, and the NUU Objects app), NUU Artifacts (`flint orbh artifacts`: publish, list, get, open, versions, responses, delete; a page that sends a response of its viewer), the Orbh kernel (`flint orbh kernel`: exec, wait, result, cells, commands, names, interrupt, status, snapshot, restart, stop), accounts, the kinship and membership verbs (`spawn`, `kin`, `party`), store scoping, hygiene surfaces, and deeper references"
 orbh-sessions:
   - "[[e07fc648-1ec0-4bf7-bc78-3de4e566702a]]"
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
@@ -22,9 +22,11 @@ orb:
   - "@v1/nuucognition/session/69ff31e0-b113-4a6b-831b-a8fde157456e#flint/nuu-orbh"
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
   - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
+  - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
 orbh-fleet:
   - kinship-1020
   - objects-finder-1105
+  - orbh-kernel-763
 ---
 
 # Knowledge: Flint OrbH CLI Reference
@@ -45,6 +47,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 | [[dev-knw-foh-identity]] | Agent identity and session mechanics: tiers, wisps, addresses, `by` and `as`, fork, parallel fork, birth, consume, the handoff contract, and the lineage |
 | [[dev-knw-foh-kinship]] | The three layers, the origin record of each node, the spawn relations, each rite with its record, siblings, and `flint orbh kin` |
 | [[dev-knw-foh-membership]] | Parties and their notices, fleets as a membership, and a recruit with no kinship |
+| [[dev-knw-foh-kernel]] | The Orbh kernel: the model, each verb, the forms of the `exec` output, the `KERNEL RESULT` message, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle, and the rules of use |
 
 ## Lifecycle Orientation
 
@@ -324,6 +327,33 @@ flint orbh ensure confirm <path> --reason "<why>"        # The check is wrong: t
 `add` refuses a file that it cannot read, and adds nothing. An `advisory` file shows only in `check`; a `required` file shows on the Page and in the reminders. The meaning of each verdict, the due rule, and the reminders are in [[dev-knw-foh-page]] § The ENSURE Block. The checker reads the native transcript of the current run with the evidence reader of the harness: Claude Code today. Another runtime gives `cannot check`.
 
 `flint orbh inspect <id>` has an `Ensure` section with the same check: the span, then one row for each file, the file first and its status second: `✓ in context`, `✓ confirmed`, `✗ partial (N of M lines)`, `✗ stale (changed after the read)`, `✗ missing`, or `? not checked`. A file in the context is green, and a required file that is not is the warning color. A row adds `advisory` for an advisory file and `reminded` after a reminder. The Information panel of the Orbh TUI and the Inspect tab of the session detail show the same section. A session with no list shows `no files on the list`.
+
+### The Orbh Kernel (`flint orbh kernel`)
+
+One persistent Python kernel for each session (Task 763). Orbh owns it, not the harness: its names, imports, and `bash()` commands stay across turns, compaction, resume, and a change of runtime. Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`, and has `--json`.
+
+```bash
+flint orbh kernel exec <<'PY'                              # Run a cell; the first exec starts the kernel
+print(len(rows))
+PY
+flint orbh kernel exec --file <path> [--detach] [--wait <seconds>] [--max-output <chars>] [--queue]
+flint orbh kernel wait <cell...> [--wait <seconds>] [--tail <lines>]   # Wait for cells that run
+flint orbh kernel result <cell> [--tail <lines>] [--full]  # The record and the output, from the files
+flint orbh kernel cells [--running]                        # id, state, duration, detached, the first line of the code
+flint orbh kernel commands [list] | tail <id> [--lines <n>] | kill <id>   # The bash() commands of the kernel
+flint orbh kernel names                                    # The names with the type and the size
+flint orbh kernel interrupt [cell] [--all]                 # Stop a cell
+flint orbh kernel status                                   # The Page line and the details
+flint orbh kernel snapshot                                 # Save a snapshot now
+flint orbh kernel restart [--keep]                         # A new kernel; --keep keeps the names
+flint orbh kernel stop [--discard]                         # Snapshot and stop; --discard removes the snapshot
+```
+
+- `exec` waits for the cell (default `100` seconds, or `ORBH_KERNEL_EXEC_WAIT`). With `--detach`, or when the wait limit passes, the cell continues, and its result comes as a `KERNEL RESULT` message from `orbh:kernel`. The message reaches a live turn and wakes an awaiting session.
+- The exit code of `exec`: 0 for `done`, a detach, and the wait limit; 1 for an error and for busy (another cell blocks the loop; `--queue` waits); 130 for an interrupt.
+- `result`, `cells`, `names`, `status`, `interrupt`, `commands`, `snapshot`, and `stop` never start a kernel.
+- The session end (`return --finish`, `close`) stops the kernel with a snapshot. `return --await` keeps it.
+- The output forms, the message, the lifecycle, and the rules of use are in [[dev-knw-foh-kernel]].
 
 ### Event Subscription (`session await`)
 

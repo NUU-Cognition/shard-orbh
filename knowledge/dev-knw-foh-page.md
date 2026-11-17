@@ -1,5 +1,5 @@
 ---
-description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the KIN and PARTY lines, the INVOCATIONS block of shard invocations, the OBJECTS block with its holds and uses, the object finder panel of the TUI (Ctrl-] then f, O in the cockpit, Ctrl-O in the launch prompt), awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
+description: "The Page family — introspection, the one-shot pager and wake delivery, the Page after a compaction of the harness, the KERNEL line of the Orbh kernel, the KIN and PARTY lines, the INVOCATIONS block of shard invocations, the OBJECTS block with its holds and uses, the object finder panel of the TUI (Ctrl-] then f, O in the cockpit, Ctrl-O in the launch prompt), awaiting hygiene, procedures, background jobs, group barriers, and scheduled wakes"
 orbh-sessions:
   - "[[d1f03280-e10d-413f-a040-70c3a84feb66]]"
   - "[[521efa86-61d9-4156-92ba-c40ef56d9e3d]]"
@@ -18,9 +18,11 @@ orb:
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
   - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
   - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
+  - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
 orbh-fleet:
   - kinship-1020
   - objects-finder-1105
+  - orbh-kernel-763
 ---
 
 # Knowledge: The Page, Pager, Jobs & Procedures
@@ -99,6 +101,26 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 - Read `MEMORY.md` in the memory folder when you start or resume. The rules of the memory are in [[dev-knw-foh-identity]] § Its Memory.
 - The title of the session shows the wisp and its purpose: `<Wisp Name> | <purpose>` in the detailed views, and `<Initials> | <purpose>` in the pane (for example "RAM | Fix the login flow").
 - The line is read-only. `flint orbh wisp show` makes a missing memory folder.
+
+## The KERNEL Line (`core/kernel`)
+
+The core function `core/kernel` shows the Orbh kernel of the session, right after the `WISP` line (Task 763). It shows one line when the session has a kernel status file (`kernel/status.json` in the spool of the session), and nothing otherwise. A session that never used the kernel has no line.
+
+```
+KERNEL running · 14 names · c-12 running 3m (detached) · 1 command · python 3.13.5
+KERNEL running · 14 names · idle · sleeps in 21m
+KERNEL running · BLOCKED by c-5 for 14s · 14 names
+KERNEL sleeping · 14 names saved 2h ago · the next exec restores them
+KERNEL crashed · snapshot of 5m ago with 12 names · the next exec restores it
+KERNEL stopped · snapshot with 14 names
+```
+
+- The states are `starting`, `running`, `sleeping`, `stopped`, and `crashed`. A `starting` or `running` status whose host process is not alive shows as `crashed`, with the note `the host process ended with no stop`.
+- `running` shows the count of names, the running cells (one cell with its age, and `(detached)` when no client waits for it), the count of background `bash()` commands, and the Python version. An idle kernel shows `idle` and the time until it sleeps.
+- `BLOCKED by <cell> for <time>` means that a cell runs synchronous code and blocks the loop. A new cell does not start while the loop is blocked: after 5 seconds, `exec` refuses it as busy (with `--queue`, it waits). Interrupt the blocking cell (`flint orbh kernel interrupt <cell>`), or wait for it.
+- `sleeping` and `crashed` show the snapshot: the next `exec` restores its names.
+- The line has at most 200 characters. It reads one small file and checks one process. A file that it cannot read gives no line. A snapshot-only render gives no line.
+- The line is read-only. `flint orbh kernel status` gives the details. The kernel is in [[dev-knw-foh-kernel]].
 
 ## The KIN and PARTY Lines
 

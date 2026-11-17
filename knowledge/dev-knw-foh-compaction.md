@@ -1,5 +1,5 @@
 ---
-description: "Self-compaction doctrine — the agent authors its own handoff (HANDOFF_ARTIFACT_V1, purpose compact) into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id, and the shard invocation stack after an Orbh compaction or a compaction of the harness"
+description: "Self-compaction doctrine — the agent authors its own handoff (HANDOFF_ARTIFACT_V1, purpose compact) into scratch, CONTEXT occupancy via the Page, the 80% threshold, compact start/handoff/finish, in-place relaunch under a stable session id, the shard invocation stack after an Orbh compaction or a compaction of the harness, and the Orbh kernel with its [kernel-state] notice at compact finish and at resume"
 orbh-sessions:
   - "[[411171be-587b-44fd-8c74-43f5700bb512]]"
   - "[[20c303b9-4b45-4e66-a13a-5e1a427f015a]]"
@@ -11,11 +11,13 @@ orbh-sessions:
 orb:
   - "@v1/nuucognition/session/9010418b-f6be-418d-8b5c-95dfff830c8a#flint/nuu-orbh"
   - "@v1/nuucognition/session/9dec72c8-9976-4f52-a467-adc0f1647f4d#flint/nuu-orbh"
+  - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
+orbh-fleet: orbh-kernel-763
 ---
 
 # Knowledge: Self-Compaction at 80%
 
-Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, the shard invocations of the session, the scratch folder, the wisp with its memory and its name in the title, and every external reference stay valid by construction. This is the rule "context copies, obligations move" of [[dev-knw-foh-identity]] for one session: the id stays, so each obligation stays. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
+Compaction replaces the **context, not the identity**. The session is the durable endpoint, runs are its context windows, and the native harness is an interchangeable worker beneath a stable id. Compacting ends the current run (end reason `compacted`) and relaunches a **new run on the same session** with a fresh native context. The Orbh session id never changes: inbox, jobs, rooms, stations, waiter obligations, parent/child links, collector anchors, the shard invocations of the session, the scratch folder, the wisp with its memory and its name in the title, the Orbh kernel with its names, and every external reference stay valid by construction. This is the rule "context copies, obligations move" of [[dev-knw-foh-identity]] for one session: the id stays, so each obligation stays. Messages and job results that land during the relaunch window are durable in the same spool and surface to the fresh context through its page-first bootstrap.
 
 **You write your own handoff.** There is no distiller for a compaction (a birth and `fork --compact` use one: see [[dev-knw-foh-identity]]). Nothing resurrects your dead context to reconstruct what you meant — you are alive and holding the whole thing at the moment you compact, so you write the successor note yourself, and the system validates it while you can still fix it.
 
@@ -73,6 +75,17 @@ A shard invocation is a Flint record of the session (`.flint/invocations/`), key
 
 The steps and the hints are in [[knw-f-invocations]] (Flint shard).
 
+## The Kernel Stays With the Session
+
+The Orbh kernel of the session is a process that Orbh owns, not the harness. A compaction keeps the session id, so the kernel, its names, and its `bash()` commands stay. A cell that runs at the handoff continues.
+
+- **Before the handoff.** In OPEN OBLIGATIONS, write one line for each cell that runs, with the command that collects it: `flint orbh kernel wait <cell>`, or `flint orbh kernel result <cell>` when its `KERNEL RESULT` message will come. `flint orbh kernel cells --running` lists them. In DONE or NEXT, say what the names hold that the next step needs: the notice gives only the names.
+- **At `compact finish`.** When the session has a kernel, `compact finish` prints the `[kernel-state]` notice after the "Compaction complete" line: the state, the Python, the names, the running cells and commands, and the names that the last restore lost. A session that never used the kernel gets no notice.
+- **In the prompt of the successor.** The prompt of an Orbh compaction ends with the same notice. The prompt of a headless resume ends with it too, also the prompt of a wake of the orchestrator. An interactive resume has no prompt: read the `KERNEL` line of the Page.
+- **After a compaction of the harness.** The run and the kernel stay, and no notice comes. Read the `KERNEL` line of the Page, or run `flint orbh kernel status`.
+
+Use the names of the kernel. Do not load the data again. The kernel is in [[dev-knw-foh-kernel]].
+
 ## Compacting into a different profile
 
 The relaunch is the **only** boundary at which a session's **runtime** can change (same-runtime profile and account changes have their own conversation-preserving verbs — `profiles switch`, `auth migrate`), so `compact handoff` is where that choice is made:
@@ -128,7 +141,7 @@ There is **no operator-driven compaction**. `flint orbh session compact <id>` is
 
 ## The relaunched context's duty
 
-The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — its GOAL to NEXT (or the SUMMARY of an old handoff) is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. Preserve and execute every OPEN OBLIGATION, then resume the duty. When the Page has an INVOCATIONS block, continue each open frame from its `read:` and `next:` lines. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
+The relaunched run wakes with its **normal launch prompt, freshly composed** for its mode — a compacted session starts like any other session of its kind — followed by a compaction section naming the handoff path. Hard requirements: run `flint orbh page` first (this surfaces messages, job results, and notices that arrived during the relaunch window), then **read the handoff**, then **read every path in its FILES list directly before acting** — its GOAL to NEXT (or the SUMMARY of an old handoff) is orientation, not ground truth. Then run **`flint orbh compact finish`**: that is how the session stops reading `[Compacting...]` and gets its pager back. When it prints a `[kernel-state]` notice, the kernel of the session has its names: use them. Preserve and execute every OPEN OBLIGATION, then resume the duty. When the Page has an INVOCATIONS block, continue each open frame from its `read:` and `next:` lines. Run the collection command of each obligation, and compare the list with the `DISPATCHES` block of your Page. Collect an entry that the handoff does not list too.
 
 ## Failure shape
 
