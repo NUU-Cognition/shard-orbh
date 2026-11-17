@@ -56,7 +56,7 @@ Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`, and has `--json` (o
 | `result <cell>` | The record and the output of a cell, from the files. `--tail <lines>` (default 100), `--full`. |
 | `cells` | A table: id, state, time, detached, the first line of the code. `--running`. When the host lists only a part of the running cells, a last line gives the true count: `… (250 cells run; the list shows 100)`. |
 | `commands [list]`, `commands tail <id> [--lines <n>]`, `commands kill <id>` | The `bash()` commands of the kernel. |
-| `names` | The names with the type and the size. With no running kernel: the names of the snapshot. |
+| `names` | The names with the type and the size or the value. With no running kernel: the names of the snapshot. The list stops at 200 names and leaves out modules and imported functions and classes: it does not prove that a name is absent. |
 | `interrupt [cell]` | Stops a cell (see What `interrupt` Can Stop). With no cell: the one cell that runs. `--all`: all cells that run. |
 | `status` | The `KERNEL` line and the details: the state, the names, the running and unreported cells, the lost names, the snapshot, and the processes. It gives the true count of running cells (`Cells: 250 (the last is c-250) · 250 running`), and a line `… (250 cells run; the list shows 100)` when the list is cut: the status keeps at most 100 running cells in its list. |
 | `snapshot` | Saves a snapshot now. Prints the saved and the skipped names. |
@@ -98,9 +98,46 @@ The first line comes only when this `exec` started the kernel. After a crash or 
 - **Busy.** A cell that cannot start in 5 seconds, because another cell blocks the loop, does not run. The refusal names the cell that blocks. When it names no cell (`native code blocks the loop`), run `flint orbh kernel interrupt --all`; when the loop stays blocked, run `flint orbh kernel restart`.
 - **A restart runs.** The cell did not run. Run it again after the restart.
 - **A host that refuses at its start** gives its reason at once, not a time-out. For example: `✘ The session <id> ended (<state>) before its kernel host started. A session that ended runs no new code.`
-- **One live host for each session.** Each kernel command finds the live host of its session through the record of that host, with any `TMPDIR`. The socket of a host has a byte limit (103 on macOS, 107 on other platforms). For a long store path, the socket goes into `TMPDIR`. When no live host is recorded and that path is too long too, `exec` refuses before it starts a host: `✘ The socket path of the kernel host is <n> bytes, and this platform allows at most 103 bytes: <path>. Set TMPDIR to a short folder (for example /tmp) in the environment of the first flint orbh kernel exec of this session.`, with `Next: TMPDIR=/tmp flint orbh kernel exec '<code>'`. Set it for an `exec` that starts a host. While that host lives, each kernel command finds it with any `TMPDIR`.
-- **A host that lives but does not answer** (for example a stopped process) is still the one host of the session. No kernel command starts a second host. `exec` waits about 30 seconds, then refuses: `✘ The kernel host did not answer in 30 s: the host of this session is stopping or does not answer.`, with `Next: flint orbh kernel status`. A read verb gives `[kernel · no answer · …]`. `flint orbh kernel status` then reads the status file and shows the `host pid`. Do not run the command again in a loop: give the host pid to your dispatcher or to the person, and use your normal tools until the host answers.
 - **`--json`** gives one document: `{ outcome, cell, output, truncated, started }`. `outcome` is `end`, `detached` (the wait limit), `started` (`--detach`), `unknown`, `no-answer`, or `signal`.
+
+### When the Kernel Host Cannot Be Used
+
+One session has at most one live kernel host. Each kernel command finds it through its record, with any `TMPDIR`. No command starts a second host while a host of the session can still run. When the host cannot be used, a command refuses on stderr (`✘ <reason>` and `Next: <step>`, exit 1, an empty stdout):
+
+| The reason starts with | It means | The `Next:` step of the code |
+|---|---|---|
+| `The socket path of the kernel host is <n> bytes` | No live host is recorded, and the socket path is over the limit of the platform (103 bytes on macOS, 107 on other platforms). | `TMPDIR=/tmp flint orbh kernel exec '<code>'`. Set it for an `exec` that starts a host. |
+| `The record of the kernel host of this session cannot be used` | The record of the host (`host.json`) cannot be read or is not valid, and a host of the session can still run. | `run flint orbh kernel status`, then end the host or restore the record. |
+| `The kernel host of this session (pid <n>) does not answer on its socket` | The host does not answer, and its process identity could not be read in time. | `run flint orbh kernel status, then the command again in a moment`. |
+| `The process on the socket … is not the kernel host of this session` | Another process holds the socket. No request left. | `run flint orbh kernel status`, then end the host of this session if it runs. |
+| `The socket of the kernel host of this session cannot be reached` | A connect error, for example `EACCES` or `ETIMEDOUT`. A host can still run. | `run flint orbh kernel status`; for a permission error, restore the access of the socket. |
+| `The kernel host of this session (pid <n>) is of an older build` | The host is of an older build (after an update of the CLI). | `flint orbh kernel stop` (see below). |
+| `The kernel host did not answer in 30 s` | The host lives but does not answer (for example a stopped process). `exec` waited about 30 seconds. | `flint orbh kernel status`. |
+
+- **Follow the `Next:` step of the refusal.** `status` and `result` still answer from the files (see The Read Verbs and the Files), and `status` shows the `host pid`.
+- **Do not remove a file of the kernel folder to get past a refusal.** A `Next:` step that removes a record is for a person who has checked that no such process lives.
+- **When the step needs a person** (a permission error, a process to end, a host that does not answer), give the text of the refusal to your dispatcher or to the person. Use your normal tools until the kernel answers. Do not run the command again in a loop.
+- **A host of an older build.** After an update of the CLI, a host that still runs from the old build refuses each command at once. `flint orbh kernel stop` ends it and saves the names. The next `exec` starts a new host and restores them. The output of `stop`:
+
+  ```
+  Stopped the kernel. Saved 1 name (12 B).
+  The kernel host (pid 56850) was of an older build: the next exec starts a new host and restores the names.
+  ```
+
+  With `--discard`, the last line ends `… starts a new host with an empty namespace.`; with no saved snapshot, `… starts a new host.`
+
+### The Read Verbs and the Files
+
+When the live host does not serve a read, a read verb can answer from the files of the kernel folder. It then adds one line: `[read from the files: the live kernel host did not serve this read · <reason> · Next: <step>]` (no `Next` after no answer or a broken connection). In text mode it is the last line of stdout; with `--json`, the document keeps its shape, and the line goes to stderr. Exit 0.
+
+| Verb | After no answer or a broken connection | After a refusal |
+|---|---|---|
+| `status` | From the files, with the line | From the files, with the line |
+| `result <cell>` | From the files, with the line | The record file only, with the line. A record that is not final shows `[c-2 · state unknown · the live kernel host did not serve this read]`. |
+| `cells` | `[kernel · no answer · …]` or `[kernel · connection broke · …]`, `Next: flint orbh kernel status`, exit 1 | From the files, with the line |
+| `names` | `[kernel · no answer · …]` or `[kernel · connection broke · …]`, exit 1 | The names of the snapshot, with the line (`The files have no snapshot of the names.` when there is none) |
+
+**Read that line.** The data comes from the files, and it can be old.
 
 ### Signals
 
@@ -147,7 +184,7 @@ Read again: flint orbh kernel result c-7
 ## Names and Snapshots
 
 - A snapshot saves each name with `dill`. A name that `dill` cannot save is lost: for example an open socket, an open connection, or the handle of a running process. Make it again after a restore.
-- **A name that the snapshot skipped.** After a sleep, a stop, or a crash, `status` and the notice show `Not saved in the snapshot: sock (TypeError: cannot pickle 'socket' object)`. After the restore, the same names are in the line `[kernel started · … · lost: sock]` and in `Lost at the last restore: sock (<reason>)`. That line shows only after a restore. In the state `stopped`, the names of a stop whose snapshot failed show as `Lost at the stop: …`. `flint orbh kernel status` shows a skipped name one time: in `Not saved in the snapshot: …` when the kernel sleeps, is stopped, or crashed, else on the `Snapshot:` line (`Snapshot: 14:02 · 3 names · 4096 bytes · skipped: conn`).
+- **A name that the snapshot skipped.** After a sleep, a stop, or a crash, `status` and the notice show `Not saved in the snapshot: sock (TypeError: cannot pickle 'socket' object)`. After the restore, the same names are in the line `[kernel started · … · lost: sock]` and in `Lost at the last restore: sock (<reason>)`. That line shows only after a restore. In the state `stopped`, the names of a stop whose snapshot failed show as `Lost at the stop: …`. `flint orbh kernel status` shows a skipped name one time: in the line `Not saved in the snapshot: …` when the notice has that line, else on the `Snapshot:` line (`Snapshot: 14:02 · 3 names · 4096 bytes · skipped: conn`). The notice has the line only when the kernel sleeps, is stopped, or crashed, and it can drop the line to stay within its limit.
 - **The names that a crash lost.** The host reads the full list of names at each cell end. After a crash or a kill, the names of that list that the snapshot does not have are lost. `status` and the notice show `Lost in the crash (set after the last snapshot): delta, epsilon`, with ` (the list can be incomplete)` when the list was cut or a cell ran after the last read. The start line of the next `exec` names them too (`lost in the crash: delta`). The line keeps the loss of each crash since the last normal start, and `status` shows it also when the host died with its kernel. It stays after the restore. It goes at the next start after a normal stop or sleep, at a restart, and at a stop with `--discard`. A restart also drops the kept list of names.
 - **A lost name can be there again.** Code can set a name of a `Lost …` line again after the crash. The line can name it until the next normal start or restart. A later crash takes it out of the loss when the snapshot then keeps it.
 - **The limits of that list.** A name that changed after the snapshot comes back with its value of the snapshot, and the list does not name it. The list of the kernel stops at 200 user names (then the list is not complete). Modules, imported functions and classes, and names that start with `_` are not in the list: an `import` after the snapshot is not reported. A name that a background task or a thread sets after the last read, when no cell runs, is not seen.
@@ -172,7 +209,7 @@ Lost at the last restore: conn (TypeError: cannot pickle 'socket' object)
 Read: flint orbh kernel status | names | cells
 ```
 
-The order of the lines is: State, Names, Running, Not reported yet, Lost in the crash, Not saved in the snapshot, Lost at the last restore (or Lost at the stop), Read. A line with no data is not shown. When you read the notice, the names are in the kernel: use them, and do not load the data again. A `Lost …` line says what was lost at that event. It does not prove that a name is absent now. Before you make a name again, check that it is absent: `flint orbh kernel names`, or `'<name>' in globals()` in a cell.
+The order of the lines is: State, Names, Running, Not reported yet, Lost in the crash, Not saved in the snapshot, Lost at the last restore (or Lost at the stop), Read. A line with no data is not shown. When you read the notice, the names are in the kernel: use them, and do not load the data again. A `Lost …` line says what was lost at that event. It does not prove that a name is absent now. Before you make a name again, check it in a cell: `print('<name>' in globals())`. That check proves that a name is there or absent. `flint orbh kernel names` can show that a name is there, but a name that it does not show is not proved absent: the list stops at 200 names and leaves out some types.
 
 ## The Lifecycle
 
@@ -182,7 +219,7 @@ The order of the lines is: State, Names, Running, Not reported yet, Lost in the 
 | Checkpoint | 30 seconds after the last cell ended, when no cell runs, the host saves a snapshot (at most one each 60 seconds). `ORBH_KERNEL_CHECKPOINT=0` stops it. |
 | Idle sleep | No cell, no command, and no client for `ORBH_KERNEL_IDLE_SECONDS` (default `1800`): a snapshot, then the kernel ends. The state is `sleeping`. The next `exec` restores the names. A read verb (`status`, `cells`, `result`, `names`, `commands list`, `commands tail`) does not keep the kernel awake. Each other verb does. The `KERNEL` line shows the time left: `… · idle · sleeps in 28s`. |
 | Crash | The Python process ended with no stop (also `sys.exit()`). Each running cell becomes `lost`. The `bash()` commands of the kernel are stopped. The state is `crashed`. A message comes only when the crash lost a cell or a command. The next `exec` restores the last snapshot and names the names that the crash lost. |
-| Session end | `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. The orchestrator stops the kernel of a session that ended in another way. |
+| Session end | `return --finish` and `close` stop the kernel with a snapshot. The return prints `kernel: the kernel of this session stops (a snapshot first). …` only when the host took the stop; with no such line, the kernel can still run. `return --await` keeps it. The orchestrator stops the kernel of a session that ended in another way. |
 | Stop | `flint orbh kernel stop`: a snapshot, then the kernel ends. The state is `stopped`. |
 
 ## What the Kernel Can Lose
@@ -205,5 +242,5 @@ The order of the lines is: State, Names, Running, Not reported yet, Lost in the 
 4. **Detach long work** with `exec --detach`. Do other work, or end the turn with `return --await`: the message wakes the session.
 5. **Do not run work again because an end came two times.** Read `flint orbh kernel result <cell>` when you are not sure.
 6. **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command. Give it the same care.
-7. **Read the state after a new context:** the `[kernel-state]` notice, or the `KERNEL` line, then `flint orbh kernel names`. Check that a name is absent before you make it again.
+7. **Read the state after a new context:** the `[kernel-state]` notice, or the `KERNEL` line, then `flint orbh kernel names`. Before you make a name again, check in a cell that it is absent (`'<name>' in globals()`).
 8. **Temporary files still go to `$ORBH_SCRATCH_DIR`.** Do not write into the kernel folder: it belongs to the host.
