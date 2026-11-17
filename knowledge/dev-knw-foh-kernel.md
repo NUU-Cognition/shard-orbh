@@ -91,9 +91,13 @@ The first line comes only when this `exec` started the kernel. After a crash or 
 | No answer (the host took no cell) | `[exec · no answer · the kernel host gave no end in <n>s]`, `Next: flint orbh kernel cells` | 1 |
 | Busy | On stderr: `✘ The kernel is busy: c-5 runs synchronous code and blocks the loop (14 s). This cell did not run.`, `Next: flint orbh kernel interrupt c-5` | 1 |
 | A restart runs | On stderr: `✘ The kernel restarts now. This cell did not run.` and `Run the cell again after the restart.` A second `restart` at the same time gets `✘ The kernel restarts now. This restart did not run.` | 1 |
-| A refusal | On stderr: `✘ <reason>` and `Next: <command>`. Stdout is empty, also with `--json`. | 1 |
+| A refusal | On stderr, in one of two forms (see The Two Forms of a Refusal). Stdout is empty, also with `--json`. | 1 |
 | A signal | The end of the cell after the interrupt (see Signals) | 128 + the signal number |
 
+- **The Two Forms of a Refusal.** The form depends on the next step:
+  - The step is a command (its first word is a command name such as `flint`, also after `NAME=value`, for example `TMPDIR=/tmp flint …`): two lines, `✘ <reason>` and `  Next: <command>`, sometimes with `  Or:   <command>` for a second path.
+  - The step starts with other words (for example `run flint orbh kernel status, then …`): one line, `✘ <reason> <step>.`, and no `Next:` line.
+  - Read the step in both places: on the `Next:` line, or at the end of the reason line.
 - **State unknown is not lost.** The cell can still run, or it ended. Read `flint orbh kernel result <cell>`. Do not run the code again before you read it.
 - **Busy.** A cell that cannot start in 5 seconds, because another cell blocks the loop, does not run. The refusal names the cell that blocks. When it names no cell (`native code blocks the loop`), run `flint orbh kernel interrupt --all`; when the loop stays blocked, run `flint orbh kernel restart`.
 - **A restart runs.** The cell did not run. Run it again after the restart.
@@ -102,20 +106,20 @@ The first line comes only when this `exec` started the kernel. After a crash or 
 
 ### When the Kernel Host Cannot Be Used
 
-One session has at most one live kernel host. Each kernel command finds it through its record, with any `TMPDIR`. No command starts a second host while a host of the session can still run. When the host cannot be used, a command refuses on stderr (`✘ <reason>` and `Next: <step>`, exit 1, an empty stdout):
+One session has at most one live kernel host. Each kernel command finds it through its record, with any `TMPDIR`. No command starts a second host while a host of the session can still run. When the host cannot be used, a command refuses on stderr (exit 1, an empty stdout), in one of the two forms of a refusal:
 
-| The reason starts with | It means | The `Next:` step of the code |
+| The reason starts with | It means | The next step, and where it is |
 |---|---|---|
-| `The socket path of the kernel host is <n> bytes` | No live host is recorded, and the socket path is over the limit of the platform (103 bytes on macOS, 107 on other platforms). | `TMPDIR=/tmp flint orbh kernel exec '<code>'`. Set it for an `exec` that starts a host. |
-| `The record of the kernel host of this session cannot be used` | The record of the host (`host.json`) cannot be read or is not valid, and a host of the session can still run. | `run flint orbh kernel status`, then end the host or restore the record. |
-| `The kernel host of this session (pid <n>) does not answer on its socket` | The host does not answer, and its process identity could not be read in time. | `run flint orbh kernel status, then the command again in a moment`. |
-| `The process on the socket … is not the kernel host of this session` | Another process holds the socket. No request left. | `run flint orbh kernel status`, then end the host of this session if it runs. |
-| `The socket of the kernel host of this session cannot be reached` | A connect error, for example `EACCES` or `ETIMEDOUT`. A host can still run. | `run flint orbh kernel status`; for a permission error, restore the access of the socket. |
-| `The kernel host of this session (pid <n>) is of an older build` | The host is of an older build (after an update of the CLI). | `flint orbh kernel stop` (see below). |
-| `The kernel host did not answer in 30 s` | The host lives but does not answer (for example a stopped process). `exec` waited about 30 seconds. | `flint orbh kernel status`. |
+| `The socket path of the kernel host is <n> bytes` | No live host is recorded, and the socket path is over the limit of the platform (103 bytes on macOS, 107 on other platforms). | `TMPDIR=/tmp flint orbh kernel exec '<code>'`, on a `Next:` line. Set it for an `exec` that starts a host. |
+| `The record of the kernel host of this session cannot be used` | The record of the host (`host.json`) cannot be read or is not valid, and a host of the session can still run. | `run flint orbh kernel status, then …` (end the host or restore the record), at the end of the reason line. |
+| `The kernel host of this session (pid <n>) does not answer on its socket` | The host does not answer, and its process identity could not be read in time. | `run flint orbh kernel status, then the command again in a moment; …`, at the end of the reason line. |
+| `The process on the socket … is not the kernel host of this session` | Another process holds the socket. No request left. | `run flint orbh kernel status, then …` (end the host of this session if it runs), at the end of the reason line. |
+| `The socket of the kernel host of this session cannot be reached` | A connect error, for example `EACCES` or `ETIMEDOUT`. A host can still run. | `run flint orbh kernel status; …` (for a permission error, restore the access of the socket), at the end of the reason line. |
+| `The kernel host of this session (pid <n>) is of an older build` | The host is of an older build (after an update of the CLI). | `flint orbh kernel stop (…)`, on a `Next:` line (see below). |
+| `The kernel host did not answer in 30 s` | The host lives but does not answer (for example a stopped process). `exec` waited about 30 seconds. | `flint orbh kernel status`, on a `Next:` line. |
 
-- **Follow the `Next:` step of the refusal.** `status` and `result` still answer from the files (see The Read Verbs and the Files), and `status` shows the `host pid`.
-- **Do not remove a file of the kernel folder to get past a refusal.** A `Next:` step that removes a record is for a person who has checked that no such process lives.
+- **Follow the next step of the refusal:** the `Next:` line, or the step at the end of the reason line. `status` and `result` still answer from the files (see The Read Verbs and the Files), and `status` shows the `host pid`.
+- **Do not remove a file of the kernel folder to get past a refusal.** A step that removes a record is for a person who has checked that no such process lives.
 - **When the step needs a person** (a permission error, a process to end, a host that does not answer), give the text of the refusal to your dispatcher or to the person. Use your normal tools until the kernel answers. Do not run the command again in a loop.
 - **A host of an older build.** After an update of the CLI, a host that still runs from the old build refuses each command at once. `flint orbh kernel stop` ends it and saves the names. The next `exec` starts a new host and restores them. The output of `stop`:
 
