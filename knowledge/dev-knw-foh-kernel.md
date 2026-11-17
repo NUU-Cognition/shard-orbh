@@ -130,6 +130,8 @@ One session has at most one live kernel host. Each kernel command finds it throu
 
   With `--discard`, the last line ends `… starts a new host with an empty namespace.`; with no saved snapshot, `… starts a new host.`
 
+  When the status file cannot be read, the first line is `Stopped the kernel. Whether a snapshot was saved is not known: its status file cannot be read (<problem>): <path>.`, and the last line ends `… starts a new host.`
+
 ### The Read Verbs and the Files
 
 When the live host does not serve a read, a read verb can answer from the files of the kernel folder. It then adds one line: `[read from the files: the live kernel host did not serve this read · <reason> · Next: <step>]` (no `Next` after no answer or a broken connection). In text mode it is the last line of stdout; with `--json`, the document keeps its shape, and the line goes to stderr. Exit 0.
@@ -139,9 +141,16 @@ When the live host does not serve a read, a read verb can answer from the files 
 | `status` | From the files, with the line | From the files, with the line |
 | `result <cell>` | From the files, with the line | The record file only, with the line. A record that is not final shows `[c-2 · state unknown · the live kernel host did not serve this read]`. |
 | `cells` | `[kernel · no answer · …]` or `[kernel · connection broke · …]`, `Next: flint orbh kernel status`, exit 1 | From the files, with the line |
-| `names` | `[kernel · no answer · …]` or `[kernel · connection broke · …]`, exit 1 | The names of the snapshot, with the line (`The files have no snapshot of the names.` when there is none) |
+| `names` | `[kernel · no answer · …]` or `[kernel · connection broke · …]`, exit 1 | The names of the snapshot, with the line |
 
 **Read that line.** The data comes from the files, and it can be old.
+
+**An unknown state.** When a read verb needs a file and cannot read it (the live host did not serve the read, or no host listens), it prints one line that says that the state is not known, with the problem and the path, and exits 1. For example: `The state of the kernel of this session is not known: the live kernel host did not serve this read, and its status file cannot be read (EACCES): <path>.` The `[read from the files: …]` line follows when a live read failed. With `--json`: one document `{ "outcome": "unknown", "message": "<the line>" }` on stdout, and the `[read from the files: …]` line on stderr.
+
+- `status` gives the unknown state also when a live read failed and no status file exists.
+- `cells` gives it when it can read no cell record and some records (or the folder) cannot be read. When it reads a part, it shows the table and one more line: `[1 cell record cannot be read: c-3 (not valid JSON) · <folder>]`, exit 0.
+- A line that says that a thing is absent comes only when its file does not exist: `This session has no kernel.` (only when no live read failed either), `No cells.`, `No cell runs.`, `The files have no snapshot of the names.`, and the refusal `There is no cell <id> …`.
+- **The rule:** an unknown state is not "no kernel". Do not start work again because of it. Read the line, and follow the step of the `[read from the files: …]` line when it is there.
 
 ### Signals
 
