@@ -47,7 +47,7 @@ Run `flint orbh --help`, `flint orbh <cmd> --help`, and group help for the autho
 | [[dev-knw-foh-identity]] | Agent identity and session mechanics: tiers, wisps, addresses, `by` and `as`, fork, parallel fork, birth, consume, the handoff contract, and the lineage |
 | [[dev-knw-foh-kinship]] | The three layers, the origin record of each node, the spawn relations, each rite with its record, siblings, and `flint orbh kin` |
 | [[dev-knw-foh-membership]] | Parties and their notices, fleets as a membership, and a recruit with no kinship |
-| [[dev-knw-foh-kernel]] | The Orbh kernel: the model, each verb, the forms of the `exec` output, the `KERNEL RESULT` message, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle, and the rules of use |
+| [[dev-knw-foh-kernel]] | The Orbh kernel: the model, each verb, each end form of `exec` with its exit code, the `KERNEL RESULT` message, names and snapshots, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle, and the rules of use |
 
 ## Lifecycle Orientation
 
@@ -336,10 +336,10 @@ One persistent Python kernel for each session (Task 763). Orbh owns it, not the 
 flint orbh kernel exec <<'PY'                              # Run a cell; the first exec starts the kernel
 print(len(rows))
 PY
-flint orbh kernel exec --file <path> [--detach] [--wait <seconds>] [--max-output <chars>] [--queue]
+flint orbh kernel exec --file <path> [--detach] [--wait <seconds>] [--max-output <chars>] [--queue]   # A regular file of at most 900 000 bytes
 flint orbh kernel wait <cell...> [--wait <seconds>] [--tail <lines>]   # Wait for cells that run
 flint orbh kernel result <cell> [--tail <lines>] [--full]  # The record and the output, from the files
-flint orbh kernel cells [--running]                        # id, state, duration, detached, the first line of the code
+flint orbh kernel cells [--running]                        # id, state, time, detached, the first line of the code
 flint orbh kernel commands [list] | tail <id> [--lines <n>] | kill <id>   # The bash() commands of the kernel
 flint orbh kernel names                                    # The names with the type and the size
 flint orbh kernel interrupt [cell] [--all]                 # Stop a cell
@@ -349,11 +349,13 @@ flint orbh kernel restart [--keep]                         # A new kernel; --kee
 flint orbh kernel stop [--discard]                         # Snapshot and stop; --discard removes the snapshot
 ```
 
-- `exec` waits for the cell (default `100` seconds, or `ORBH_KERNEL_EXEC_WAIT`). With `--detach`, or when the wait limit passes, the cell continues, and its result comes as a `KERNEL RESULT` message from `orbh:kernel`. The message reaches a live turn and wakes an awaiting session.
-- The exit code of `exec`: 0 for `done`, a detach, and the wait limit; 1 for an error and for busy (another cell blocks the loop; `--queue` waits); 130 for an interrupt.
-- `result`, `cells`, `names`, `status`, `interrupt`, `commands`, `snapshot`, and `stop` never start a kernel.
+- `exec` takes the code from the argument, `--file`, or stdin. It waits for the cell (`--wait` 0 to 86 400 seconds; default `100`, or `ORBH_KERNEL_EXEC_WAIT`). With `--detach`, or when the wait limit passes, the cell continues, and its end comes as a `KERNEL RESULT` message from `orbh:kernel`. The message reaches a live turn and wakes an awaiting session.
+- The exit code of `exec` and `wait`: 0 for `done`, a detach, and the wait limit; 1 for an error, a lost cell, `state unknown`, `no answer`, busy (another cell blocks the loop; `--queue` waits), and a refusal; 130 for an interrupt; 128 + the signal number after `SIGINT`, `SIGTERM`, or `SIGHUP`. `--json` of `exec` has the field `outcome`: `end`, `detached`, `started`, `unknown`, `no-answer`, or `signal`. A refusal goes to stderr, with an empty stdout, also with `--json`.
+- One end can come two times: in the output of `exec` or `wait`, and as a `KERNEL RESULT` message. Do not run the work again because of that.
+- `result`, `cells`, `names`, `status`, `interrupt`, `commands`, `snapshot`, and `stop` never start a kernel. `result`, `cells`, `names`, and `status` read the files when no kernel runs.
+- A session that ended runs no new code: `exec` and `restart` refuse. An archived session must be restored first.
 - The session end (`return --finish`, `close`) stops the kernel with a snapshot. `return --await` keeps it.
-- The output forms, the message, the lifecycle, and the rules of use are in [[dev-knw-foh-kernel]].
+- Each end form, the message, names and snapshots, the lifecycle, and the rules of use are in [[dev-knw-foh-kernel]].
 
 ### Event Subscription (`session await`)
 

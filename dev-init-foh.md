@@ -96,11 +96,12 @@ Each session can have one persistent Python kernel. Orbh owns it, not the harnes
 - **Run a cell** with `flint orbh kernel exec`. Give the code as a heredoc (`flint orbh kernel exec <<'PY'` … `PY`). The first `exec` starts the kernel.
 - **Use it when it saves work**: data that is large or that you will read again (load it into a name, then print only the part that you need), a loop of many commands, and long work. Use your normal tools for small reads and for edits.
 - **Detach long work**: `flint orbh kernel exec --detach`. The result comes as a `KERNEL RESULT` message from `orbh:kernel`. Do not poll: the message reaches a live turn and wakes an awaiting session.
+- **One end can come two times**: in the output of `exec` or `wait`, and as a `KERNEL RESULT` message. Do not run the work again because of that. When you are not sure, read `flint orbh kernel result <cell>`.
 - **Do not block the loop.** Long synchronous work blocks all cells: use `await asyncio.to_thread(fn, …)`.
 - **Read the state after a new context.** The Page has a `KERNEL` line. After a compaction or a headless resume, a `[kernel-state]` notice names the state and the names. Use the names; do not load the data again.
-- **The session end stops it.** `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. The next `exec` restores the snapshot.
-- **Treat `exec` as a shell command.** One `exec` can run any command.
-- The verbs, the output forms, and the lifecycle are in [[dev-knw-foh-kernel]].
+- **The session end stops it.** `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. A session that ended runs no new code.
+- **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command.
+- The verbs, each end form of `exec` with its exit code, names and snapshots, and the lifecycle are in [[dev-knw-foh-kernel]].
 
 ## Identity, Kinship, and Membership
 
@@ -200,7 +201,7 @@ The chat is on by default. Turn it off only when a message of a person must not 
 | `knowledge/dev-knw-foh-cli.md` | Core verbs, turn dispositions and scheduling flags, awaiting/list hygiene, store scoping, the object verbs (`flint orbh objects`: the finder, reads, items, holds, exit codes, and the NUU Objects app), NUU Artifacts (`flint orbh artifacts`), accounts and `auth migrate`, and the map to deeper references. |
 | `knowledge/dev-knw-foh-profiles.md` | Choose an exact `runtime/profile` target, and change the profile of a session that already exists. |
 | `knowledge/dev-knw-foh-coordination.md` | Launch peers; dispatch, continue, and collect subagents; message, room, interrupt, respond, kill; lanes (an orchestrator and its lane tabs in Obsidian); `peek`, `timeline`, `ping`, `switch`, `fork`. |
-| `knowledge/dev-knw-foh-kernel.md` | The Orbh kernel (`flint orbh kernel`): the model, each verb, the forms of the `exec` output, the `KERNEL RESULT` message, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle (checkpoint, sleep, restore, crash, stop), and the rules of use. Read before you use a kernel verb other than `exec`, or run long work in the kernel. |
+| `knowledge/dev-knw-foh-kernel.md` | The Orbh kernel (`flint orbh kernel`): the model, the code of a cell, each verb, each end form of `exec` with its exit code, the `KERNEL RESULT` message, an end that comes two times, names and snapshots, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle (start, checkpoint, sleep, crash, stop), and the rules of use. Read before you use a kernel verb other than `exec`, or run long work in the kernel. |
 | `knowledge/dev-knw-foh-page.md` | The Page, the one-shot pager and wake delivery, the INVOCATIONS, ENSURE, and OBJECTS blocks (with the holds and the uses of tools), procedures, jobs, group barriers, and scheduled wakes. |
 | `knowledge/dev-knw-foh-machinery.md` | Stations, cron schedules, workers, procedures, cross-session workflow chaining, and the `update`/`approval`/`improve` channels. |
 | `knowledge/dev-knw-foh-compaction.md` | Self-compaction doctrine: CONTEXT occupancy, the 80% threshold, compact start/handoff/finish, the agent-authored handoff (`HANDOFF_ARTIFACT_V1`, purpose compact), the scratch folder (`ORBH_SCRATCH_DIR`), relaunched-context duty, and compacting into a different runtime/profile/account. |

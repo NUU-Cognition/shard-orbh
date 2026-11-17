@@ -104,27 +104,29 @@ WISP  Rural Amazed Moonbeam · ended · memory <orbRoot>/spaces/flint/spools/<wi
 
 ## The KERNEL Line (`core/kernel`)
 
-The core function `core/kernel` shows the Orbh kernel of the session, right after the `WISP` line (Task 763). It shows one line when the session has a kernel status file (`kernel/status.json` in the spool of the session), and nothing otherwise. A session that never used the kernel has no line.
+The core function `core/kernel` shows the Orbh kernel of the session, right after the `WISP` line (Task 763). It shows one line when the session has a kernel status (`kernel/status.json` of its spool, also in the archive tier for an archived session), and nothing otherwise. A session that never used the kernel has no line.
 
 ```
 KERNEL running · 14 names · c-12 running 3m (detached) · 1 command · python 3.13.5
 KERNEL running · 14 names · idle · sleeps in 21m
-KERNEL running · BLOCKED by c-5 for 14s · 14 names
+KERNEL running · BLOCKED by c-5 for 14s · 14 names · c-5 running 20s · python 3.13.5
 KERNEL sleeping · 14 names saved 2h ago · the next exec restores them
-KERNEL crashed · snapshot of 5m ago with 12 names · the next exec restores it
-KERNEL stopped · snapshot with 14 names
+KERNEL crashed · snapshot of 5m ago with 12 names · the next exec restores it · the host process ended with no stop
+KERNEL stopped · snapshot with 14 names · 2 ends not reported (c-10, c-12)
 ```
 
 - The states are `starting`, `running`, `sleeping`, `stopped`, and `crashed`. A `starting` or `running` status whose host process is not alive shows as `crashed`, with the note `the host process ended with no stop`.
-- `running` shows the count of names, the running cells (one cell with its age, and `(detached)` when no client waits for it), the count of background `bash()` commands, and the Python version. An idle kernel shows `idle` and the time until it sleeps.
-- `BLOCKED by <cell> for <time>` means that a cell runs synchronous code and blocks the loop. A new cell does not start while the loop is blocked: after 5 seconds, `exec` refuses it as busy (with `--queue`, it waits). Interrupt the blocking cell (`flint orbh kernel interrupt <cell>`), or wait for it.
+- `running` shows the count of names, the running cells (one cell with its age, and `(detached)` when no client waits for it), and the count of background `bash()` commands. While a cell or a command runs, it shows the Python version. An idle kernel shows `idle` and the time until it sleeps.
+- `BLOCKED by <cell> for <time>` (or `BLOCKED by native code`) means that code blocks the loop. A new cell does not start while the loop is blocked: after 5 seconds, `exec` refuses it as busy (with `--queue`, it waits). Interrupt the blocking cell (`flint orbh kernel interrupt <cell>`), or wait for it.
 - `sleeping` and `crashed` show the snapshot: the next `exec` restores its names.
-- The line has at most 200 characters. It reads one small file and checks one process. A file that it cannot read gives no line. A snapshot-only render gives no line.
+- `<n> ends not reported (<cells>)` names the cells whose end did not reach the session yet. The host sends their `KERNEL RESULT` message. Read one with `flint orbh kernel result <cell>`.
+- The line has at most 200 characters. Each value of the kernel in it is data: escaped to one line and cut. The read never blocks: a status file that is not a regular file, or that is larger than 256 KiB, gives no line, and so does a file that it cannot read. A snapshot-only render gives no line.
+- The line does not show the lost names: read the `[kernel-state]` notice or `flint orbh kernel status`.
 - The line is read-only. `flint orbh kernel status` gives the details. The kernel is in [[dev-knw-foh-kernel]].
 
 ## The KIN and PARTY Lines
 
-The core functions `core/kin` and `core/party` show two kinds of line right after the `WISP` line (task jn7d0191). The order is `FLEET`, `WISP`, `KIN`, `PARTY`, and then the procedure. The lines use the same reader and summary as `flint orbh kin`, `inspect`, `peek`, and the chrome.
+The core functions `core/kin` and `core/party` show two kinds of line after the `WISP` and `KERNEL` lines (task jn7d0191). The order is `FLEET`, `WISP`, `KERNEL`, `KIN`, `PARTY`, and then the procedure. The lines use the same reader and summary as `flint orbh kin`, `inspect`, `peek`, and the chrome.
 
 ```
 KIN  independent · 2 children · 0 siblings
