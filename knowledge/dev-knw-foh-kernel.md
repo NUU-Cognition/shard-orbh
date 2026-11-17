@@ -1,5 +1,5 @@
 ---
-description: "The Orbh kernel — one persistent Python kernel for each session (flint orbh kernel): the model, the code of a cell, each verb, each end form of exec with its exit code, the KERNEL RESULT message, an end that comes two times, names and snapshots, the KERNEL line, the [kernel-state] notice, the lifecycle, and the rules of use"
+description: "The Orbh kernel — one persistent Python kernel for each session (flint orbh kernel): the model, the code of a cell, each verb, each end form of exec with its exit code, what interrupt can stop, the KERNEL RESULT message, an end that comes two times, names and snapshots, what the kernel can lose, the KERNEL line, the [kernel-state] notice, the lifecycle, and the rules of use"
 orb:
   - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
 orbh-fleet: orbh-kernel-763
@@ -54,14 +54,14 @@ Each verb acts on `ORBH_SESSION_ID`, or on `--session <id>`, and has `--json` (o
 | `exec [code]` | Runs a cell. `--wait <seconds>`: the wait limit, 0 to 86 400 (default `100`, or `ORBH_KERNEL_EXEC_WAIT`; `0` is `--detach`). `--detach`: no wait. `--max-output <chars>` (default `20000`): a longer output keeps its first 30% and its last 70%, with one line `[… <n> characters cut. Full output: <path>]` between them. `--queue`: wait behind a blocked loop, not a refusal. The first `exec` starts the kernel. |
 | `wait <cells...>` | Waits for cells that run, and prints each end as `exec` does, when that cell ends. `--wait` (default `100`), `--tail <lines>` (default 40). |
 | `result <cell>` | The record and the output of a cell, from the files. `--tail <lines>` (default 100), `--full`. |
-| `cells` | A table: id, state, time, detached, the first line of the code. `--running`. |
+| `cells` | A table: id, state, time, detached, the first line of the code. `--running`. When the host lists only a part of the running cells, a last line gives the true count: `… (250 cells run; the list shows 100)`. |
 | `commands [list]`, `commands tail <id> [--lines <n>]`, `commands kill <id>` | The `bash()` commands of the kernel. |
 | `names` | The names with the type and the size. With no running kernel: the names of the snapshot. |
-| `interrupt [cell]` | Stops a cell, also a cell in synchronous Python code. With no cell: the one cell that runs. `--all`: all cells that run. |
-| `status` | The `KERNEL` line and the details: the state, the names, the running and unreported cells, the lost names, the snapshot, and the processes. |
+| `interrupt [cell]` | Stops a cell (see What `interrupt` Can Stop). With no cell: the one cell that runs. `--all`: all cells that run. |
+| `status` | The `KERNEL` line and the details: the state, the names, the running and unreported cells, the lost names, the snapshot, and the processes. It gives the true count of running cells (`Cells: 250 (the last is c-250) · 250 running`), and a line `… (250 cells run; the list shows 100)` when the list is cut: the status keeps at most 100 running cells in its list. |
 | `snapshot` | Saves a snapshot now. Prints the saved and the skipped names. |
-| `restart` | A new kernel with an empty namespace: `[kernel restarted · python 3.13.5 · empty namespace]`. `--keep`: save the names, start a new kernel, and restore them. Cells that run become `interrupted`. |
-| `stop` | Saves a snapshot and stops the kernel: `Stopped the kernel. Saved 3 names (12.0 KB).` `--discard`: no snapshot, and the snapshot is removed. |
+| `restart` | First, it interrupts each running cell (their ends are reported as usual). Then a new kernel with an empty namespace, and the snapshot is removed: `[kernel restarted · python 3.13.5 · empty namespace]`. `--keep`: save the names, start a new kernel, and restore them. |
+| `stop` | Saves a snapshot and stops the kernel: `Stopped the kernel. Saved 3 names (12.0 KB).` `--discard`: no snapshot, and the snapshot is removed. A failed snapshot: see Names and Snapshots. |
 
 - `result`, `cells`, `names`, and `status` work with no running kernel: they read the files. A verb that needs a running kernel and finds none says so with exit 0: `The kernel of this session is not running (sleeping since 14:02).`
 - **A session that ended runs no new code.** `exec` and `restart` refuse for it. An archived session must be restored first: `flint orbh archive restore <id>`. The read verbs still work.
@@ -90,18 +90,27 @@ The first line comes only when this `exec` started the kernel. Each end form:
 | State unknown (the connection broke) | `[c-7 · state unknown · the connection to the kernel host broke]`, `Next: flint orbh kernel result c-7` | 1 |
 | No answer (the host took no cell) | `[exec · no answer · the kernel host gave no end in <n>s]`, `Next: flint orbh kernel cells` | 1 |
 | Busy | On stderr: `✘ The kernel is busy: c-5 runs synchronous code and blocks the loop (14 s). This cell did not run.`, `Next: flint orbh kernel interrupt c-5` | 1 |
+| A restart runs | On stderr: `✘ The kernel restarts now. This cell did not run.` and `Run the cell again after the restart.` A second `restart` at the same time gets `✘ The kernel restarts now. This restart did not run.` | 1 |
 | A refusal | On stderr: `✘ <reason>` and `Next: <command>`. Stdout is empty, also with `--json`. | 1 |
 | A signal | The end of the cell after the interrupt (see Signals) | 128 + the signal number |
 
 - **State unknown is not lost.** The cell can still run, or it ended. Read `flint orbh kernel result <cell>`. Do not run the code again before you read it.
-- **Busy.** A cell that cannot start in 5 seconds, because another cell blocks the loop, does not run. The refusal names the cell that blocks. When native code blocks, the next command is `flint orbh kernel interrupt --all`.
+- **Busy.** A cell that cannot start in 5 seconds, because another cell blocks the loop, does not run. The refusal names the cell that blocks. When it names no cell (`native code blocks the loop`), run `flint orbh kernel interrupt --all`; when the loop stays blocked, run `flint orbh kernel restart`.
+- **A restart runs.** The cell did not run. Run it again after the restart.
 - **`--json`** gives one document: `{ outcome, cell, output, truncated, started }`. `outcome` is `end`, `detached` (the wait limit), `started` (`--detach`), `unknown`, `no-answer`, or `signal`.
 
 ### Signals
 
 - `SIGINT`, `SIGTERM`, or `SIGHUP` to a blocking `exec` or `wait` interrupts the cells of that command. The command prints the end and exits with 128 + the signal number.
 - A kill (`SIGKILL`) of the command, or a closed connection (a tool timeout), is not an interrupt: the cell continues, and its end comes as a `KERNEL RESULT` message.
-- `interrupt` stops a cell at an `await` and in synchronous Python code. C code that does not return to Python cannot be stopped: then run `flint orbh kernel restart`.
+
+### What `interrupt` Can Stop
+
+- It stops the Python code of the cell: at an `await`, in synchronous code, and in the tasks that the cell started while it runs.
+- Code that catches the `KeyboardInterrupt` continues. Interrupt again, or restart.
+- C code that does not return to Python cannot be stopped. A blocking system call ends when it returns. C code that holds the interpreter lock needs `flint orbh kernel restart`: the host then kills the kernel at its stop deadline.
+- A callback that user code gave to the loop (`loop.call_soon(fn)`) and that blocks is not stopped.
+- A task that a plain thread submits to the loop (`asyncio.run_coroutine_threadsafe` from a `threading.Thread` or from `loop.run_in_executor`) belongs to no cell. `interrupt` of the cell does not stop it, and when it blocks the loop, the busy refusal names no cell. The way out is `flint orbh kernel restart`. Prefer `asyncio.to_thread`: its work keeps the cell of its caller.
 
 ## Each End Reaches the Session at Least One Time
 
@@ -132,9 +141,9 @@ Read again: flint orbh kernel result c-7
 
 - A snapshot saves each name with `dill`. A name that `dill` cannot save is lost: for example an open socket, an open connection, or the handle of a running process. Make it again after a restore.
 - The lost names are in the line `[kernel started · … · lost: conn]` of the `exec` that restored, in the `[kernel-state]` notice (`Lost at the last restore: conn (<reason>)`), and in `flint orbh kernel status`.
-- `restart --keep` refuses when the snapshot fails: the old kernel stays.
+- `restart --keep` refuses when the snapshot fails: `✘ The restart did not run: the snapshot failed (<reason>). The running cells were interrupted; the kernel keeps running with its names.` The running cells are interrupted also then. `flint orbh kernel restart` with no `--keep` gives a new empty kernel.
 - An idle kernel whose snapshot fails does not sleep. It stays awake and sends one message.
-- `stop` says which names are lost when the snapshot fails: `Stopped the kernel. The snapshot failed: <reason>`, then `Lost: <names>`.
+- `stop` with a failed snapshot prints `Stopped the kernel. The snapshot failed: <reason>`, then one of three lines: `Lost: <names>` (the names as read), `Lost (the list comes from the last read of the names and can be old): <names>`, or `The names of the kernel could not be read: names can be lost.`
 
 ## The KERNEL Line and the `[kernel-state]` Notice
 
@@ -165,13 +174,22 @@ When you read the notice, the names are in the kernel: use them, and do not load
 | Session end | `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. The orchestrator stops the kernel of a session that ended in another way. |
 | Stop | `flint orbh kernel stop`: a snapshot, then the kernel ends. The state is `stopped`. |
 
+## What the Kernel Can Lose
+
+- A forced stop or a crash loses the cells that run (each one is reported as `lost`) and the names since the last snapshot.
+- `sys.exit()` in a cell ends the kernel: it is a crash.
+- After a stop, a file that code did not close can lose its buffered data. Close files, or use `with open(…)`.
+- The delivery of a `KERNEL RESULT` message is eventual: the host tries again (each 30 seconds, and at its next start) until the message lands. Until then, `status`, the `KERNEL` line, and the notice name the cell as not reported.
+
+**Processes.** The host stops its `bash()` commands at a stop, a restart, and a crash. After a hard kill of the host, a later start of the host or the orchestrator cleans up. A command whose shell died, and that the host cannot prove to be its own, is left running: the kernel never kills a process that it cannot prove is its own. Check with `ps` when you started a server.
+
 **The Python.** `ORBH_KERNEL_PYTHON` names another Python (3.11 or newer; with no `dill` there, a snapshot fails and the kernel still runs). Else Orbh makes its own environment in `<ORBH_HOME>/kernel/venv/` with `uv` (Python 3.13 and `dill`), or with a `python3` of 3.11 or newer. With neither, `exec` refuses with the next step: install `uv`, or set `ORBH_KERNEL_PYTHON`.
 
 ## Rules of Use
 
 1. **Use the kernel when it saves work:** for data that is large or that you will read again (load it into a name, then print only the part that you need), for a loop of many commands, and for long work.
 2. **Use your normal tools for small reads and for edits.** Use the Edit tool of the harness for a change that a person reviews: a write from kernel code does not show as an edit.
-3. **Do not block the loop.** Use `await asyncio.to_thread(fn, …)` for long synchronous work.
+3. **Do not block the loop.** Use `await asyncio.to_thread(fn, …)` for long synchronous work, not a plain thread that submits work to the loop.
 4. **Detach long work** with `exec --detach`. Do other work, or end the turn with `return --await`: the message wakes the session.
 5. **Do not run work again because an end came two times.** Read `flint orbh kernel result <cell>` when you are not sure.
 6. **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command. Give it the same care.
