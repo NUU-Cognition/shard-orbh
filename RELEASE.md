@@ -1,3 +1,10 @@
+# 0.9.0
+
+- **The Orbh kernel** (NUU Orbh Task 763, fleet `orbh-kernel-763`). New knowledge `knw-foh-kernel`: one persistent Python kernel for each session (`flint orbh kernel`). It gives the model, the code of a cell, each verb, each end form of `exec` with its exit code, what `interrupt` can stop, Esc in Claude Code and Codex, the `KERNEL RESULT` message, an end that comes two times, names and snapshots, what the kernel can lose, the `KERNEL` line, the `[kernel-state]` notice, the lifecycle, and the rules of use.
+- **The section The Kernel of `init-foh`.** It names the signs at which the next command is a kernel cell, and the rules of a cell. The new part Patterns gives the first cell of small helpers, the read of a large file or diff, the wait for a condition, a long build with `exec --detach`, and the steps after a restore.
+- **Page, compaction, and CLI.** `knw-foh-page` describes the `KERNEL` line with the names that a snapshot did not save. `knw-foh-compaction` describes the kernel at compaction and resume. `knw-foh-cli` lists the kernel verbs.
+- Requires a Flint CLI with `flint orbh kernel` (Task 763; flint `89e4564ae` or later).
+
 # 0.8.0
 
 - **NUU Artifacts** (fleet storage-1112, lane SHD). The new skill `sk-foh-publish_artifact`: publish an HTML file as a NUU Artifact (`flint orbh artifacts publish <file.html>`, `--update <address>` for a new version), pin its URL, keep it as an object of the session, and record the address and the URL. `knw-foh-cli` has the section NUU Artifacts: the address `@v1/<org>/artifact/<id>#artifacts`, the URI, the web URL, the six verbs (`publish`, `list`, `get`, `open`, `versions`, `delete`), access, the object tools (`read_source`, `publish_version`, `rename_artifact`, `publish_artifact`), the sandbox, and the errors. `init-foh` gives the pin rule for an HTML page and the skill in the map. Requires a Flint CLI with `flint orbh artifacts` (lane ART of storage-1112) and the deployed app NUU Artifacts.
