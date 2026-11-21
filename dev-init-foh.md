@@ -7,6 +7,7 @@ orb:
   - "@v1/nuucognition/session/0f0e4236-6460-420e-8e4f-4ac6a560d649#flint/nuu-flint"
   - "@v1/nuucognition/session/bc46a021-0baf-485c-9f26-a6a140d805e9#flint/nuu-flint"
   - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/50a65c2c-ef66-4d5e-aad0-44012566be61#flint/nuu-orbh"
 orbh-fleet:
   - kinship-1020
   - objects-finder-1105
@@ -94,15 +95,76 @@ There is no standing waiter process. Delivery has exactly two paths, and which o
 Each session can have one persistent Python kernel. Orbh owns it, not the harness. Its names, imports, and `bash()` commands stay across turns, compaction, resume, and a change of runtime.
 
 - **Run a cell** with `flint orbh kernel exec`. Give the code as a heredoc (`flint orbh kernel exec <<'PY'` … `PY`). The first `exec` starts the kernel.
-- **Use it at these signs**: the harness says that an output is too large, saves it to a file, or shows only a part of a file, or you must read more than about 300 lines of a file, a diff, a log, or JSON; you will read the same files or commits again; a build or a test run can take more than one minute; you run a loop of many commands. Load the data into a name, then print only the part that you need. Use your normal tools for small reads, for edits, and for a file that a rule tells you to read in full.
+- **At each of these signs, make your next command a kernel cell**, not one more call of your shell tool: the harness says that an output is too large, saves it to a file, or shows only a part of a file, or you must read more than about 300 lines of a file, a diff, a log, or JSON; you will read the same files or commits again; a build or a test run can take more than one minute; you wait for a condition (a session state, a file, a port); you run a loop of many commands. Load the data into a name, then print only the part that you need. Use your normal tools for small reads, for edits, for commits, and for a file that a rule tells you to read in full.
 - **Detach long work**: `flint orbh kernel exec --detach`. The result comes as a `KERNEL RESULT` message from `orbh:kernel`. Do not poll: the message reaches a live turn and wakes an awaiting session.
 - **Stop a cell with `flint orbh kernel interrupt <cell>`** when the harness sends no signal. Esc in Claude Code interrupts a blocking `exec`; Esc in Codex does not, and the cell continues.
 - **One end can come two times**: in the output of `exec` or `wait`, and as a `KERNEL RESULT` message. Do not run the work again because of that. When you are not sure, read `flint orbh kernel result <cell>`.
-- **Do not block the loop.** Long synchronous work blocks all cells: use `await asyncio.to_thread(fn, …)`.
+- **Do not block the loop.** Long synchronous work (`subprocess.run`, `time.sleep`, a large read) blocks all cells, and the next `exec` refuses. Run a shell command with `await bash(cmd)`, and other long work with `await asyncio.to_thread(fn, …)`.
+- **Some names are not saved.** A snapshot does not keep a name that starts with `_`, an open connection, or a name over 16 MiB. A function that uses a large name is lost with it: give it the data as an argument. The `KERNEL` line names what was not saved (`2 not saved: out, agy_strings`).
 - **Read the state after a new context.** The Page has a `KERNEL` line. After a compaction or a headless resume, a `[kernel-state]` notice names the state and the names. Use the names; do not load the data again.
 - **The session end stops it.** `return --finish` and `close` stop the kernel with a snapshot. `return --await` keeps it. A session that ended runs no new code.
 - **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command.
 - The verbs, each end form of `exec` with its exit code, names and snapshots, and the lifecycle are in [[dev-knw-foh-kernel]].
+
+### Patterns
+
+**The first cell: small helpers.** Define them one time, and call them in each later cell. Each one takes a path or a command as an argument, so a snapshot keeps it.
+
+```python
+import asyncio, pathlib, re, time
+
+def show(path, a=1, b=80):
+    """Print lines a to b of a file with their numbers, each line cut to 200 characters."""
+    lines = pathlib.Path(path).read_text(errors="replace").splitlines()
+    for n in range(max(a, 1), min(b, len(lines)) + 1):
+        print(f"{n:5d} {lines[n - 1][:200]}")
+
+def grep(path, pattern, limit=40):
+    """Print the lines of a file that match a regex, with their numbers, and the count."""
+    lines = pathlib.Path(path).read_text(errors="replace").splitlines()
+    hits = [(n, line) for n, line in enumerate(lines, 1) if re.search(pattern, line)]
+    for n, line in hits[:limit]:
+        print(f"{n:5d} {line[:200]}")
+    print(f"[{len(hits)} matches]")
+
+async def sh(cmd, tail=40, timeout=600):
+    """Run a shell command, print the exit code and the last lines, and return the result."""
+    r = await bash(cmd, timeout=timeout)
+    print(f"exit {r.exit_code} · {r.duration:.0f}s")
+    print("\n".join(line[:200] for line in r.output.splitlines()[-tail:]))
+    return r
+
+async def wait_until(check, timeout=120, every=1):
+    """Call check() until it gives a true value. Print only the end state."""
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
+        value = await check() if asyncio.iscoroutinefunction(check) else check()
+        if value:
+            print(f"ready after {time.monotonic() - start:.0f}s: {str(value)[:200]}")
+            return value
+        await asyncio.sleep(every)
+    print(f"not ready after {timeout}s")
+    return None
+```
+
+**Read a large file or diff.** Load it one time into a name, then print parts: `diff = (await bash("git diff HEAD~3")).output`, then `print(len(diff.splitlines()))`, then the part that you need. After an edit of the file, load it again: a name keeps the old text.
+
+**Wait for a condition.** Do not run a `sleep` loop in your shell tool. Run one cell: `await wait_until(lambda: pathlib.Path(p).exists(), timeout=300)`. For a check that runs a command, give an async function: `async def up(): return "ready" in (await bash(f"flint orbh inspect {sid}")).output`.
+
+**Run a long build or test.** Detach it, and give a `timeout` that is longer than the work (the default is 600 seconds):
+
+```bash
+flint orbh kernel exec --detach <<'PY'
+run = await bash("pnpm -s build", timeout=1800)
+fails = [line for line in run.output.splitlines() if re.search(r"\berror\b|FAIL", line)]
+print(run.exit_code, f"{run.duration:.0f}s", len(fails), "failure lines")
+print("\n".join(line[:200] for line in fails[:30]))
+PY
+```
+
+Do other work. The `KERNEL RESULT` message brings the end, and the name `run` keeps the full output for a later cell. In a headless turn, `flint orbh kernel wait <cell>` waits for the end, or `return --await` ends the turn and the message wakes the session.
+
+**After a restore.** The first line of the `exec` after a sleep or a crash is `[kernel started · … · restored <n> names · lost: …]`. Make again each lost name that you need. Before you load data again, check that the name is absent: `print("diff" in globals())`.
 
 ## Identity, Kinship, and Membership
 

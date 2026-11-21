@@ -2,6 +2,7 @@
 description: "The Orbh kernel — one persistent Python kernel for each session (flint orbh kernel): the model, the code of a cell, each verb, each end form of exec with its exit code, what interrupt can stop and Esc in Claude Code and Codex, the KERNEL RESULT message, an end that comes two times, names and snapshots, what the kernel can lose, the KERNEL line, the [kernel-state] notice, the lifecycle, and the rules of use"
 orb:
   - "@v1/nuucognition/session/05c2d8ce-2f6d-4136-849f-cd3b89a9a26e#flint/nuu-orbh"
+  - "@v1/nuucognition/session/50a65c2c-ef66-4d5e-aad0-44012566be61#flint/nuu-orbh"
 orbh-fleet: orbh-kernel-763
 ---
 
@@ -36,9 +37,10 @@ The code comes from one of three sources: the argument, `--file <path>` (a regul
 In a cell:
 
 - Top-level `await` works.
-- `bash(cmd)` starts a shell command and returns a handle at once. `r = await bash(cmd)` gives `r.output`, `r.exit_code`, and `r.duration`.
+- `bash(cmd)` starts a shell command and returns a handle at once. `r = await bash(cmd)` gives `r.output`, `r.exit_code`, and `r.duration`. It does not block the loop.
+- `bash()` takes one shell string. To give a program and its arguments with no shell quotes, join a list: `await bash(shlex.join(["grep", "-n", pattern, path]))`.
 - A handle that you keep stays alive: `server = bash("pnpm dev", timeout=None)`. Later, `server.tail()` reads its output.
-- Long synchronous work blocks all cells. Use `await asyncio.to_thread(fn, …)`.
+- Long synchronous work blocks all cells: `subprocess.run`, `time.sleep`, and a large read in the cell. Run a shell command with `await bash(cmd)`, and other long work with `await asyncio.to_thread(fn, …)`.
 - A traceback names the cell by its id: `File "<cell-c-7>", line 2`.
 - A cell cannot take `SIGINT` or `SIGUSR1`: `signal.signal` for these two signals only stores the handler, and the kernel never calls it.
 - `sys.exit()` in a cell ends the kernel. The host sees a crash (see The Lifecycle).
@@ -89,7 +91,7 @@ The first line comes only when this `exec` started the kernel. After a crash or 
 | Lost (the kernel ended during the cell) | `[c-7 · lost · 4s · the kernel ended during the cell]`, `Next: flint orbh kernel status` | 1 |
 | State unknown (the connection broke) | `[c-7 · state unknown · the connection to the kernel host broke]`, `Next: flint orbh kernel result c-7` | 1 |
 | No answer (the host took no cell) | `[exec · no answer · the kernel host gave no end in <n>s]`, `Next: flint orbh kernel cells` | 1 |
-| Busy | On stderr: `✘ The kernel is busy: c-5 runs synchronous code and blocks the loop (14 s). This cell did not run.`, `Next: flint orbh kernel interrupt c-5` | 1 |
+| Busy | On stderr: `✘ The kernel is busy: c-5 runs synchronous code and blocks the loop (14 s). This cell did not run.`, `To not block the loop, run a shell command with r = await bash(cmd), and other long work with await asyncio.to_thread(fn, ...).`, `Next: flint orbh kernel interrupt c-5` | 1 |
 | A restart runs | On stderr: `✘ The kernel restarts now. This cell did not run.` and `Run the cell again after the restart.` A second `restart` at the same time gets `✘ The kernel restarts now. This restart did not run.` | 1 |
 | A refusal | On stderr, in one of two forms (see The Two Forms of a Refusal). Stdout is empty, also with `--json`. | 1 |
 | A signal | The end of the cell after the interrupt (see Signals) | 128 + the signal number |
@@ -202,8 +204,10 @@ Read again: flint orbh kernel result c-7
 
 ## Names and Snapshots
 
-- A snapshot saves each name with `dill`. A name that `dill` cannot save is lost: for example an open socket, an open connection, or the handle of a running process. Make it again after a restore.
-- **A name that the snapshot skipped.** After a sleep, a stop, or a crash, `status` and the notice show `Not saved in the snapshot: sock (TypeError: cannot pickle 'socket' object)`. After the restore, the same names are in the line `[kernel started · … · lost: sock]` and in `Lost at the last restore: sock (<reason>)`. That line shows only after a restore. In the state `stopped`, the names of a stop whose snapshot failed show as `Lost at the stop: …`. `flint orbh kernel status` shows a skipped name one time: in the line `Not saved in the snapshot: …` when the notice has that line, else on the `Snapshot:` line (`Snapshot: 14:02 · 3 names · 4096 bytes · skipped: conn`). The notice has the line only when the kernel sleeps, is stopped, or crashed, and it can drop the line to stay within its limit.
+- A snapshot saves each name with `dill`. A name that `dill` cannot save is lost: for example an open socket, an open connection (a `sqlite3` connection), or the handle of a running process. Make it again after a restore: open it in a function that you call at the start of a cell.
+- **A name that starts with `_` is never saved.** The snapshot skips it, and no line names it. Keep data in a name with no `_` at the start.
+- **A function that uses a large name is lost with it.** `dill` saves a function with the global names that its code uses. When one of these names is over the limit for one name (16 MiB), the function is over the limit too, and the snapshot skips both: `agy_strings (exceeds per-variable snapshot size cap), find (exceeds per-variable snapshot size cap)`. Give the large data to the function as an argument (`def find(text, pattern)`), or keep the path of the file in a name and read the file in the function.
+- **A name that the snapshot skipped.** After a sleep, a stop, or a crash, the `KERNEL` line shows the count and the names (`KERNEL sleeping · 12 names saved 2h ago · 2 not saved: out, agy_strings · the next exec restores them`), and `status` and the notice show `Not saved in the snapshot: sock (TypeError: cannot pickle 'socket' object)`. After the restore, the same names are in the line `[kernel started · … · lost: sock]` and in `Lost at the last restore: sock (<reason>)`. That line shows only after a restore. In the state `stopped`, the names of a stop whose snapshot failed show as `Lost at the stop: …`. `flint orbh kernel status` shows a skipped name one time: in the line `Not saved in the snapshot: …` when the notice has that line, else on the `Snapshot:` line (`Snapshot: 14:02 · 3 names · 4096 bytes · skipped: conn`). The notice has the line only when the kernel sleeps, is stopped, or crashed, and it can drop the line to stay within its limit. Each of these lines names the skipped names of the last snapshot only. A name that an earlier snapshot skipped, and that no cell made again, is in no later line. So read the start line of the `exec` after each restore (`lost: …`), and make each lost name again that you still need.
 - **The names that a crash lost.** The host reads the full list of names at each cell end. After a crash or a kill, the names of that list that the snapshot does not have are lost. `status` and the notice show `Lost in the crash (set after the last snapshot): delta, epsilon`, with ` (the list can be incomplete)` when the list was cut or a cell ran after the last read. The start line of the next `exec` names them too (`lost in the crash: delta`). The line keeps the loss of each crash since the last normal start, and `status` shows it also when the host died with its kernel. It stays after the restore. It goes at the next start after a normal stop or sleep, at a restart, and at a stop with `--discard`. A restart also drops the kept list of names.
 - **A lost name can be there again.** Code can set a name of a `Lost …` line again after the crash. The line can name it until the next normal start or restart. A later crash takes it out of the loss when the snapshot then keeps it.
 - **The limits of that list.** A name that changed after the snapshot comes back with its value of the snapshot, and the list does not name it. The list of the kernel stops at 200 user names (then the list is not complete). Modules, imported functions and classes, and names that start with `_` are not in the list: an `import` after the snapshot is not reported. A name that a background task or a thread sets after the last read, when no cell runs, is not seen.
@@ -255,14 +259,15 @@ The order of the lines is: State, Names, Running, Not reported yet, Lost in the 
 
 ## Rules of Use
 
-1. **Use the kernel when it saves work.** These events are the signs:
+1. **Use the kernel when it saves work.** At each of these signs, make your next command a kernel cell, not one more call of your shell tool. The code patterns (helpers, a wait, a long build) are in [[dev-init-foh]] § The Kernel, Patterns.
+   - You wait for a condition (a session state, a file, a port). Poll in one cell with `await asyncio.sleep(1)`, and print only the end state. A `sleep` loop in your shell tool puts each poll into your context.
    - The harness says that an output is too large, saves it to a file, or shows only a part of a file (in Claude Code: `Output too large`, `PARTIAL view`); or you must read more than about 300 lines of a file, a diff, a log, or JSON. Load it into a name, then print only the part that you need.
    - You will read the same files or commits again in the task. Load them one time, and read them through small helpers (for example `show(path, a, b)` and `grep(path, pattern)`).
    - A build or a test run can take more than one minute. Use `exec --detach` (rule 4), not the background task of the harness: the work survives a turn end, a compaction, and a resume, and its output and its names stay in the kernel.
    - An exception: when a rule tells you to read a whole file (for example a required reading), read it with your normal read tool, in parts. A load into a name is not a read.
    - You run a loop of many commands.
 2. **Use your normal tools for small reads and for edits.** Use the Edit tool of the harness for a change that a person reviews: a write from kernel code does not show as an edit.
-3. **Do not block the loop.** Use `await asyncio.to_thread(fn, …)` for long synchronous work, not a plain thread that submits work to the loop.
+3. **Do not block the loop.** `subprocess.run`, `time.sleep`, and a large synchronous read in a cell block every cell: the next `exec` refuses after 5 seconds (`The kernel is busy: c-65 runs synchronous code and blocks the loop`). Run a shell command with `await bash(cmd)`, and other long work with `await asyncio.to_thread(fn, …)`, not a plain thread that submits work to the loop. When the refusal comes, `flint orbh kernel interrupt <cell>` stops the cell that blocks.
 4. **Detach long work** with `exec --detach`. Do other work, or end the turn with `return --await`: the message wakes the session.
 5. **Do not run work again because an end came two times.** Read `flint orbh kernel result <cell>` when you are not sure.
 6. **Treat `exec` as a shell command.** In a mode that asks for the approval of each shell command, one `exec` can run any command. Give it the same care.
